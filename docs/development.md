@@ -11,6 +11,7 @@ pinned license/audit tools:
 cargo install cargo-about --version 0.9.2 --locked --features cli
 cargo install cargo-audit --version 0.22.2 --locked
 npm ci
+npm run hooks:install
 npm run dev
 ```
 
@@ -39,6 +40,29 @@ validate native execution. `CI=true npm run package -- --ci` produces a macOS DM
 without Finder's cosmetic AppleScript layout step.
 
 ## Validation
+
+Install the tracked Git hooks once per clone with `npm run hooks:install`.
+This sets this clone's `core.hooksPath` to `.githooks`; inspect any existing hook
+configuration before replacing it. Git does not install hooks when cloning, and
+Git clients need Node, npm and the native toolchain available on their PATH.
+
+The pre-commit hook checks staged changes for whitespace errors and conflict
+markers, without changing files or interfering with partial staging. The
+pre-push hook runs `npm run check:local`: formatting, lint, types, hook tests,
+JavaScript/Rust tests, Clippy, native smoke, the ordinary build and license checks,
+automation exclusion, and both dependency audits. Install dependencies with
+`npm ci` after changing the lockfile; audits need network access. The full check
+can take several minutes and opens a disposable automation app.
+
+Push validation requires a clean checkout of the commit being pushed, so it cannot
+accidentally approve a different branch or uncommitted changes. Deletion-only
+pushes skip validation. Any failing check blocks the push; changes to HEAD or the
+working tree during the check also block it. Run `npm run check:local` directly
+while editing or before opening a PR. Git has no native pre-PR hook.
+
+These hooks are local guardrails: they can be bypassed with `--no-verify`, do not
+apply to web/API edits, and only validate the host platform. They do not certify
+Windows/Linux behavior from a macOS run or replace installed-artifact acceptance.
 
 Run relevant checks while editing and the full set before a release candidate:
 
@@ -87,10 +111,15 @@ Development recovery uses `DepthPlan Development`, production uses `DepthPlan`,
 and automation uses a temporary profile. Test-only profile overrides are not
 ordinary release configuration.
 
-The Test workflow runs formatting, lint, types, JavaScript/Rust tests, Clippy,
-audits, native smoke and an ordinary build on macOS, Windows and Linux. A local
-pass is not hosted CI completion. The Draft release workflow adds version-tag
-validation and installer packaging; see [release](release.md).
+The Test workflow retains the full macOS, Windows and Linux matrix. While the
+repository is private, it runs only via Actions → Test → Run workflow. Once public,
+it also runs on PRs targeting main and pushes to main; feature-branch pushes and
+tag pushes do not duplicate those runs. Superseded test runs are canceled.
+CodeQL remains public-only, including its weekly scan. The Draft release workflow
+still validates version tags and all three platforms before creating a draft.
+Local checks and private skipped jobs are not hosted CI completion. Do not require
+the private skipped Test check as evidence of validation; configure required PR
+checks after public automatic CI has passed. See [release](release.md).
 
 ## Dependency audits and notices
 

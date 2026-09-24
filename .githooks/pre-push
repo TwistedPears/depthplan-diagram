@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+checkout_head=$(git rev-parse --verify HEAD)
+validate=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in
+    0000000000000000000000000000000000000000) continue ;;
+  esac
+  if [ "$(git rev-parse --verify "$local_sha^{commit}")" != "$checkout_head" ]; then
+    echo "Push blocked: check out the commit being pushed so local checks validate that commit." >&2
+    exit 1
+  fi
+  validate=true
+done
+
+# Deleting a remote ref or pushing nothing needs no build.
+[ "$validate" = true ] || exit 0
+
+checkout_status=$(git status --porcelain --untracked-files=normal)
+if [ -n "$checkout_status" ]; then
+  echo "Push blocked: commit or stash pending changes before running local validation." >&2
+  exit 1
+fi
+
+npm run check:local </dev/null
+
+validated_head=$(git rev-parse HEAD)
+checkout_status=$(git status --porcelain --untracked-files=normal)
+if [ "$checkout_head" != "$validated_head" ] || [ -n "$checkout_status" ]; then
+  echo "Push blocked: the checkout changed during validation. Review it and push again." >&2
+  exit 1
+fi

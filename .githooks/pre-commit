@@ -1,0 +1,3 @@
+#!/bin/sh
+# Check the index, so partially staged edits are checked as they will be committed.
+exec git diff --cached --check
