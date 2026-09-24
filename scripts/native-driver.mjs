@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-export async function launchNative(existingProfile) {
+export async function launchNative(existingProfile, fileArguments = []) {
   const binary = path.resolve(
     process.env.DEPTHPLAN_EXECUTABLE ||
       'src-tauri/target/debug/depthplan' +
@@ -17,7 +17,7 @@ export async function launchNative(existingProfile) {
     existingProfile ??
     (await mkdtemp(path.join(tmpdir(), 'depthplan-tauri-smoke-')));
   const port = Number(process.env.TAURI_WEBDRIVER_PORT || 4467);
-  const app = spawn(binary, [], {
+  const app = spawn(binary, fileArguments, {
     env: {
       ...process.env,
       DEPTHPLAN_TEST_PROFILE: profile,

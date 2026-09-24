@@ -31,6 +31,36 @@ struct Closing {
     pending: Option<(String, bool)>,
     prompt: bool,
 }
+/// Only OS/launch-selected paths enter this list; renderer callers receive opaque IDs.
+#[derive(Default)]
+struct OpenRequests(Mutex<Vec<(String, PathBuf)>>);
+
+fn open_paths(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
+    let requests = app.state::<OpenRequests>();
+    let mut requests = requests.0.lock().unwrap();
+    for path in paths {
+        if !path.extension().is_some_and(|ext| {
+            ext.eq_ignore_ascii_case("depthplan") || ext.eq_ignore_ascii_case("json")
+        }) || requests.iter().any(|(_, pending)| pending == &path)
+        {
+            continue;
+        }
+        let id = Uuid::new_v4().to_string();
+        requests.push((id.clone(), path));
+        let _ = app.emit_to("main", "file:open-request", id);
+    }
+    drop(requests);
+    if app.get_webview_window("main").is_none() && app.try_state::<Host>().is_some() {
+        if let Err(error) = create_window(app) {
+            log::error!("Could not open editor: {error}");
+        }
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
 pub struct Host {
     dialogs: AtomicUsize,
     storage: Mutex<Storage>,
@@ -97,8 +127,16 @@ fn select(app: &AppHandle, kind: &str, name: &str) -> Result<Option<PathBuf>> {
     let host = app.state::<Host>();
     let _guard = DialogGuard::new(&host.dialogs);
     #[cfg(feature = "automation")]
-    if let Some(value) = test_dialog(app, kind) {
-        return Ok(value.as_str().map(PathBuf::from));
+    {
+        *app.state::<TestDialogs>().1.lock().unwrap() = json!({"kind":kind,"name":name});
+        let test_kind = if kind == "document-save" {
+            "save"
+        } else {
+            kind
+        };
+        if let Some(value) = test_dialog(app, test_kind) {
+            return Ok(value.as_str().map(PathBuf::from));
+        }
     }
     let mut dialog = app.dialog().file();
     if let Some(window) = app.get_webview_window("main") {
@@ -107,15 +145,19 @@ fn select(app: &AppHandle, kind: &str, name: &str) -> Result<Option<PathBuf>> {
     let value = match kind {
         "folder" => dialog.blocking_pick_folder(),
         "open" => dialog
-            .add_filter("DepthPlan documents", &["json"])
+            .add_filter("DepthPlan documents", &["depthplan", "json"])
             .blocking_pick_file(),
+        "document-save" => dialog
+            .add_filter("DepthPlan document", &["depthplan"])
+            .set_file_name(name)
+            .blocking_save_file(),
         _ => dialog.set_file_name(name).blocking_save_file(),
     };
     value
         .map(|p| p.into_path().map_err(|e| e.to_string()))
         .transpose()
 }
-fn save(app: &AppHandle, document: &Value, id: &Value) -> Result<Value> {
+fn save(app: &AppHandle, document: &Value, id: &Value, save_as: bool) -> Result<Value> {
     validation::document(document)?;
     let host = app.state::<Host>();
     let mut source = if id.is_null() {
@@ -123,9 +165,16 @@ fn save(app: &AppHandle, document: &Value, id: &Value) -> Result<Value> {
     } else {
         Some(host.storage.lock().unwrap().files.record(string(id)?)?)
     };
+    let mut name = source
+        .as_ref()
+        .map(|s| files::document_name(Path::new(&s.path)))
+        .unwrap_or_else(|| "untitled.depthplan".into());
+    if save_as {
+        source = None;
+    }
     loop {
         if source.is_none() {
-            let Some(path) = select(app, "save", "untitled.depthplan.json")? else {
+            let Some(path) = select(app, "document-save", &name)? else {
                 return Ok(json!({"status":"canceled"}));
             };
             let hash = files::hash(&path)?;
@@ -162,6 +211,7 @@ fn save(app: &AppHandle, document: &Value, id: &Value) -> Result<Value> {
             .as_str()
             {
                 "Save As" => {
+                    name = files::document_name(Path::new(&current.path));
                     source = None;
                     continue;
                 }
@@ -193,6 +243,38 @@ fn save(app: &AppHandle, document: &Value, id: &Value) -> Result<Value> {
 fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value> {
     let host = app.state::<Host>();
     match method {
+        "file:open-requests" => Ok(json!(app
+            .state::<OpenRequests>()
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>())),
+        "file:release-open-request" => {
+            let id = string(arg(args, 0))?;
+            app.state::<OpenRequests>()
+                .0
+                .lock()
+                .unwrap()
+                .retain(|(pending, _)| pending != id);
+            Ok(Value::Null)
+        }
+        "file:open-request" => {
+            let id = string(arg(args, 0))?;
+            let path = app
+                .state::<OpenRequests>()
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|(pending, _)| pending == id)
+                .map(|(_, path)| path.clone())
+                .ok_or("File open request is no longer available")?;
+            let mut value = host.storage.lock().unwrap().files.read(&path)?;
+            value["status"] = "success".into();
+            Ok(value)
+        }
         "file:open" => {
             let Some(path) = select(app, "open", "")? else {
                 return Ok(json!({"status":"canceled"}));
@@ -208,7 +290,12 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
             value["status"] = "success".into();
             Ok(value)
         }
-        "file:save" => save(app, arg(args, 0), arg(args, 1)),
+        "file:save" => save(
+            app,
+            arg(args, 0),
+            arg(args, 1),
+            arg(args, 2).as_bool().unwrap_or(false),
+        ),
         _ => Err("Unknown file operation".into()),
     }
 }
@@ -358,9 +445,9 @@ fn io_command(
         }
         "export:json" => {
             validation::document(a)?;
-            let name = b.as_str().unwrap_or("diagram_export.depthplan.json");
-            files::export_name(name, "json")?;
-            let Some(path) = select(app, "save", name)? else {
+            let name = b.as_str().unwrap_or("diagram_export.depthplan");
+            files::export_name(name, "depthplan")?;
+            let Some(path) = select(app, "document-save", name)? else {
                 return Ok(Value::Null);
             };
             let hash = files::hash(&path)?;
@@ -567,6 +654,19 @@ async fn desktop(
         "test:dialogs" => {
             *app.state::<TestDialogs>().0.lock().unwrap() =
                 a.as_array().ok_or("Expected dialog queue")?.clone().into();
+            Ok(Value::Null)
+        }
+        #[cfg(feature = "automation")]
+        "test:last-file-dialog" => Ok(app.state::<TestDialogs>().1.lock().unwrap().clone()),
+        #[cfg(feature = "automation")]
+        "test:open-files" => {
+            let paths = a
+                .as_array()
+                .ok_or("Expected paths")?
+                .iter()
+                .map(|v| string(v).map(PathBuf::from))
+                .collect::<Result<Vec<_>>>()?;
+            open_paths(&app, paths);
             Ok(Value::Null)
         }
         #[cfg(feature = "automation")]
@@ -777,7 +877,7 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
             "menu:export-json",
-            "Export as JSON…",
+            "Export DepthPlan…",
             Some("CmdOrCtrl+Shift+E"),
         ),
         ("app:close", "Close", Some("CmdOrCtrl+W")),
@@ -841,7 +941,7 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
 }
 #[cfg(feature = "automation")]
 #[derive(Default)]
-struct TestDialogs(Mutex<std::collections::VecDeque<Value>>);
+struct TestDialogs(Mutex<std::collections::VecDeque<Value>>, Mutex<Value>);
 #[cfg(feature = "automation")]
 fn test_dialog(app: &AppHandle, kind: &str) -> Option<Value> {
     let mut queue = app.state::<TestDialogs>().inner().0.lock().unwrap();
@@ -849,7 +949,22 @@ fn test_dialog(app: &AppHandle, kind: &str) -> Option<Value> {
     Some(queue.pop_front().unwrap()["value"].clone())
 }
 pub fn run() {
-    let builder = tauri::Builder::default()
+    let builder = tauri::Builder::default().manage(OpenRequests::default());
+    // Development/automation processes must not forward test files to an installed app.
+    #[cfg(all(
+        not(debug_assertions),
+        not(feature = "automation"),
+        any(windows, target_os = "linux")
+    ))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        open_paths(
+            app,
+            args.iter()
+                .skip(1)
+                .filter_map(|arg| files::open_path(arg.as_ref(), Path::new(&cwd))),
+        );
+    }));
+    let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -901,6 +1016,13 @@ pub fn run() {
             });
             create_window(app.handle())?;
             menu(app.handle())?;
+            let cwd = std::env::current_dir()?;
+            open_paths(
+                app.handle(),
+                std::env::args_os()
+                    .skip(1)
+                    .filter_map(|arg| files::open_path(&arg, &cwd)),
+            );
             Ok(())
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -951,6 +1073,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Could not start DepthPlan");
     app.run(|app, event| match event {
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Opened { urls } => {
+            open_paths(
+                app,
+                urls.into_iter().filter_map(|url| url.to_file_path().ok()),
+            );
+        }
         tauri::RunEvent::ExitRequested { api, code, .. } => {
             if app.get_webview_window("main").is_some()
                 && !app.state::<Host>().closing.lock().unwrap().allowed

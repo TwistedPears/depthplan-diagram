@@ -224,7 +224,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": ".depthplan.json • schema v2"
+              "text": ".depthplan • schema v2"
             }
           ]
         },

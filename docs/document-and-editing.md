@@ -6,6 +6,19 @@ and their tests define detailed edge cases. [PRD](PRD.md) describes product scop
 
 ## Format and identity
 
+DepthPlan diagrams use `.depthplan` files containing ordinary JSON. Existing
+`.depthplan.json` files remain supported. **Save** writes to the exact opened
+filename; **Save As** suggests the same basename with `.depthplan`, leaves the
+original file intact, and makes the selected copy the current save destination.
+New documents default to `untitled.depthplan`. Editable document exports also
+default to `.depthplan`. This naming change does not change the document format.
+
+The Open dialog accepts `.depthplan` and `.json`; contents must pass the same
+validation regardless of extension. Packaged applications register `.depthplan`,
+not generic `.json`. OS file-open requests use the same draft and unsaved-work
+guards as Open. Multiple requests are handled in order; canceling one preserves
+the current document. Finish an active gesture before retrying an open request.
+
 Only `formatVersion: 2` is accepted. Missing/unsupported versions and malformed
 input fail without replacing the current document or modifying the source file.
 The document contains `id`, `metadata`, `objects`, `rootDepths`, `layouts` and

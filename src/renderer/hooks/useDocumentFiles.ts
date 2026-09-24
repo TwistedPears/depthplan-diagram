@@ -54,9 +54,16 @@ export default function useDocumentFiles(
     busy(true);
     onStatus('Saving...');
     try {
-      const saved = await (
-        access.write ?? window.desktop.fileSystem.saveDocument
-      )(captured.document, saveAs ? undefined : captured.source?.id);
+      const saved = await (access.write
+        ? access.write(
+            captured.document,
+            saveAs ? undefined : captured.source?.id,
+          )
+        : window.desktop.fileSystem.saveDocument(
+            captured.document,
+            captured.source?.id,
+            saveAs,
+          ));
       if (saved.status === 'error') throw new Error(saved.error);
       if (saved.status === 'canceled') {
         onStatus('Save canceled');

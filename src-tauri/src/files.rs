@@ -11,6 +11,35 @@ use std::{
 use uuid::Uuid;
 pub type Result<T> = std::result::Result<T, String>;
 pub const SOURCE_CHANGED: &str = "The source file changed before it could be replaced.";
+/// Desktop launchers may pass a path or a percent-encoded file URL.
+pub fn open_path(argument: &std::ffi::OsStr, cwd: &Path) -> Option<PathBuf> {
+    let path = Path::new(argument);
+    if path.is_absolute() {
+        Some(path.into())
+    } else if let Ok(url) = tauri::Url::parse(&argument.to_string_lossy()) {
+        url.to_file_path().ok()
+    } else {
+        Some(cwd.join(path))
+    }
+}
+/// A Save As suggestion only: ordinary Save always uses its recorded source path.
+pub fn document_name(path: &Path) -> String {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let lower = name.to_ascii_lowercase();
+    let stem = if lower.ends_with(".depthplan.json") {
+        &name[..name.len() - ".depthplan.json".len()]
+    } else if lower.ends_with(".depthplan") {
+        &name[..name.len() - ".depthplan".len()]
+    } else if lower.ends_with(".json") {
+        &name[..name.len() - ".json".len()]
+    } else {
+        &name
+    };
+    format!(
+        "{}.depthplan",
+        if stem.is_empty() { "untitled" } else { stem }
+    )
+}
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
@@ -174,6 +203,69 @@ pub fn fixture() -> Value {
 mod tests {
     use super::*;
     #[test]
+    fn desktop_open_accepts_paths_and_file_urls_but_not_remote_urls() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("旧 diagram.depthplan");
+        assert_eq!(open_path(path.as_os_str(), dir.path()), Some(path.clone()));
+        assert_eq!(
+            open_path(std::ffi::OsStr::new("旧 diagram.depthplan"), dir.path()),
+            Some(path.clone())
+        );
+        let url = tauri::Url::from_file_path(&path).unwrap();
+        assert_eq!(
+            open_path(std::ffi::OsStr::new(url.as_str()), dir.path()),
+            Some(path)
+        );
+        assert_eq!(
+            open_path(
+                std::ffi::OsStr::new("https://example.com/diagram.depthplan"),
+                dir.path()
+            ),
+            None
+        );
+    }
+    #[test]
+    fn save_as_suggests_native_names_without_stacking_extensions() {
+        for (old, new) in [
+            ("Architecture.depthplan.json", "Architecture.depthplan"),
+            ("Architecture.depthplan", "Architecture.depthplan"),
+            ("Architecture.DEPTHPLAN.JSON", "Architecture.depthplan"),
+            ("旧 diagram.json", "旧 diagram.depthplan"),
+            ("Architecture.v2", "Architecture.v2.depthplan"),
+            ("", "untitled.depthplan"),
+        ] {
+            assert_eq!(document_name(Path::new(old)), new);
+        }
+    }
+
+    #[test]
+    fn legacy_save_retains_its_path_and_save_as_leaves_the_original_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("旧 diagram.depthplan.json");
+        let new = dir.path().join(document_name(&old));
+        let mut store = FileStore::default();
+        store.save(&old, &fixture(), None, &|| Ok(())).unwrap();
+        let opened = store.read(&old).unwrap();
+        let source: Source = serde_json::from_value(opened["source"].clone()).unwrap();
+        let mut edited = opened["document"].clone();
+        edited["metadata"]["title"] = "Edited legacy file".into();
+        store
+            .save(
+                Path::new(&source.path),
+                &edited,
+                source.fingerprint.as_deref(),
+                &|| Ok(()),
+            )
+            .unwrap();
+        assert!(!new.exists());
+        let original = fs::read(&old).unwrap();
+        store.save(&new, &edited, None, &|| Ok(())).unwrap();
+        assert_eq!(fs::read(&old).unwrap(), original);
+        let mut reopened = store.read(&new).unwrap()["document"].clone();
+        reopened["metadata"]["modified"] = edited["metadata"]["modified"].clone();
+        assert_eq!(reopened, edited);
+    }
+    #[test]
     fn round_trip_preserves_documents_and_rejects_invalid_replacement() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("document.json");
@@ -201,7 +293,7 @@ mod tests {
     #[test]
     fn rejects_unsupported_documents_without_registering_or_rewriting_them() {
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("unsupported.json");
+        let path = directory.path().join("unsupported.depthplan");
         let mut candidates = Vec::new();
         let mut unversioned = fixture();
         unversioned.as_object_mut().unwrap().remove("formatVersion");

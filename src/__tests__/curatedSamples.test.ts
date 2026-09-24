@@ -23,10 +23,7 @@ const samples = [
 ];
 const load = async (name: string): Promise<RecursiveDocument> => {
   const document = JSON.parse(
-    await fs.readFile(
-      path.resolve(`docs/sample/${name}.depthplan.json`),
-      'utf8',
-    ),
+    await fs.readFile(path.resolve(`docs/sample/${name}.depthplan`), 'utf8'),
   );
   validateRecursiveDocument(document);
   return document;

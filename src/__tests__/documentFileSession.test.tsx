@@ -4,7 +4,11 @@ import useDocumentFiles from '../renderer/hooks/useDocumentFiles';
 import { recursiveFixture } from './recursiveFixtures';
 import { editObject } from '../shared/documentTransactions';
 import type { FileResult, SourceFile } from '../shared/fileContract';
-const source = { id: 'file-one', path: '/one.json', fingerprint: 'one' };
+const source = {
+  id: 'file-one',
+  path: '/one.depthplan.json',
+  fingerprint: 'one',
+};
 const initial = recursiveFixture();
 function setup() {
   return renderHook(() => {
@@ -34,6 +38,41 @@ beforeEach(() => {
       saveDocument: jest.fn().mockResolvedValue({ status: 'success', source }),
     },
   } as unknown as typeof window.desktop;
+});
+it('keeps the legacy source for Save and requests native naming only for Save As', async () => {
+  const { result } = setup();
+  await act(async () => {
+    await result.current.files.load('open');
+    await result.current.files.save();
+  });
+  expect(window.desktop.fileSystem.saveDocument).toHaveBeenLastCalledWith(
+    initial,
+    source.id,
+    false,
+  );
+  expect(result.current.owner.source?.path).toBe('/one.depthplan.json');
+  const migrated = { ...source, id: 'native-file', path: '/one.depthplan' };
+  (window.desktop.fileSystem.saveDocument as jest.Mock).mockResolvedValue({
+    status: 'success',
+    source: migrated,
+  });
+  await act(async () => {
+    await result.current.files.save(true);
+  });
+  expect(window.desktop.fileSystem.saveDocument).toHaveBeenLastCalledWith(
+    initial,
+    source.id,
+    true,
+  );
+  expect(result.current.owner.source).toEqual(migrated);
+  await act(async () => {
+    await result.current.files.save();
+  });
+  expect(window.desktop.fileSystem.saveDocument).toHaveBeenLastCalledWith(
+    initial,
+    migrated.id,
+    false,
+  );
 });
 it('replaces identical document IDs with fresh clean sessions and keeps canceled targets', async () => {
   const { result } = setup();

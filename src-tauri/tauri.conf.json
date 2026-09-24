@@ -20,6 +20,20 @@
     "targets": "all",
     "icon": ["../assets/icon.png", "../assets/icon.icns", "../assets/icon.ico"],
     "category": "DeveloperTool",
+    "fileAssociations": [
+      {
+        "ext": ["depthplan"],
+        "name": "DepthPlan document",
+        "description": "DepthPlan diagram",
+        "role": "Editor",
+        "rank": "Owner",
+        "mimeType": "application/x-depthplan",
+        "exportedType": {
+          "identifier": "com.twistedpears.depthplan.document",
+          "conformsTo": ["public.json"]
+        }
+      }
+    ],
     "resources": {
       "../LICENSE": "LICENSE",
       "../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md",
@@ -28,7 +42,28 @@
       "../out/tauri-renderer/THIRD-PARTY-LICENSES.json": "licenses/JAVASCRIPT-LICENSES.json"
     },
     "externalBin": ["binaries/depthplan-mcp"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+        }
+      }
+    },
     "macOS": {
+      "infoPlist": "Info.plist",
       "minimumSystemVersion": "10.13"
     }
   }
