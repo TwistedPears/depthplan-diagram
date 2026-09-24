@@ -5,6 +5,38 @@ release platform approval remain pending.** This checklist defines work for the
 chosen candidate; it is not a record of historical runs or approval to publish.
 Repeatable commands and measurement budgets live in [development](development.md).
 
+## First small-group preview
+
+The [tester guide](preview.md) is the starting point for invited testers. Making
+the source public and distributing an installer are separate steps.
+
+Before making the source public:
+
+- Review the exact tracked snapshot, reachable history and existing Actions logs
+  for credentials or private material. Scan the snapshot and history for secrets;
+  review any findings before changing visibility. Review screenshots manually.
+- Merge the onboarding changes and confirm repository and Help links, samples,
+  issue forms and the license wording on the final main branch.
+
+After making the repository public, before inviting testers:
+
+- In **Settings → Advanced Security**, verify secret scanning and push protection,
+  enable private vulnerability reporting, and verify private receipt using the
+  [reporting procedure](#security-and-support-proposal). Update SECURITY.md with
+  the verified route and chosen preview support expectations.
+- Run the public Test and CodeQL workflows. After successful runs, protect main
+  under **Settings → Rules → Rulesets**: block deletion and force pushes and
+  require PRs and the relevant passing checks. A sole maintainer can leave required
+  approving reviews at zero.
+- Confirm the issue forms and sample download work for a non-collaborator.
+
+Before distributing an installer, choose the tested OS/CPU scope and complete the
+applicable candidate checks below, including dependency decisions. Publish a
+clearly marked prerelease with the ordinary installer, its SHA-256, signing
+status, installation/update instructions, known limitations and the sample tour.
+Test the downloaded installer on another machine. Update preview availability in
+the README and tester guide when the download is actually available.
+
 ## Candidate checklist
 
 - [ ] Approve supported OS versions/architectures. Apple Silicon is the first

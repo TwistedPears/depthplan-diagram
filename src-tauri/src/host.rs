@@ -916,13 +916,13 @@ pub fn run() {
             }
             "help:docs" => {
                 let _ = app.opener().open_url(
-                    "https://github.com/drofnas/depth-plan-desktop#readme",
+                    "https://github.com/TwistedPears/depthplan-diagram#readme",
                     None::<&str>,
                 );
             }
             "help:issues" => {
                 let _ = app.opener().open_url(
-                    "https://github.com/drofnas/depth-plan-desktop/issues",
+                    "https://github.com/TwistedPears/depthplan-diagram/issues/new/choose",
                     None::<&str>,
                 );
             }
