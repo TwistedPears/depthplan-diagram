@@ -1,0 +1,31 @@
+name: Bug report
+description: Something failed or behaved differently than expected.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please use a small, non-sensitive example. Remove private information from screenshots and files.
+        Do not post credentials, MCP descriptors, recovery files or security vulnerability details.
+        See [SECURITY.md](https://github.com/TwistedPears/depthplan-diagram/blob/main/SECURITY.md) for security concerns.
+  - type: input
+    id: environment
+    attributes:
+      label: App version and platform
+      description: Download version (or source commit), OS version and CPU type. On macOS, see DepthPlan → About DepthPlan. Say unknown if you cannot find it.
+      placeholder: DepthPlan 0.1.0, macOS 15, Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: Steps another person can follow, starting with opening the app or a sample diagram.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include any error message. Sanitized screenshots or a small sample diagram are optional.
+    validations:
+      required: true

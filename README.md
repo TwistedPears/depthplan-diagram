@@ -8,19 +8,16 @@ bookmarks and depth controls to present different levels of detail.
 installed-candidate acceptance, signing and security/support decisions remain
 [release requirements](docs/release.md).
 
-## Try the application tour
+[Try it](docs/preview.md) · [Open the sample tour](docs/sample/depthplan_application_tour.depthplan.json) · [Give feedback](https://github.com/TwistedPears/depthplan-diagram/issues/new/choose)
 
-1. Launch DepthPlan, choose **Menu → Open…**, and open
-   [the application tour](docs/sample/depthplan_application_tour.depthplan.json)
-   from this checkout's `docs/sample` folder.
-2. Choose **Bookmarks → 00 • Start here / how to explore**. Bookmarks 01–11 cover
-   the application map, nested detail, rich text, code and connections.
-3. Select an object for its controls. Double-click text to edit; click outside,
-   press Escape or Ctrl/Cmd+Enter to accept. Use Undo to reverse accepted edits.
-4. Use **Save As…** to keep your own `.depthplan.json` copy. Export SVG/PNG for
-   static sharing; export does not save the editable document.
+![DepthPlan displaying the sample application's nested architecture, connections and depth controls.](docs/images/depthplan-tour.png)
 
-The [sample guide](docs/sample/README.md) describes all three maintained examples.
+The application tour at depth 2 in a macOS development build. Use bookmarks to
+move between the system overview and deeper detail in the same document.
+
+There is no downloadable preview yet. You can [build from source](#build-and-run)
+or follow the [tester guide](docs/preview.md) for availability, a short exercise
+and current limitations.
 
 ## Build and run
 
@@ -86,17 +83,19 @@ folder approval. See [MCP setup and tools](docs/mcp.md).
 
 ## Documentation
 
-| Guide                                                | Contents                                                   |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| [Product requirements](docs/PRD.md)                  | Audience, workflows, feature scope and non-goals           |
-| [Architecture](docs/architecture.md)                 | Native/renderer ownership, rendering and trust boundaries  |
-| [Document and editing](docs/document-and-editing.md) | Current file format and precise editor behavior            |
-| [MCP](docs/mcp.md)                                   | Client setup, tools, permissions and retries               |
-| [Development](docs/development.md)                   | Build, test, audit, license and performance procedures     |
-| [Release](docs/release.md)                           | Candidate acceptance, unresolved risks and owner decisions |
-| [Icons](docs/design/icons.md)                        | Artwork, prompt collections and integration                |
-| [Samples](docs/sample/README.md)                     | Editable examples and expected behavior                    |
-| [Security status](SECURITY.md)                       | Current boundaries and pending reporting policy            |
+| Guide                                                | Contents                                                    |
+| ---------------------------------------------------- | ----------------------------------------------------------- |
+| [Try DepthPlan](docs/preview.md)                     | Preview availability, first steps, limitations and feedback |
+| [Contributing](CONTRIBUTING.md)                      | Reporting problems and making small code changes            |
+| [Product requirements](docs/PRD.md)                  | Audience, workflows, feature scope and non-goals            |
+| [Architecture](docs/architecture.md)                 | Native/renderer ownership, rendering and trust boundaries   |
+| [Document and editing](docs/document-and-editing.md) | Current file format and precise editor behavior             |
+| [MCP](docs/mcp.md)                                   | Client setup, tools, permissions and retries                |
+| [Development](docs/development.md)                   | Build, test, audit, license and performance procedures      |
+| [Release](docs/release.md)                           | Candidate acceptance, unresolved risks and owner decisions  |
+| [Icons](docs/design/icons.md)                        | Artwork, prompt collections and integration                 |
+| [Samples](docs/sample/README.md)                     | Editable examples and expected behavior                     |
+| [Security status](SECURITY.md)                       | Current boundaries and pending reporting policy             |
 
 ## License
 

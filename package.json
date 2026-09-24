@@ -10,13 +10,13 @@
     "react",
     "typescript"
   ],
-  "homepage": "https://github.com/drofnas/depth-plan-desktop#readme",
+  "homepage": "https://github.com/TwistedPears/depthplan-diagram#readme",
   "bugs": {
-    "url": "https://github.com/drofnas/depth-plan-desktop/issues"
+    "url": "https://github.com/TwistedPears/depthplan-diagram/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drofnas/depth-plan-desktop.git"
+    "url": "git+https://github.com/TwistedPears/depthplan-diagram.git"
   },
   "license": "SEE LICENSE IN LICENSE",
   "author": {

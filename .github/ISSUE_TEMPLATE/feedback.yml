@@ -1,0 +1,20 @@
+name: Feedback / confusing behavior
+description: Share a confusing step, a missing capability or an idea.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A short description is enough. Please remove private work information from any screenshots or examples.
+        For security concerns, follow [SECURITY.md](https://github.com/TwistedPears/depthplan-diagram/blob/main/SECURITY.md).
+  - type: textarea
+    id: task
+    attributes:
+      label: What were you trying to accomplish?
+      description: Describe your task and where you got stuck, or what would make it easier.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: App version and platform
+      description: If you tried the app, include the download version (or source commit), OS and CPU type.
