@@ -1,9 +1,19 @@
 name: Test
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
+    # Private development uses local hooks; retain an opt-in three-OS check.
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.private }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -45,6 +55,7 @@ jobs:
       - run: npm run format:rust:check
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run test:hooks
       - run: npm test -- --runInBand
       - run: npm run test:native
       - run: npm run build:automation
