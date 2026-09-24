@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.029072167,0,0,0.029072167,-2.598753481,1.083399782)">
+    <path d="m 750,357 h 115 q 36,0 17,25 L 718,617 q -13,18 -28,18 H 309 q -28,0 -9,-24 l 68,-82" fill="none" stroke="currentColor" stroke-width="52.127253" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="m 639,238 h 143 q 36,0 17,25 L 635,498 q -13,18 -28,18 H 219 q -28,0 -9,-24 l 63,-80" fill="none" stroke="currentColor" stroke-width="52.127253" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="m 326,116 h 369 q 34,0 13,27 L 539,379 q -13,18 -29,18 H 135 q -32,0 -12,-25 L 307,136 q 15,-20 19,-20 z" fill="none" stroke="currentColor" stroke-width="52.127253" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

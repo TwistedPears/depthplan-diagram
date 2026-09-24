@@ -1,0 +1,162 @@
+{
+  "name": "depthplan",
+  "description": "Diagramming with audience-specific levels of detail",
+  "keywords": [
+    "tauri",
+    "diagramming",
+    "architecture",
+    "depth",
+    "visualization",
+    "react",
+    "typescript"
+  ],
+  "homepage": "https://github.com/drofnas/depth-plan-desktop#readme",
+  "bugs": {
+    "url": "https://github.com/drofnas/depth-plan-desktop/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drofnas/depth-plan-desktop.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": {
+    "name": "TwistedPears"
+  },
+  "scripts": {
+    "dev": "tauri dev",
+    "start": "tauri dev",
+    "build": "tauri build --no-bundle",
+    "package": "tauri build",
+    "package:dir": "tauri build --bundles app",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/native-smoke.mjs",
+    "smoke:ci": "node scripts/native-smoke.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "stress": "node scripts/generate-stress.mjs",
+    "icons": "node scripts/generate-app-icons.mjs",
+    "dev:renderer": "vite",
+    "build:renderer": "npm run generate:contracts && vite build",
+    "tauri": "tauri",
+    "build:automation": "npm run build:renderer && node scripts/build-automation.mjs",
+    "test:native": "npm run generate:contracts && node scripts/build-automation.mjs --test",
+    "generate:contracts": "node scripts/generate-mcp-schema.mjs",
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "build:automation:release": "npm run build:renderer && node scripts/build-automation.mjs --release",
+    "capacity:diagnostic": "node scripts/measure-native-capacity.mjs",
+    "capacity": "node scripts/measure-tauri-capacity.mjs"
+  },
+  "prettier": {
+    "singleQuote": true
+  },
+  "jest": {
+    "moduleDirectories": [
+      "node_modules",
+      "src"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "json"
+    ],
+    "moduleNameMapper": {
+      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/src/__tests__/fileMock.cjs",
+      "\\.(css|less|sass|scss)$": "identity-obj-proxy"
+    },
+    "testEnvironment": "jsdom",
+    "testEnvironmentOptions": {
+      "url": "http://localhost/"
+    },
+    "testPathIgnorePatterns": [
+      "/out/"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "module": "Node16",
+            "moduleResolution": "node16",
+            "isolatedModules": true
+          }
+        }
+      ]
+    },
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/*.test.ts",
+      "**/*.test.tsx"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/__tests__/setup.ts"
+    ],
+    "watchman": false
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/cli": "2.11.5",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.20.3",
+    "@types/prismjs": "^1.26.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-jsx-a11y-x": "^0.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "identity-obj-proxy": "^3.0.0",
+    "immer": "11.1.18",
+    "jest": "^30.5.1",
+    "jest-environment-jsdom": "^30.5.1",
+    "konva": "^10.5.0",
+    "prettier": "^3.9.8",
+    "prismjs": "^1.30.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.11",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-konva": "^19.3.0",
+    "ts-jest": "^29.4.12",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^7.3.6",
+    "zod": "4.3.6",
+    "esbuild": "^0.25.12"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^22.13.0 || >=24.0.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=10",
+      "onFail": "error"
+    }
+  },
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "^22.13.0 || >=24.0.0"
+  }
+}

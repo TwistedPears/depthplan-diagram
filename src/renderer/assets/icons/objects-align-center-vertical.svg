@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.029238579,0,0,0.029238579,-2.61928934,-0.718781726)">
+    <rect x="224.5" y="117.5" width="214" height="635" rx="19" fill="none" stroke="currentColor" stroke-width="55" />
+    <rect x="578.5" y="267.5" width="197" height="348" rx="19" fill="none" stroke="currentColor" stroke-width="55" />
+    <path d="m 114,432 h 67 m 43,0 h 26 m 40,0 h 83 m 40,0 h 26 m 41,0 h 55 m 43,0 h 23 m 40,0 h 71 m 40,0 h 26 m 41,0 h 67" fill="none" stroke="currentColor" stroke-width="48" stroke-linecap="round" />
+  </g>
+</svg>

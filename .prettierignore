@@ -1,0 +1,18 @@
+node_modules
+out
+coverage
+package-lock.json
+assets
+CHANGELOG.md
+LICENSE
+
+# Preserve the live MCP sample exactly as serialized by DepthPlan.
+docs/sample/depthplan_application_tour.depthplan.json
+# Local visual evidence exported by the app, already excluded from Git.
+docs/sample/*-export.*
+
+.tmp
+src-tauri/target
+src-tauri/generated
+src-tauri/gen
+src-tauri/binaries

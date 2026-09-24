@@ -1,0 +1,112 @@
+name: Draft release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: draft-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@1.94.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install native license generator
+        run: cargo install cargo-about --version 0.9.2 --locked --features cli
+      - name: Install native advisory checker
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit native dependencies (including informational warnings)
+        shell: bash
+        run: cargo audit --file src-tauri/Cargo.lock --json | tee "$RUNNER_TEMP/cargo-audit.json"
+      - name: Keep native audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-rust-audit-${{ matrix.os }}
+          path: ${{ runner.temp }}/cargo-audit.json
+          if-no-files-found: warn
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+      - name: Check version tag
+        run: node -e "if (process.env.GITHUB_REF_NAME !== 'v' + require('./package.json').version) throw new Error('Tag must match package version')"
+      - run: npm ci
+      - run: npm audit
+      - run: npm run format:check
+      - run: npm run format:rust:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --runInBand
+      - run: npm run test:native
+      - run: npm run build:automation
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+      - name: Tauri native integration
+        env:
+          TMPDIR: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TEMP: ${{ runner.temp }}
+        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum' || '' }} npm run smoke:ci
+      - name: Package uninstrumented application without publishing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASS }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run package
+      - name: Verify release excludes automation
+        shell: bash
+        run: |
+          cargo tree --manifest-path src-tauri/Cargo.toml -e normal > native-dependencies.txt
+          if rg 'tauri-plugin-wdio' native-dependencies.txt; then exit 1; fi
+      - name: Retain candidate release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidate-release-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.AppImage
+  upload-draft:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: candidate-release-*
+          path: artifacts
+      - name: Upload candidates to a draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > release.json; then
+            node -e "if (!require('./release.json').isDraft) throw new Error('Refusing to modify a published release')"
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" --notes 'Tauri candidate. Production publication is blocked until the gates in docs/release.md, including exact installed artifact acceptance, native performance validation and signing/notarization, have current evidence.'
+          fi
+          find artifacts -type f -print0 | xargs -0 gh release upload "$RELEASE_TAG" --clobber

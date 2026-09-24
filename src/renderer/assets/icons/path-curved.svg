@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g transform="matrix(0.02214839,0,0,0.02214839,-1.8981174,-2.0863787)">
+    <path d="m 228,904.95 92.57,-0.13 C 478.55,904.97 582.14,808.63 614.3,642.98 646.47,477.35 749.44,372.51 901.53,372.45 l 125.46,0.03" stroke-width="29" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" />
+    <circle cx="228.5" cy="905" r="52.5" stroke-width="0" fill="currentColor" stroke="none" />
+    <circle cx="1026.5" cy="367" r="52.5" stroke-width="0" fill="currentColor" stroke="none" />
+  </g>
+</svg>

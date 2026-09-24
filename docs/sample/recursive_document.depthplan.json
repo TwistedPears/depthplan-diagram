@@ -1,0 +1,377 @@
+{
+  "formatVersion": 2,
+  "id": "recursive-example",
+  "metadata": {
+    "title": "Recursive architecture",
+    "created": "2026-09-18T00:00:00Z",
+    "modified": "2026-09-18T00:00:00Z"
+  },
+  "objects": {
+    "app": {
+      "id": "app",
+      "parentId": null,
+      "name": "App",
+      "type": "diamond",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared App content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 380,
+        "y": 340,
+        "z": 0,
+        "width": 640,
+        "height": 440,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "#f8fafc",
+        "stroke": "#64748b"
+      }
+    },
+    "api": {
+      "id": "api",
+      "parentId": "app",
+      "name": "API",
+      "type": "rectangle",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared API content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -100,
+        "y": -10,
+        "z": 0,
+        "width": 270,
+        "height": 260,
+        "rotation": 15
+      },
+      "style": {
+        "fill": "#f8fafc",
+        "stroke": "#64748b"
+      }
+    },
+    "endpoint": {
+      "id": "endpoint",
+      "parentId": "api",
+      "name": "Endpoint",
+      "type": "rectangle",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared Endpoint content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 30,
+        "y": 25,
+        "z": 0,
+        "width": 150,
+        "height": 130,
+        "rotation": 15
+      },
+      "style": {
+        "fill": "#f8fafc",
+        "stroke": "#64748b"
+      }
+    },
+    "handler": {
+      "id": "handler",
+      "parentId": "endpoint",
+      "name": "Handler",
+      "type": "rectangle",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared Handler content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 10,
+        "y": 10,
+        "z": 0,
+        "width": 80,
+        "height": 45,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "#dbeafe",
+        "stroke": "#64748b"
+      }
+    },
+    "cache": {
+      "id": "cache",
+      "parentId": "app",
+      "name": "Cache",
+      "type": "ellipse",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared Cache content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 200,
+        "y": 100,
+        "z": 0,
+        "width": 100,
+        "height": 70,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "#dbeafe",
+        "stroke": "#64748b"
+      }
+    },
+    "payments": {
+      "id": "payments",
+      "parentId": null,
+      "name": "Payments",
+      "type": "rectangle",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared Payments content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 900,
+        "y": 220,
+        "z": 0,
+        "width": 150,
+        "height": 90,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "#dbeafe",
+        "stroke": "#64748b"
+      }
+    },
+    "ledger": {
+      "id": "ledger",
+      "parentId": "payments",
+      "name": "Ledger",
+      "type": "rectangle",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Shared Ledger content"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 20,
+        "z": 0,
+        "width": 120,
+        "height": 80,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "#dbeafe",
+        "stroke": "#64748b"
+      }
+    }
+  },
+  "rootDepths": {
+    "app": 3,
+    "payments": 0
+  },
+  "layouts": {
+    "app": {
+      "0": {
+        "app": {
+          "x": 180,
+          "y": 180,
+          "z": 0,
+          "width": 160,
+          "height": 100,
+          "rotation": 0
+        }
+      },
+      "1": {
+        "app": {
+          "x": 250,
+          "y": 230,
+          "z": 0,
+          "width": 320,
+          "height": 220,
+          "rotation": 0
+        },
+        "api": {
+          "x": -100,
+          "y": -10,
+          "z": 0,
+          "width": 270,
+          "height": 260,
+          "rotation": 15
+        },
+        "cache": {
+          "x": 200,
+          "y": 100,
+          "z": 0,
+          "width": 100,
+          "height": 70,
+          "rotation": 0
+        }
+      },
+      "2": {
+        "app": {
+          "x": 320,
+          "y": 280,
+          "z": 0,
+          "width": 480,
+          "height": 340,
+          "rotation": 0
+        },
+        "api": {
+          "x": -100,
+          "y": -10,
+          "z": 0,
+          "width": 270,
+          "height": 260,
+          "rotation": 15
+        },
+        "cache": {
+          "x": 200,
+          "y": 100,
+          "z": 0,
+          "width": 100,
+          "height": 70,
+          "rotation": 0
+        },
+        "endpoint": {
+          "x": 30,
+          "y": 25,
+          "z": 0,
+          "width": 150,
+          "height": 130,
+          "rotation": 15
+        }
+      },
+      "3": {
+        "app": {
+          "x": 390,
+          "y": 330,
+          "z": 0,
+          "width": 640,
+          "height": 460,
+          "rotation": 0
+        },
+        "api": {
+          "x": -100,
+          "y": -10,
+          "z": 0,
+          "width": 270,
+          "height": 260,
+          "rotation": 15
+        },
+        "cache": {
+          "x": 200,
+          "y": 100,
+          "z": 0,
+          "width": 100,
+          "height": 70,
+          "rotation": 0
+        },
+        "endpoint": {
+          "x": 30,
+          "y": 25,
+          "z": 0,
+          "width": 150,
+          "height": 130,
+          "rotation": 15
+        },
+        "handler": {
+          "x": 10,
+          "y": 10,
+          "z": 0,
+          "width": 80,
+          "height": 45,
+          "rotation": 0
+        }
+      }
+    },
+    "payments": {
+      "0": {
+        "payments": {
+          "x": 900,
+          "y": 220,
+          "z": 0,
+          "width": 150,
+          "height": 90,
+          "rotation": 0
+        }
+      },
+      "1": {
+        "payments": {
+          "x": 900,
+          "y": 220,
+          "z": 0,
+          "width": 150,
+          "height": 90,
+          "rotation": 0
+        },
+        "ledger": {
+          "x": 0,
+          "y": 20,
+          "z": 0,
+          "width": 120,
+          "height": 80,
+          "rotation": 0
+        }
+      }
+    }
+  },
+  "connections": {
+    "external": {
+      "id": "external",
+      "ownerId": null,
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "app",
+        "side": "right",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "payments",
+        "side": "left",
+        "offset": 0.5
+      }
+    }
+  }
+}

@@ -1,0 +1,293 @@
+{
+  "defaults": {
+    "mainStyle": {
+      "name": "Main Style",
+      "summary": "Shared visual style and raster presentation for every DepthPlan UI icon, ready for later SVG conversion.",
+      "prompt": "Create one original monochrome interface icon for DepthPlan, a desktop diagram and architecture editor. Follow the selected asset prompt for its meaning and exact geometry. Produce a single raster master that will later be traced into SVG; do not output code, an SVG source listing, an application screenshot, or a UI mockup. Design original artwork from the described action rather than tracing or reproducing an existing icon library.\n\nUse precise geometric line art with rounded stroke ends and joins, clear negative space, and the optical weight of a 2-unit stroke on a 24-by-24 design grid. Keep line weight, corner treatment, scale, and padding consistent across the whole icon family. Prefer open outlines for shapes and containers. Simple arrowheads, lettering and small marks may use solid black where their meaning calls for it. The symbol must remain immediately recognizable when reduced to 16, 20 and 24 pixels. Distinguish object-alignment icons, which use rectangles and a guide, from text-alignment icons, which use short text-like strokes.\n\nRender the icon straight on as flat, two-dimensional artwork, using opaque black on a transparent background. Use a square 1024-by-1024 canvas. Center the complete symbol optically, keep it fully visible, and leave approximately 12.5 percent clear padding on each side. If transparency is unavailable, use a uniform pure-white background. Do not draw a checkerboard. There is no light source, material, environment or perspective. Do not add a button container, tile, badge or surrounding border unless that outline is part of the specified symbol.\n\nKeep contours crisp and simple for raster-to-vector conversion. Separate strokes or small disconnected elements are allowed when needed to express the icon, but avoid stray marks and tiny details. Preserve intentional holes and gaps. Generate only the requested asset, never a contact sheet or alternate versions. The target SVG filename in the asset summary is a naming reference, not text to draw. Create only the neutral icon; the application supplies hover, active and disabled colors. If an accepted icon from this set is supplied as a style reference, match its visual weight and corner treatment while preserving the new asset's own geometry."
+    },
+    "mainNegatives": {
+      "name": "Main Negatives",
+      "summary": "Shared exclusions that keep the icon family monochrome, readable at small sizes, and easy to vectorize.",
+      "prompt": "No photographs, realistic objects, three-dimensional forms, isometric or perspective views, scenery, people, creatures, material textures, gradients, shadows, lighting effects, glow, bevels, embossing or decorative color. No gray fills, soft blur, sketch marks, rough edges, halftone, distressed surfaces, thin hairlines or excessive tracing detail. Normal edge antialiasing is acceptable; keep the interior artwork opaque black.\n\nNo labels, captions, filenames, numbers, signatures, logos, watermarks, explanatory text, UI screenshots, multi-icon grids, contact sheets, variant sheets or multiple independent assets. Letters B, I and U, angle brackets, and an exclamation mark are allowed only when explicitly requested as the icon itself. A selected hand or document icon is a simple graphic symbol, not a realistic hand or photographed page.\n\nNo background objects, fake transparency checkerboards, cropped arrowheads, cut-off outlines, unbalanced padding or accidental extra marks. Do not add enclosing circles, squares or rounded button tiles unless the selected asset requires them. Do not reverse arrow directions, confuse horizontal with vertical, or swap a text-alignment symbol for an object-alignment symbol. Do not introduce dark-fantasy, game-terrain, medieval, magical or ornamental styling."
+    }
+  },
+  "zones": [],
+  "assets": [
+    {
+      "id": "AlignCenter",
+      "name": "Text Align Center",
+      "summary": "Category: TextFormatting | Target SVG: align-center.svg | Center text.",
+      "prompt": "Create the Text Align Center icon for DepthPlan. Its interface role is: Center text.\n\nThree horizontal text strokes of unequal lengths, centered.\n\nCenter each stroke on the same vertical axis; leave both outer edges ragged."
+    },
+    {
+      "id": "AlignLeft",
+      "name": "Text Align Left",
+      "summary": "Category: TextFormatting | Target SVG: align-left.svg | Align text left.",
+      "prompt": "Create the Text Align Left icon for DepthPlan. Its interface role is: Align text left.\n\nThree horizontal text strokes, flush to the left.\n\nAlign the left endpoints precisely; the right endpoints have different lengths."
+    },
+    {
+      "id": "AlignRight",
+      "name": "Text Align Right",
+      "summary": "Category: TextFormatting | Target SVG: align-right.svg | Align text right.",
+      "prompt": "Create the Text Align Right icon for DepthPlan. Its interface role is: Align text right.\n\nThree horizontal text strokes, flush to the right.\n\nAlign the right endpoints precisely; the left endpoints have different lengths."
+    },
+    {
+      "id": "ArrowDown",
+      "name": "Send Backward",
+      "summary": "Category: LayerOrder | Target SVG: arrow-down.svg | Send backward one layer.",
+      "prompt": "Create the Send Backward icon for DepthPlan. Its interface role is: Send backward one layer.\n\nSingle downward arrow; no end bar.\n\nThis means one step backward in the layer stack. Do not add a stop bar or download tray."
+    },
+    {
+      "id": "ArrowDownToLine",
+      "name": "Send to Back",
+      "summary": "Category: LayerOrder | Target SVG: arrow-down-to-line.svg | Send to back.",
+      "prompt": "Create the Send to Back icon for DepthPlan. Its interface role is: Send to back.\n\nDownward arrow ending at a horizontal stop bar.\n\nThe stop bar means the backmost layer. Keep it separate from the arrow tip by a small clear gap; do not turn it into a download tray."
+    },
+    {
+      "id": "ArrowPointer",
+      "name": "Select Pointer",
+      "summary": "Category: DrawingTools | Target SVG: arrow-pointer.svg | Select or edit objects.",
+      "prompt": "Create the Select Pointer icon for DepthPlan. Its interface role is: Select or edit objects.\n\nSimple mouse-pointer arrow pointing toward the upper left."
+    },
+    {
+      "id": "ArrowRight",
+      "name": "Arrow Connector",
+      "summary": "Category: DrawingTools | Target SVG: arrow-right.svg | Draw an arrow connector.",
+      "prompt": "Create the Arrow Connector icon for DepthPlan. Its interface role is: Draw an arrow connector.\n\nThin horizontal line with one arrowhead on the right."
+    },
+    {
+      "id": "ArrowRotateLeft",
+      "name": "Reset Canvas View",
+      "summary": "Category: CanvasNavigation | Target SVG: arrow-rotate-left.svg | Reset canvas navigation.",
+      "prompt": "Create the Reset Canvas View icon for DepthPlan. Its interface role is: Reset canvas navigation.\n\nCounterclockwise circular arrow around a small center point.\n\nKeep the small center point to distinguish navigation reset from the Undo icon. The arrowhead must indicate counterclockwise motion."
+    },
+    {
+      "id": "ArrowUp",
+      "name": "Bring Forward",
+      "summary": "Category: LayerOrder | Target SVG: arrow-up.svg | Bring forward one layer.",
+      "prompt": "Create the Bring Forward icon for DepthPlan. Its interface role is: Bring forward one layer.\n\nSingle upward arrow; no end bar.\n\nThis means one step forward in the layer stack. Do not add a stop bar or upload tray."
+    },
+    {
+      "id": "ArrowUpRightAndArrowDownLeftFromCenter",
+      "name": "Match Object Size",
+      "summary": "Category: ObjectArrangement | Target SVG: arrow-up-right-and-arrow-down-left-from-center.svg | Match width / match height.",
+      "prompt": "Create the Match Object Size icon for DepthPlan. Its interface role is: Match width / match height.\n\nDouble-headed diagonal arrow, running southwest to northeast.\n\nGenerate only this southwest-to-northeast master orientation, not three size variants. Both arrowheads point outward. The application rotates the master clockwise 45 degrees for width and counterclockwise 45 degrees for height; provide enough padding for those rotations."
+    },
+    {
+      "id": "ArrowUpToLine",
+      "name": "Bring to Front",
+      "summary": "Category: LayerOrder | Target SVG: arrow-up-to-line.svg | Bring to front.",
+      "prompt": "Create the Bring to Front icon for DepthPlan. Its interface role is: Bring to front.\n\nUpward arrow ending at a horizontal stop bar.\n\nThe stop bar means the frontmost layer. Keep it separate from the arrow tip by a small clear gap; do not turn it into an upload tray."
+    },
+    {
+      "id": "Bars",
+      "name": "Application Menu",
+      "summary": "Category: ApplicationControls | Target SVG: bars.svg | Open application menu.",
+      "prompt": "Create the Application Menu icon for DepthPlan. Its interface role is: Open application menu.\n\nThree equal horizontal bars."
+    },
+    {
+      "id": "Bold",
+      "name": "Bold Text",
+      "summary": "Category: TextFormatting | Target SVG: bold.svg | Bold text.",
+      "prompt": "Create the Bold Text icon for DepthPlan. Its interface role is: Bold text.\n\nStrong, clean capital B, intentionally heavier than the italic I.\n\nOnly the single capital B is allowed; do not write the word Bold."
+    },
+    {
+      "id": "Bookmark",
+      "name": "Bookmarks",
+      "summary": "Category: SavedViews | Target SVG: bookmark.svg | Saved views / bookmarks.",
+      "prompt": "Create the Bookmarks icon for DepthPlan. Its interface role is: Saved views / bookmarks.\n\nVertical ribbon outline with a V-shaped notch at the bottom."
+    },
+    {
+      "id": "Camera",
+      "name": "Apply Saved View",
+      "summary": "Category: SavedViews | Target SVG: camera.svg | Apply a saved view.",
+      "prompt": "Create the Apply Saved View icon for DepthPlan. Its interface role is: Apply a saved view.\n\nCompact camera outline, one circular lens and a small raised top section."
+    },
+    {
+      "id": "ChevronRight",
+      "name": "Reveal Children",
+      "summary": "Category: DepthAndHierarchy | Target SVG: chevron-right.svg | Breadcrumb / reveal children.",
+      "prompt": "Create the Reveal Children icon for DepthPlan. Its interface role is: Breadcrumb / reveal children.\n\nSimple right-pointing chevron.\n\nGenerate the right-facing master only. The application rotates it clockwise 90 degrees to point down when children are expanded."
+    },
+    {
+      "id": "Circle",
+      "name": "Ellipse Tool",
+      "summary": "Category: DrawingTools | Target SVG: circle.svg | Draw an ellipse.",
+      "prompt": "Create the Ellipse Tool icon for DepthPlan. Its interface role is: Draw an ellipse.\n\nEmpty circular outline; same visual weight as the square."
+    },
+    {
+      "id": "Diamond",
+      "name": "Diamond Tool",
+      "summary": "Category: DrawingTools | Target SVG: diamond.svg | Draw a diamond.",
+      "prompt": "Create the Diamond Tool icon for DepthPlan. Its interface role is: Draw a diamond.\n\nEmpty diamond outline with equal sides."
+    },
+    {
+      "id": "DistributeSpacingHorizontal",
+      "name": "Distribute Horizontally",
+      "summary": "Category: ObjectArrangement | Target SVG: distribute-spacing-horizontal.svg | Distribute objects horizontally.",
+      "prompt": "Create the Distribute Horizontally icon for DepthPlan. Its interface role is: Distribute objects horizontally.\n\nThree narrow vertical rectangles with visibly equal horizontal gaps.\n\nShow equal left-to-right gaps between three objects. Do not substitute a plain double-headed arrow or a text-alignment symbol."
+    },
+    {
+      "id": "DistributeSpacingVertical",
+      "name": "Distribute Vertically",
+      "summary": "Category: ObjectArrangement | Target SVG: distribute-spacing-vertical.svg | Distribute objects vertically.",
+      "prompt": "Create the Distribute Vertically icon for DepthPlan. Its interface role is: Distribute objects vertically.\n\nThree short horizontal rectangles with visibly equal vertical gaps.\n\nShow equal top-to-bottom gaps between three objects. Do not substitute a plain double-headed arrow or a text-alignment symbol."
+    },
+    {
+      "id": "Expand",
+      "name": "Fit or Expand View",
+      "summary": "Category: CanvasNavigation | Target SVG: expand.svg | Fit, reveal or expand the view.",
+      "prompt": "Create the Fit or Expand View icon for DepthPlan. Its interface role is: Fit, reveal or expand the view.\n\nFour short corner arrows pointing outward from the center."
+    },
+    {
+      "id": "File",
+      "name": "Document",
+      "summary": "Category: FileOperations | Target SVG: file.svg | New document / current-file indicator.",
+      "prompt": "Create the Document icon for DepthPlan. Its interface role is: New document / current-file indicator.\n\nPortrait document outline with one folded top corner.\n\nThis single master also replaces the current-file emoji. Keep it neutral and unmarked."
+    },
+    {
+      "id": "FileCode",
+      "name": "Export JSON",
+      "summary": "Category: FileOperations | Target SVG: file-code.svg | Export JSON.",
+      "prompt": "Create the Export JSON icon for DepthPlan. Its interface role is: Export JSON.\n\nDocument outline with a small pair of angle brackets inside.\n\nThe paired angle brackets are the entire interior mark. Do not draw the words JSON, SVG or any other label."
+    },
+    {
+      "id": "FileExport",
+      "name": "Export Image or Document",
+      "summary": "Category: FileOperations | Target SVG: file-export.svg | Export document or image.",
+      "prompt": "Create the Export Image or Document icon for DepthPlan. Its interface role is: Export document or image.\n\nDocument outline with a rightward arrow leaving its right edge."
+    },
+    {
+      "id": "FolderOpen",
+      "name": "Open Document",
+      "summary": "Category: FileOperations | Target SVG: folder-open.svg | Open a document.",
+      "prompt": "Create the Open Document icon for DepthPlan. Its interface role is: Open a document.\n\nOpen folder outline with a slightly angled front flap."
+    },
+    {
+      "id": "Frame",
+      "name": "Frame Tool",
+      "summary": "Category: DrawingTools | Target SVG: frame.svg | Draw a containing frame.",
+      "prompt": "Create the Frame Tool icon for DepthPlan. Its interface role is: Draw a containing frame.\n\nRectangular frame with reinforced corners and a small header gap; distinguish it from the plain square."
+    },
+    {
+      "id": "Hand",
+      "name": "Pan Hand",
+      "summary": "Category: DrawingTools | Target SVG: hand.svg | Pan canvas.",
+      "prompt": "Create the Pan Hand icon for DepthPlan. Its interface role is: Pan canvas.\n\nOpen palm with four fingers and a thumb; simplify details for small sizes.\n\nDraw a flat hand pictogram, not a realistic hand, skin, glove or anatomical illustration."
+    },
+    {
+      "id": "Italic",
+      "name": "Italic Text",
+      "summary": "Category: TextFormatting | Target SVG: italic.svg | Italic text.",
+      "prompt": "Create the Italic Text icon for DepthPlan. Its interface role is: Italic text.\n\nSlanted capital I with short top and bottom strokes.\n\nOnly the single slanted capital I is allowed; do not write the word Italic."
+    },
+    {
+      "id": "LayerGroup",
+      "name": "Depth Layers",
+      "summary": "Category: DepthAndHierarchy | Target SVG: layer-group.svg | Depth controls / batch view export.",
+      "prompt": "Create the Depth Layers icon for DepthPlan. Its interface role is: Depth controls / batch view export.\n\nThree offset stacked planes, with clear separation.\n\nSuggest a stack through offset flat outlines. Keep it a two-dimensional pictogram rather than a rendered three-dimensional object."
+    },
+    {
+      "id": "MagnifyingGlass",
+      "name": "Search Objects",
+      "summary": "Category: ApplicationControls | Target SVG: magnifying-glass.svg | Search objects.",
+      "prompt": "Create the Search Objects icon for DepthPlan. Its interface role is: Search objects.\n\nCircular lens with a short diagonal handle."
+    },
+    {
+      "id": "Map",
+      "name": "Minimap",
+      "summary": "Category: CanvasNavigation | Target SVG: map.svg | Toggle minimap.",
+      "prompt": "Create the Minimap icon for DepthPlan. Its interface role is: Toggle minimap.\n\nFolded three-panel map outline, no labels or pins.\n\nSuggest folds with simple flat divider lines. Do not draw perspective, geography, terrain, text or a realistic paper map."
+    },
+    {
+      "id": "Minus",
+      "name": "Minus or Line",
+      "summary": "Category: CanvasNavigation | Target SVG: minus.svg | Zoom out / draw a plain line.",
+      "prompt": "Create the Minus or Line icon for DepthPlan. Its interface role is: Zoom out / draw a plain line.\n\nSingle horizontal stroke centered vertically.\n\nKeep this one stroke usable both as a minus sign and as a plain line-tool symbol."
+    },
+    {
+      "id": "ObjectsAlignBottom",
+      "name": "Align Object Bottoms",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-bottom.svg | Align object bottoms.",
+      "prompt": "Create the Align Object Bottoms icon for DepthPlan. Its interface role is: Align object bottoms.\n\nTwo rectangles of different heights sitting on a common horizontal bottom guide.\n\nUse two outlined rectangles side by side and one guide below them, not text strokes."
+    },
+    {
+      "id": "ObjectsAlignCenterHorizontal",
+      "name": "Center Objects Horizontally",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-center-horizontal.svg | Center objects on the horizontal axis.",
+      "prompt": "Create the Center Objects Horizontally icon for DepthPlan. Its interface role is: Center objects on the horizontal axis.\n\nTwo rectangles of different widths, one above the other, centered on a vertical guide.\n\nHorizontal centering means matching the rectangles' left-to-right centers: place them above and below each other, with a vertical guide passing through both centers."
+    },
+    {
+      "id": "ObjectsAlignCenterVertical",
+      "name": "Center Objects Vertically",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-center-vertical.svg | Center objects on the vertical axis.",
+      "prompt": "Create the Center Objects Vertically icon for DepthPlan. Its interface role is: Center objects on the vertical axis.\n\nTwo rectangles of different heights side by side, centered on a horizontal guide.\n\nVertical centering means matching the rectangles' top-to-bottom centers: place them side by side, with a horizontal guide passing through both centers."
+    },
+    {
+      "id": "ObjectsAlignLeft",
+      "name": "Align Object Left Edges",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-left.svg | Align object left edges / arrange selection.",
+      "prompt": "Create the Align Object Left Edges icon for DepthPlan. Its interface role is: Align object left edges / arrange selection.\n\nTwo rectangles of different widths, one above the other, touching a left vertical guide.\n\nUse two outlined rectangles and one left guide, not paragraph-like text strokes."
+    },
+    {
+      "id": "ObjectsAlignRight",
+      "name": "Align Object Right Edges",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-right.svg | Align object right edges.",
+      "prompt": "Create the Align Object Right Edges icon for DepthPlan. Its interface role is: Align object right edges.\n\nTwo rectangles of different widths, one above the other, touching a right vertical guide.\n\nUse two outlined rectangles and one right guide, not paragraph-like text strokes."
+    },
+    {
+      "id": "ObjectsAlignTop",
+      "name": "Align Object Tops",
+      "summary": "Category: ObjectArrangement | Target SVG: objects-align-top.svg | Align object tops.",
+      "prompt": "Create the Align Object Tops icon for DepthPlan. Its interface role is: Align object tops.\n\nTwo rectangles of different heights hanging from a common horizontal top guide.\n\nUse two outlined rectangles side by side and one guide above them, not text strokes."
+    },
+    {
+      "id": "Plus",
+      "name": "Add or Zoom In",
+      "summary": "Category: CanvasNavigation | Target SVG: plus.svg | Zoom in / add bookmark / draw-shape action.",
+      "prompt": "Create the Add or Zoom In icon for DepthPlan. Its interface role is: Zoom in / add bookmark / draw-shape action.\n\nSimple plus with equal horizontal and vertical strokes.\n\nDo not surround the plus with a circle or add a separate object; this same master serves several add and zoom actions."
+    },
+    {
+      "id": "RotateLeft",
+      "name": "Undo",
+      "summary": "Category: History | Target SVG: rotate-left.svg | Undo.",
+      "prompt": "Create the Undo icon for DepthPlan. Its interface role is: Undo.\n\nCurved arrow pointing back toward the left, with no center point.\n\nThe arrowhead faces left. This is an undo action, not a circular refresh loop. Do not include the center point used by Reset Canvas View."
+    },
+    {
+      "id": "RotateRight",
+      "name": "Redo",
+      "summary": "Category: History | Target SVG: rotate-right.svg | Redo.",
+      "prompt": "Create the Redo icon for DepthPlan. Its interface role is: Redo.\n\nMirror of Undo, curved arrow pointing toward the right.\n\nThe arrowhead faces right. Match Undo in size and curvature as a mirrored partner, not a circular refresh loop."
+    },
+    {
+      "id": "Save",
+      "name": "Save",
+      "summary": "Category: FileOperations | Target SVG: save.svg | Save document or saved view.",
+      "prompt": "Create the Save icon for DepthPlan. Its interface role is: Save document or saved view.\n\nSimple diskette silhouette with one top slot and one lower label area."
+    },
+    {
+      "id": "Sliders",
+      "name": "Selection Properties",
+      "summary": "Category: ApplicationControls | Target SVG: sliders.svg | Selection properties.",
+      "prompt": "Create the Selection Properties icon for DepthPlan. Its interface role is: Selection properties.\n\nThree horizontal adjustment tracks with offset rounded slider knobs."
+    },
+    {
+      "id": "Square",
+      "name": "Rectangle Tool",
+      "summary": "Category: DrawingTools | Target SVG: square.svg | Draw a rectangle / empty-canvas hint.",
+      "prompt": "Create the Rectangle Tool icon for DepthPlan. Its interface role is: Draw a rectangle / empty-canvas hint.\n\nEmpty square outline with subtly rounded corners."
+    },
+    {
+      "id": "Underline",
+      "name": "Underline Text",
+      "summary": "Category: TextFormatting | Target SVG: underline.svg | Underline text.",
+      "prompt": "Create the Underline Text icon for DepthPlan. Its interface role is: Underline text.\n\nCapital U with a separate underline beneath it.\n\nOnly the single capital U and its underline are allowed; do not write the word Underline."
+    },
+    {
+      "id": "Xmark",
+      "name": "Close",
+      "summary": "Category: ApplicationControls | Target SVG: xmark.svg | Close panels and dialogs.",
+      "prompt": "Create the Close icon for DepthPlan. Its interface role is: Close panels and dialogs.\n\nTwo diagonal strokes crossing at their centers.\n\nThis master is reused by several dialogs and panels. Do not draw a close-button container."
+    }
+  ]
+}

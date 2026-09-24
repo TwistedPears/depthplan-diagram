@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DepthPlan",
+  "version": "0.1.0",
+  "identifier": "com.twistedpears.depthplan",
+  "build": {
+    "beforeDevCommand": "npm run build:renderer && node scripts/prepare-native.mjs --debug && node scripts/check-licenses.cjs && npm run dev:renderer",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:renderer && node scripts/prepare-native.mjs && node scripts/check-licenses.cjs",
+    "frontendDist": "../out/tauri-renderer"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["../assets/icon.png", "../assets/icon.icns", "../assets/icon.ico"],
+    "category": "DeveloperTool",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md",
+      "../COMMERCIAL-TERMS.md": "COMMERCIAL-TERMS.md",
+      "generated/RUST-LICENSES.json": "licenses/RUST-LICENSES.json",
+      "../out/tauri-renderer/THIRD-PARTY-LICENSES.json": "licenses/JAVASCRIPT-LICENSES.json"
+    },
+    "externalBin": ["binaries/depthplan-mcp"],
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    }
+  }
+}

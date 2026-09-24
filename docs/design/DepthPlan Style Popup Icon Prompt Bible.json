@@ -1,0 +1,281 @@
+{
+  "defaults": {
+    "mainStyle": {
+      "name": "Main Style",
+      "summary": "Companion bible for icon-only DepthPlan Style popup actions and property choices. Includes current object, line/arrow and boundary-point controls, plus requested Duplicate, Link, Corner Styles and Fill Type controls. Keep section headings, object names, breadcrumbs, numeric values and color swatches readable; replace action words with icons, tooltips and accessible names. Reuse entries identify existing masters; New entries need artwork; Planned controls describe requested additions, not implemented behavior. Sloppiness is excluded. Text-editor formatting and separate Properties/confirmation dialogs remain outside this Style popup inventory.",
+      "prompt": "Create one original monochrome interface icon for DepthPlan, a desktop diagram and architecture editor. Follow the selected asset prompt for its meaning and exact geometry. Produce a single raster master that will later be traced into SVG; do not output code, an SVG source listing, an application screenshot, or a UI mockup. Design original artwork from the described action rather than tracing or reproducing an existing icon library.\n\nUse precise geometric line art with rounded stroke ends and joins, clear negative space, and the optical weight of a 2-unit stroke on a 24-by-24 design grid. Keep line weight, corner treatment, scale, and padding consistent across the whole icon family. Prefer open outlines for shapes and containers. Simple arrowheads, lettering and small marks may use solid black where their meaning calls for it. The symbol must remain immediately recognizable when reduced to 16, 20 and 24 pixels. Distinguish object-alignment icons, which use rectangles and a guide, from text-alignment icons, which use short text-like strokes.\n\nRender the icon straight on as flat, two-dimensional artwork, using opaque black on a transparent background. Use a square 1024-by-1024 canvas. Center the complete symbol optically, keep it fully visible, and leave approximately 12.5 percent clear padding on each side. If transparency is unavailable, use a uniform pure-white background. Do not draw a checkerboard. There is no light source, material, environment or perspective. Do not add a button container, tile, badge or surrounding border unless that outline is part of the specified symbol.\n\nKeep contours crisp and simple for raster-to-vector conversion. Separate strokes or small disconnected elements are allowed when needed to express the icon, but avoid stray marks and tiny details. Preserve intentional holes and gaps. Generate only the requested asset, never a contact sheet or alternate versions. The target SVG filename in the asset summary is a naming reference, not text to draw. Create only the neutral icon; the application supplies hover, active and disabled colors. If an accepted icon from this set is supplied as a style reference, match its visual weight and corner treatment while preserving the new asset's own geometry.\n\nThis companion family belongs to the Style popup. Match the original DepthPlan icon family. The Excalidraw reference informs recognizable control meanings and compact grouping only; create original glyph geometry, not a copy of its artwork or interface. Descriptions such as Control, Status, Reuse and Planned are catalog metadata, never text to draw. Icon-only buttons still receive application-supplied tooltips and accessible names; do not bake these labels into the image. Reveal/Hide controls use aria-expanded, property choices use a selected state, and disabled actions retain their accessible names.\n\nExplicit property previews override the default weight or corner treatment only where required: the three stroke-width samples use 1.5, 3 and 5 units on the same 24-unit grid; sharp-corner previews have true square corners; fill hatching is clean, widely spaced geometric linework, not surface texture; solid fill and filled endpoint markers use opaque black interiors. The Edit Text icon may contain one capital T as its symbol. Outline markers have an empty interior without a shaft running through it. A line sample is one complete icon, even when its geometry is simpler than an action icon. Connector marker masters face right to preview the end marker; mirror the same artwork horizontally to preview the start marker. Do not generate separate left-facing assets. These are menu-choice previews, not replacements for live canvas connector geometry."
+    },
+    "mainNegatives": {
+      "name": "Main Negatives",
+      "summary": "Shared exclusions that keep the icon family monochrome, readable at small sizes, and easy to vectorize.",
+      "prompt": "No photographs, realistic objects, 3D, isometric or perspective views, scenery, people, materials, gradients, shadows, glow, bevels or decorative color. No gray interiors, blur, rough sketching, sloppiness, distressed surfaces, halftone or decorative texture. Only the selected Fill Hachure or Fill Cross Hatch asset may contain the intentional geometric hatch pattern specified in its prompt. Normal edge antialiasing is acceptable; keep all visible interior artwork opaque black. No accidental hairlines or excessive detail; the deliberately thin stroke-width preview is allowed.\n\nNo words, labels, captions, filenames, numbers, signatures, logos, watermarks, application screenshots, button tiles, UI mockups, grids, contact sheets or alternative versions. Only the Edit Text asset may contain a single capital T as the icon itself. No sloppiness-control icons. No photographic or hand-drawn texture in fill previews. Do not draw transparency checkerboards, selection highlights, hover colors or disabled variants.\n\nNo surrounding border unless it is part of the specified glyph. No background objects, cropped arrowheads, cut-off outlines, unbalanced padding or stray marks. Do not reverse layer arrows or endpoint direction. Do not confuse Duplicate with Layers, Link with an arrow connector, Add Child with Duplicate, Add Boundary Point with Add Child, Deselect with Delete, or shape corner style with connector path type. Do not turn hatch fill into dotted fill. Do not fill outline endpoint markers or put white-on-black button backgrounds behind them."
+    }
+  },
+  "zones": [],
+  "assets": [
+    {
+      "id": "ChevronRight",
+      "name": "Reveal Children",
+      "summary": "Category: StyleNavigation | Target SVG: chevron-right.svg | Control: Reveal children / Hide children; Hide selection controls; parent-path separator | Status: Reuse existing master.",
+      "prompt": "Create the Reveal Children icon for DepthPlan. Its interface role is: Breadcrumb / reveal children.\n\nSimple right-pointing chevron.\n\nGenerate the right-facing master only. The application rotates it clockwise 90 degrees to point down when children are expanded.\n\nStyle popup use: Reveal children / Hide children; Hide selection controls; parent-path separator. Use the right-facing master for collapsed children and rotate it 90 degrees clockwise for expanded children. Panel collapse keeps the right-facing version. The application supplies child counts in tooltips or adjacent count badges; do not draw numbers. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "Sliders",
+      "name": "Selection Properties",
+      "summary": "Category: StyleActions | Target SVG: sliders.svg | Control: Properties; Point properties; Show selection controls | Status: Reuse existing master.",
+      "prompt": "Create the Selection Properties icon for DepthPlan. Its interface role is: Selection properties.\n\nThree horizontal adjustment tracks with offset rounded slider knobs.\n\nStyle popup use: Properties; Point properties; Show selection controls. Share this master across object, connector and selected-boundary-point properties. Context and the tooltip distinguish the targets; do not generate nearly identical variants. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "EditText",
+      "name": "Edit Text",
+      "summary": "Category: StyleActions | Target SVG: edit-text.svg | Control: Edit text / Edit connector label | Status: New asset for existing control.",
+      "prompt": "Create the Edit Text icon for DepthPlan. Its interface role is: Edit text / Edit connector label.\n\nOne upright capital T with a broad top stroke and centered vertical stem, paired with a slim I-beam text cursor immediately to its right. Keep a clear gap between the T and the cursor. The cursor has short top and bottom caps and the same visual weight as the family.\n\nOnly the single capital T is lettering. No word, paragraph, page outline, pencil or button tile. This edits the selected object text or connector label; it is not a text-alignment control."
+    },
+    {
+      "id": "AddChild",
+      "name": "Add Child",
+      "summary": "Category: StyleActions | Target SVG: add-child.svg | Control: Add child to selected object | Status: New asset for existing control.",
+      "prompt": "Create the Add Child icon for DepthPlan. Its interface role is: Add child to selected object.\n\nA large unfilled parent rectangle containing a smaller unfilled child rectangle in its lower-left interior. Place a compact plus in the upper-right interior, separated from both outlines. Keep the child entirely inside the parent.\n\nCommunicate containment and addition. Do not use two overlapping peer rectangles, which would mean Duplicate, or a dot on the parent edge, which would mean Add Boundary Point."
+    },
+    {
+      "id": "AddBoundaryPoint",
+      "name": "Add Boundary Point",
+      "summary": "Category: StyleActions | Target SVG: add-boundary-point.svg | Control: Add boundary point to selected object | Status: New asset for existing control.",
+      "prompt": "Create the Add Boundary Point icon for DepthPlan. Its interface role is: Add boundary point to selected object.\n\nAn unfilled object rectangle with a small outlined circular port centered on its right edge. Interrupt the rectangle edge beneath the port so the port stays legible. Put a small plus just beyond the upper-right side with clear separation from the port.\n\nThe circular port sits on the boundary, not inside the rectangle. No child rectangle and no line extending from the port. Keep the circle and plus visible at small sizes."
+    },
+    {
+      "id": "ConnectInside",
+      "name": "Connect Inside",
+      "summary": "Category: StyleActions | Target SVG: connect-inside.svg | Control: Connect inside from selected boundary point | Status: New asset for existing control.",
+      "prompt": "Create the Connect Inside icon for DepthPlan. Its interface role is: Connect inside from selected boundary point.\n\nA parent rectangle enclosing one smaller child rectangle. Put a small open circular port at the midpoint of the parent left edge. Draw a short horizontal connection inward from that port to the child left edge, with one small right-pointing open arrowhead at the child. Leave the port interior clear.\n\nBoth the child and connection remain inside the parent. This creates an internal connection, not a web link, a duplicate object, or a connection leaving the container."
+    },
+    {
+      "id": "ReattachChildEndpoint",
+      "name": "Reattach Child Endpoint",
+      "summary": "Category: StyleActions | Target SVG: reattach-child-endpoint.svg | Control: Reattach child endpoint of a boundary connector | Status: New asset for existing control.",
+      "prompt": "Create the Reattach Child Endpoint icon for DepthPlan. Its interface role is: Reattach child endpoint of a boundary connector.\n\nA short horizontal connector enters from the left and ends at a small outlined circular endpoint near the center. A separate small target rectangle sits at the lower right. A short bent arrow leads from beside the circular endpoint down and right toward the target rectangle, ending just before its left edge.\n\nKeep the connector endpoint, bent relocation arrow and target distinct. Use only one target and one movement arrow. This moves an existing child endpoint; do not use a chain link or the circular Undo arrow."
+    },
+    {
+      "id": "Duplicate",
+      "name": "Duplicate",
+      "summary": "Category: StyleActions | Target SVG: duplicate.svg | Control: Duplicate selected object or selection | Status: New asset for planned control.",
+      "prompt": "Create the Duplicate icon for DepthPlan. Its interface role is: Duplicate selected object or selection.\n\nTwo equal unfilled squares offset diagonally: rear square toward the upper left, front square toward the lower right. Hide only the rear segments occluded by the front square, keeping two distinct outlines and a clear offset.\n\nNo plus, page fold, text lines or stack of three planes. The two peer shapes mean Duplicate, not Add Child or Layers."
+    },
+    {
+      "id": "Delete",
+      "name": "Delete",
+      "summary": "Category: StyleActions | Target SVG: delete.svg | Control: Delete selected; Delete boundary point when a point is selected | Status: New asset for existing control.",
+      "prompt": "Create the Delete icon for DepthPlan. Its interface role is: Delete selected; Delete boundary point when a point is selected.\n\nA simple upright trash bin: slightly tapered unfilled body, separate horizontal lid, short centered lid handle, and two short vertical interior strokes. Use the family line weight and restrained rounded ends.\n\nNo cross, badge, recycling arrows or red color. Reuse this one master for object, connector and boundary-point deletion; the application supplies the context-specific tooltip and any confirmation."
+    },
+    {
+      "id": "Link",
+      "name": "Link",
+      "summary": "Category: StyleActions | Target SVG: link.svg | Control: Add or edit a link on the selected item | Status: New asset for planned control.",
+      "prompt": "Create the Link icon for DepthPlan. Its interface role is: Add or edit a link on the selected item.\n\nTwo short interlocking oblong chain links aligned along a lower-left to upper-right diagonal. Each link is an open rounded outline with a clean gap at the interlock, making the two joined pieces readable. Keep the overall symbol compact.\n\nNo globe, lettering, external-link arrow, node graph or arrowhead. This is a hyperlink action and must remain distinct from diagram connectors."
+    },
+    {
+      "id": "SelectVisible",
+      "name": "Select Visible",
+      "summary": "Category: StyleActions | Target SVG: select-visible.svg | Control: Select visible objects and connectors | Status: New asset for existing control.",
+      "prompt": "Create the Select Visible icon for DepthPlan. Its interface role is: Select visible objects and connectors.\n\nFour open L-shaped selection corners enclosing two small unfilled rectangles offset diagonally with clear space between them. Leave the selection-frame sides open rather than drawing a continuous box.\n\nThe frame groups the visible items. No eye, checkmark, plus, cursor or filled background. Hidden descendants are not depicted as selected."
+    },
+    {
+      "id": "Deselect",
+      "name": "Deselect",
+      "summary": "Category: StyleActions | Target SVG: deselect.svg | Control: Deselect / Clear selection | Status: New asset for existing control.",
+      "prompt": "Create the Deselect icon for DepthPlan. Its interface role is: Deselect / Clear selection.\n\nFour open L-shaped selection corners matching Select Visible, with an otherwise empty center crossed by one diagonal slash from lower left to upper right. Keep the slash clear of the four corner marks.\n\nNo trash bin and no standalone X. This clears selection without deleting items; preserve the selection-corner motif so it is distinguishable from Close and Delete."
+    },
+    {
+      "id": "StrokeWidthThin",
+      "name": "Thin Stroke",
+      "summary": "Category: StrokeWidth | Target SVG: stroke-width-thin.svg | Control: Thin Stroke (1.5) | Status: New asset for existing control.",
+      "prompt": "Create the Thin Stroke icon for DepthPlan. Its interface role is: Thin Stroke (1.5).\n\nOne horizontal line centered vertically, spanning design-grid x=3 through x=21 at y=12, with rounded caps and a thickness of 1.5 units on a 24-by-24 grid. This is the lightest of the three samples.\n\nMatch the other two stroke-width samples in center, centerline length, canvas scale and padding. Only thickness changes. No arrowhead, second line, number, letter or border. Do not normalize all three to the default 2-unit weight."
+    },
+    {
+      "id": "StrokeWidthMedium",
+      "name": "Medium Stroke",
+      "summary": "Category: StrokeWidth | Target SVG: stroke-width-medium.svg | Control: Medium Stroke (3) | Status: New asset for existing control.",
+      "prompt": "Create the Medium Stroke icon for DepthPlan. Its interface role is: Medium Stroke (3).\n\nOne horizontal line centered vertically, spanning design-grid x=3 through x=21 at y=12, with rounded caps and a thickness of 3 units on a 24-by-24 grid. This is exactly twice the thin sample thickness.\n\nMatch the other two stroke-width samples in center, centerline length, canvas scale and padding. Only thickness changes. No arrowhead, second line, number, letter or border. Do not normalize all three to the default 2-unit weight."
+    },
+    {
+      "id": "StrokeWidthThick",
+      "name": "Thick Stroke",
+      "summary": "Category: StrokeWidth | Target SVG: stroke-width-thick.svg | Control: Thick Stroke (5) | Status: New asset for existing control.",
+      "prompt": "Create the Thick Stroke icon for DepthPlan. Its interface role is: Thick Stroke (5).\n\nOne horizontal line centered vertically, spanning design-grid x=3 through x=21 at y=12, with rounded caps and a thickness of 5 units on a 24-by-24 grid. This is five-thirds of the medium sample thickness.\n\nMatch the other two stroke-width samples in center, centerline length, canvas scale and padding. Only thickness changes. No arrowhead, second line, number, letter or border. Do not normalize all three to the default 2-unit weight."
+    },
+    {
+      "id": "Minus",
+      "name": "Minus or Line",
+      "summary": "Category: StrokeStyle | Target SVG: minus.svg | Control: Solid stroke; connector marker none | Status: Reuse existing master.",
+      "prompt": "Create the Minus or Line icon for DepthPlan. Its interface role is: Zoom out / draw a plain line.\n\nSingle horizontal stroke centered vertically.\n\nKeep this one stroke usable both as a minus sign and as a plain line-tool symbol.\n\nStyle popup use: Solid stroke; connector marker none. For solid stroke, use the plain horizontal line. For marker value none, the same line previews a bare endpoint with no terminal glyph. It stays unchanged when mirrored for the start marker. This shared geometry needs no second generated asset. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "StrokeDashed",
+      "name": "Dashed Stroke",
+      "summary": "Category: StrokeStyle | Target SVG: stroke-dashed.svg | Control: Dashed stroke | Status: New asset for existing control.",
+      "prompt": "Create the Dashed Stroke icon for DepthPlan. Its interface role is: Dashed stroke.\n\nOne horizontal row of three equal rounded dashes, centered vertically and evenly spaced across the same optical width as the solid stroke preview. Use the normal 2-unit family weight, with clear gaps approximately half a dash long.\n\nExactly three dashes in one row. No arrowheads, enclosing shape, extra row or irregular sketching."
+    },
+    {
+      "id": "StrokeDotted",
+      "name": "Dotted Stroke",
+      "summary": "Category: StrokeStyle | Target SVG: stroke-dotted.svg | Control: Dotted stroke | Status: New asset for existing control.",
+      "prompt": "Create the Dotted Stroke icon for DepthPlan. Its interface role is: Dotted stroke.\n\nOne horizontal row of five equal solid circular dots, centered vertically and evenly spaced across the same optical width as the dashed stroke preview. Keep each dot round and each gap clearly open.\n\nExactly five dots, not short dashes or an ellipsis label. No arrowhead, border or second row."
+    },
+    {
+      "id": "CornerSharp",
+      "name": "Sharp Corners",
+      "summary": "Category: CornerStyles | Target SVG: corner-sharp.svg | Control: Corner style: sharp / zero radius | Status: New asset for planned control.",
+      "prompt": "Create the Sharp Corners icon for DepthPlan. Its interface role is: Corner style: sharp / zero radius.\n\nA simple unfilled square with four true 90-degree corners and straight sides. Use the normal family stroke weight. Keep its outer dimensions identical to the Rounded Corners preview.\n\nThe square corners deliberately override the family rounded joins. No diagonal chamfer, curved corner, arrow, internal marks or separate button tile. This controls object corners, not line routing."
+    },
+    {
+      "id": "CornerRounded",
+      "name": "Rounded Corners",
+      "summary": "Category: CornerStyles | Target SVG: corner-rounded.svg | Control: Corner style: rounded | Status: New asset for planned control.",
+      "prompt": "Create the Rounded Corners icon for DepthPlan. Its interface role is: Corner style: rounded.\n\nAn unfilled square with four clearly rounded quarter-circle corners, using an approximately 4-unit corner radius on the 24-unit design grid. Keep its outer dimensions and line weight identical to Sharp Corners.\n\nMake the rounding visible at 16 pixels; a barely softened square is insufficient. No capsule, circle, internal marks, arrows or additional enclosing tile."
+    },
+    {
+      "id": "FillNone",
+      "name": "No Fill",
+      "summary": "Category: FillType | Target SVG: fill-none.svg | Control: Fill type: none / transparent | Status: New asset for planned control.",
+      "prompt": "Create the No Fill icon for DepthPlan. Its interface role is: Fill type: none / transparent.\n\nAn unfilled square with a single clean diagonal slash rising from lower left to upper right inside it. Use the same square size and outline weight as the other fill-type previews. The interior outside the slash remains transparent.\n\nNo checkerboard, gray tint, hatch pattern or crossed second slash. The square is the fill sample itself, not a button container. This describes no painted interior, not zero overall object opacity."
+    },
+    {
+      "id": "FillHachure",
+      "name": "Hachure Fill",
+      "summary": "Category: FillType | Target SVG: fill-hachure.svg | Control: Fill type: diagonal hachure | Status: New asset for planned control.",
+      "prompt": "Create the Hachure Fill icon for DepthPlan. Its interface role is: Fill type: diagonal hachure.\n\nA small square outline containing four evenly spaced parallel diagonal hatch strokes rising from lower left to upper right. Clip the strokes neatly at the interior boundary and leave generous clear gaps. Use the same sample size as the other fill-type previews.\n\nIntentional geometric hatching is allowed. Only one diagonal direction; no crossing strokes, roughness, stipple, gray fill or texture. Keep the outline and hatches separable at small sizes."
+    },
+    {
+      "id": "FillCrossHatch",
+      "name": "Cross Hatch Fill",
+      "summary": "Category: FillType | Target SVG: fill-cross-hatch.svg | Control: Fill type: cross hatch | Status: New asset for planned control.",
+      "prompt": "Create the Cross Hatch Fill icon for DepthPlan. Its interface role is: Fill type: cross hatch.\n\nA small square outline containing two sparse sets of evenly spaced diagonal strokes, three rising and three falling, forming a simple open diamond lattice. Clip all strokes neatly inside the square. Match the Hachure Fill sample size and stroke weight.\n\nBoth diagonal directions must be visible. Preserve open cells at 16 pixels; no dense mesh, scribble, irregular texture, checkerboard blocks, dots or gray fill."
+    },
+    {
+      "id": "FillSolid",
+      "name": "Solid Fill",
+      "summary": "Category: FillType | Target SVG: fill-solid.svg | Control: Fill type: solid | Status: New asset for planned control.",
+      "prompt": "Create the Solid Fill icon for DepthPlan. Its interface role is: Fill type: solid.\n\nOne completely filled opaque-black square, with the same outer dimensions and corner treatment as the other fill-type previews. Its uninterrupted interior is the whole meaning of the icon.\n\nSolid black is intentional for this preview. No hatch strokes, diagonal slash, interior hole, gray color, gradient or second enclosing border."
+    },
+    {
+      "id": "ArrowDownToLine",
+      "name": "Send to Back",
+      "summary": "Category: Layers | Target SVG: arrow-down-to-line.svg | Control: Send to back | Status: Reuse existing master.",
+      "prompt": "Create the Send to Back icon for DepthPlan. Its interface role is: Send to back.\n\nDownward arrow ending at a horizontal stop bar.\n\nThe stop bar means the backmost layer. Keep it separate from the arrow tip by a small clear gap; do not turn it into a download tray.\n\nStyle popup use: Send to back. Use the same master for objects, lines and arrows, including connectors attached to other objects. An attached connector has its own layer value; no attachment-specific layer icon is needed. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "ArrowDown",
+      "name": "Send Backward",
+      "summary": "Category: Layers | Target SVG: arrow-down.svg | Control: Send backward one layer | Status: Reuse existing master.",
+      "prompt": "Create the Send Backward icon for DepthPlan. Its interface role is: Send backward one layer.\n\nSingle downward arrow; no end bar.\n\nThis means one step backward in the layer stack. Do not add a stop bar or download tray.\n\nStyle popup use: Send backward one layer. Use the same master for objects, lines and arrows, including connectors attached to other objects. An attached connector has its own layer value; no attachment-specific layer icon is needed. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "ArrowUp",
+      "name": "Bring Forward",
+      "summary": "Category: Layers | Target SVG: arrow-up.svg | Control: Bring forward one layer | Status: Reuse existing master.",
+      "prompt": "Create the Bring Forward icon for DepthPlan. Its interface role is: Bring forward one layer.\n\nSingle upward arrow; no end bar.\n\nThis means one step forward in the layer stack. Do not add a stop bar or upload tray.\n\nStyle popup use: Bring forward one layer. Use the same master for objects, lines and arrows, including connectors attached to other objects. An attached connector has its own layer value; no attachment-specific layer icon is needed. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "ArrowUpToLine",
+      "name": "Bring to Front",
+      "summary": "Category: Layers | Target SVG: arrow-up-to-line.svg | Control: Bring to front | Status: Reuse existing master.",
+      "prompt": "Create the Bring to Front icon for DepthPlan. Its interface role is: Bring to front.\n\nUpward arrow ending at a horizontal stop bar.\n\nThe stop bar means the frontmost layer. Keep it separate from the arrow tip by a small clear gap; do not turn it into an upload tray.\n\nStyle popup use: Bring to front. Use the same master for objects, lines and arrows, including connectors attached to other objects. An attached connector has its own layer value; no attachment-specific layer icon is needed. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "PathStraight",
+      "name": "Straight Path",
+      "summary": "Category: ConnectorPath | Target SVG: path-straight.svg | Control: Line type: Straight (value sharp) | Status: New asset for existing control.",
+      "prompt": "Create the Straight Path icon for DepthPlan. Its interface role is: Line type: Straight (value sharp).\n\nA single straight diagonal segment running from lower left to upper right, with one small solid endpoint dot at each end. Leave the middle perfectly straight and use the standard family weight.\n\nNo arrowheads, bend or surrounding shape. Match endpoint positions and dot sizes with Curved Path and Elbow Path. The value sharp means straight connector routing, not square object corners."
+    },
+    {
+      "id": "PathCurved",
+      "name": "Curved Path",
+      "summary": "Category: ConnectorPath | Target SVG: path-curved.svg | Control: Line type: Curved (value curved) | Status: New asset for existing control.",
+      "prompt": "Create the Curved Path icon for DepthPlan. Its interface role is: Line type: Curved (value curved).\n\nOne smooth S-like connector curve between a lower-left solid endpoint dot and an upper-right solid endpoint dot. The curve starts and ends roughly horizontal and has a gentle continuous transition without cusps. Use the standard family weight.\n\nMatch endpoint positions and dot sizes with Straight Path and Elbow Path. No arrowheads, extra control handles, multiple curves, wavy sketching or circular loop."
+    },
+    {
+      "id": "PathElbow",
+      "name": "Elbow Path",
+      "summary": "Category: ConnectorPath | Target SVG: path-elbow.svg | Control: Line type: Elbow (value elbow) | Status: New asset for existing control.",
+      "prompt": "Create the Elbow Path icon for DepthPlan. Its interface role is: Line type: Elbow (value elbow).\n\nOne orthogonal stepped connector between lower-left and upper-right solid endpoint dots: horizontal to the center, vertical upward, then horizontal to the final dot. Use two clear 90-degree bends and the standard family weight.\n\nMatch endpoint positions and dot sizes with Straight Path and Curved Path. No diagonal segments, rounded routing, arrowheads or extra branches."
+    },
+    {
+      "id": "ArrowRight",
+      "name": "Arrow Connector",
+      "summary": "Category: ConnectorMarkers | Target SVG: arrow-right.svg | Control: Start / End marker: Arrow (value arrow) | Status: Reuse existing master.",
+      "prompt": "Create the Arrow Connector icon for DepthPlan. Its interface role is: Draw an arrow connector.\n\nThin horizontal line with one arrowhead on the right.\n\nStyle popup use: Start / End marker: Arrow (value arrow). Use a horizontal shaft with a single open right-facing chevron at its terminal end. Mirror horizontally for the start selector. Do not fill the chevron into a triangle. Reuse the accepted original master when available; this prompt is for regeneration only."
+    },
+    {
+      "id": "MarkerBar",
+      "name": "Bar Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-bar.svg | Control: Start / End marker: Bar / Crowfoot one / Cardinality one (values bar, crowfoot_one, cardinality_one) | Status: New asset for existing control.",
+      "prompt": "Create the Bar Marker icon for DepthPlan. Its interface role is: Start / End marker: Bar / Crowfoot one / Cardinality one (values bar, crowfoot_one, cardinality_one).\n\nA short horizontal shaft ending at the midpoint of one vertical terminal bar. The bar extends equally above and below the shaft. Use one bar only. These three current options share the same rendered geometry, so reuse this master for each.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerCircleFilled",
+      "name": "Filled Circle Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-circle-filled.svg | Control: Start / End marker: Circle (value circle) | Status: New asset for existing control.",
+      "prompt": "Create the Filled Circle Marker icon for DepthPlan. Its interface role is: Start / End marker: Circle (value circle).\n\nA short horizontal shaft ending at the left edge of one solid black circular terminal. Keep the circle visibly round, approximately 7 units in diameter on the 24-unit grid, and centered on the shaft.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerCircleOutline",
+      "name": "Outline Circle Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-circle-outline.svg | Control: Start / End marker: Circle outline (value circle_outline) | Status: New asset for existing control.",
+      "prompt": "Create the Outline Circle Marker icon for DepthPlan. Its interface role is: Start / End marker: Circle outline (value circle_outline).\n\nA short horizontal shaft ending at the left edge of one unfilled circular terminal, approximately 7 units in diameter on the 24-unit grid. Stop the shaft at the outline so the circular interior remains empty. Match Filled Circle Marker in size and placement.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerTriangleFilled",
+      "name": "Filled Triangle Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-triangle-filled.svg | Control: Start / End marker: Triangle (value triangle) | Status: New asset for existing control.",
+      "prompt": "Create the Filled Triangle Marker icon for DepthPlan. Its interface role is: Start / End marker: Triangle (value triangle).\n\nA short horizontal shaft leading into the center of the vertical base of one solid black right-pointing triangle. Use a broad, simple triangular head, approximately 8 units long and 9 units tall on the 24-unit grid.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerTriangleOutline",
+      "name": "Outline Triangle Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-triangle-outline.svg | Control: Start / End marker: Triangle outline (value triangle_outline) | Status: New asset for existing control.",
+      "prompt": "Create the Outline Triangle Marker icon for DepthPlan. Its interface role is: Start / End marker: Triangle outline (value triangle_outline).\n\nA short horizontal shaft ending at the midpoint of the vertical base of one unfilled right-pointing triangle. Keep all three sides closed and the interior empty, with no shaft through it. Match Filled Triangle Marker in size and placement.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerDiamondFilled",
+      "name": "Filled Diamond Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-diamond-filled.svg | Control: Start / End marker: Diamond (value diamond) | Status: New asset for existing control.",
+      "prompt": "Create the Filled Diamond Marker icon for DepthPlan. Its interface role is: Start / End marker: Diamond (value diamond).\n\nA short horizontal shaft ending at the left point of one solid black diamond terminal. Center the diamond on the shaft and use four equal sloping sides. Keep its overall height comparable to the triangle previews.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerDiamondOutline",
+      "name": "Outline Diamond Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-diamond-outline.svg | Control: Start / End marker: Diamond outline (value diamond_outline) | Status: New asset for existing control.",
+      "prompt": "Create the Outline Diamond Marker icon for DepthPlan. Its interface role is: Start / End marker: Diamond outline (value diamond_outline).\n\nA short horizontal shaft ending at the left point of one unfilled diamond terminal. Keep four clearly defined sides and an empty interior with no shaft through it. Match Filled Diamond Marker in size and placement.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerMany",
+      "name": "Many Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-many.svg | Control: Start / End marker: Crowfoot many / Cardinality many (values crowfoot_many, cardinality_many) | Status: New asset for existing control.",
+      "prompt": "Create the Many Marker icon for DepthPlan. Its interface role is: Start / End marker: Crowfoot many / Cardinality many (values crowfoot_many, cardinality_many).\n\nA horizontal shaft approaching from the left, branching near the right into three open prongs: upper-right diagonal, horizontal-right and lower-right diagonal. All three prong tips end on the same vertical line. This is an open crowfoot, never a filled triangle. The two current options share this geometry.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerOneOrMany",
+      "name": "One or Many Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-one-or-many.svg | Control: Start / End marker: Crowfoot one or many / Cardinality one or many (values crowfoot_one_or_many, cardinality_one_or_many) | Status: New asset for existing control.",
+      "prompt": "Create the One or Many Marker icon for DepthPlan. Its interface role is: Start / End marker: Crowfoot one or many / Cardinality one or many (values crowfoot_one_or_many, cardinality_one_or_many).\n\nA horizontal shaft crosses one short vertical bar, then continues across a clear gap into a right-facing three-prong crowfoot. Place the bar to the left of the crowfoot branching point. Keep the bar, branch junction and prong tips visually separate. The two current options share this geometry.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerExactlyOne",
+      "name": "Exactly One Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-exactly-one.svg | Control: Start / End marker: Cardinality exactly one (value cardinality_exactly_one) | Status: New asset for existing control.",
+      "prompt": "Create the Exactly One Marker icon for DepthPlan. Its interface role is: Start / End marker: Cardinality exactly one (value cardinality_exactly_one).\n\nA horizontal shaft ending in two separated parallel vertical bars, both centered on the shaft and equal in height. Leave a generous clear gap between the bars. Exactly two bars; no circle, arrowhead or branching prongs.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerZeroOrOne",
+      "name": "Zero or One Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-zero-or-one.svg | Control: Start / End marker: Cardinality zero or one (value cardinality_zero_or_one) | Status: New asset for existing control.",
+      "prompt": "Create the Zero or One Marker icon for DepthPlan. Its interface role is: Start / End marker: Cardinality zero or one (value cardinality_zero_or_one).\n\nA horizontal shaft approaching a small open circle, followed by a clear gap and one vertical terminal bar on the right. Center the circle and bar on the shaft. Interrupt the shaft inside the open circle so its center stays empty. Keep the circle and bar distinctly separated.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    },
+    {
+      "id": "MarkerZeroOrMany",
+      "name": "Zero or Many Marker",
+      "summary": "Category: ConnectorMarkers | Target SVG: marker-zero-or-many.svg | Control: Start / End marker: Cardinality zero or many (value cardinality_zero_or_many) | Status: New asset for existing control.",
+      "prompt": "Create the Zero or Many Marker icon for DepthPlan. Its interface role is: Start / End marker: Cardinality zero or many (value cardinality_zero_or_many).\n\nA horizontal shaft approaching a small open circle, followed by a clear gap and a right-facing three-prong crowfoot. Put the circle to the left of the branching point. Interrupt the shaft inside the circle and keep the ring, junction and three prong tips distinct.\n\nPreview one right-facing connector end with a horizontal shaft entering from the left. Keep the terminal glyph inside the same visual envelope as the other marker previews. Mirror this master horizontally for the start selector. No letters, numbers, endpoint names or surrounding button. "
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "identifier": "main",
+  "description": "Only the local DepthPlan editor may call the native bridge.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-desktop",
+    "allow-desktop-binary",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

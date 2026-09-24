@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.029228249,0,0,0.029228249,-2.618063975,0.104104931)">
+    <path d="M 120,646 V 170 c 0,-28 22,-50 50,-50 h 141 q 22,0 35,16 l 40,49 q 16,21 38,21 h 332 q 41,0 41,41 v 106" fill="none" stroke="currentColor" stroke-width="60.019772" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="m 166,694 h 570 q 33,0 45,-32 l 98,-289 q 7,-20 -14,-20 H 236 q -24,0 -32,23 l -81,266 c -11,24 11,52 43,52 z" fill="none" stroke="currentColor" stroke-width="60.019772" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

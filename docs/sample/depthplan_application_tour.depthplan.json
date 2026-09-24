@@ -1,0 +1,7779 @@
+{
+  "formatVersion": 2,
+  "id": "d12ff5e4-354a-456f-ad35-9f4f3f3558c6",
+  "metadata": {
+    "title": "Untitled Document",
+    "created": "2026-09-21T03:48:24.846Z",
+    "modified": "2026-09-21T05:10:05.300Z"
+  },
+  "objects": {
+    "guide": {
+      "id": "guide",
+      "parentId": null,
+      "type": "rectangle",
+      "name": "START HERE • DepthPlan feature tour",
+      "content": [
+        {
+          "type": "heading",
+          "level": 1,
+          "runs": [
+            {
+              "text": "DepthPlan, explained with DepthPlan"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "A working application map and a hands-on sample. Every diagram object, connection and saved view was authored through the live MCP server."
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Open Bookmarks and start with 01 • System overview."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Continue through architecture, deep implementation, rich text, code languages and connection notation."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Select a container to change its depth or collapse one branch. Use Undo to explore safely."
+                  }
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Saved views retain depth, branch visibility, positions, sizes and camera. Text and style edits are shared across every view.",
+              "marks": {
+                "italic": true
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 1000,
+        "y": -80,
+        "width": 1400,
+        "height": 340,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eef5ff",
+        "stroke": "#3569aa",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "app": {
+      "id": "app",
+      "parentId": null,
+      "type": "frame",
+      "name": "DepthPlan desktop",
+      "content": [
+        {
+          "type": "heading",
+          "level": 1,
+          "runs": [
+            {
+              "text": "One diagram. Many audiences."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Tauri desktop application for recursive diagrams, rich documentation and audience-specific saved views."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Renderer → domain transactions → typed Tauri bridge → native files and local MCP."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "D0: system context • D1: subsystems • D2: modules • D3: implementation"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 1000,
+        "y": 650,
+        "width": 650,
+        "height": 440,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#f4f7fc",
+        "stroke": "#3569aa",
+        "strokeWidth": 3,
+        "cornerRadius": 12
+      },
+      "boundaryPoints": {
+        "agent-input": {
+          "side": "left",
+          "offset": 0.5
+        },
+        "file-output": {
+          "side": "right",
+          "offset": 0.5
+        }
+      }
+    },
+    "agent": {
+      "id": "agent",
+      "parentId": null,
+      "type": "ellipse",
+      "name": "Local MCP client",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Agent or tool"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Discovers 25 tools through a stdio adapter."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Reads current session and revisions before requesting atomic edits."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 650,
+        "width": 420,
+        "height": 350,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#f0eaff",
+        "stroke": "#7b52a0",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "files": {
+      "id": "files",
+      "parentId": null,
+      "type": "rectangle",
+      "name": "Local document storage",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Portable documents"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": ".depthplan.json • schema v2"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Save / Save As / reopen"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "SVG, PNG and JSON export"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Recovery checkpoints belong to the app."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 2000,
+        "y": 650,
+        "width": 460,
+        "height": 350,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#e9f5ed",
+        "stroke": "#3e8060",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich": {
+      "id": "rich",
+      "parentId": null,
+      "type": "frame",
+      "name": "Rich text & shape gallery",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Readable documentation"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Headings, marked text, links, lists, quotes and aligned paragraphs."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Rectangle, ellipse, diamond and frame styles."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 1350,
+        "width": 550,
+        "height": 400,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fff5df",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code": {
+      "id": "code",
+      "parentId": null,
+      "type": "frame",
+      "name": "Code language gallery",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Twelve code languages"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "JavaScript, TypeScript, JSON, YAML, Python, SQL, Bash, C#, Java, HTML, CSS and plain text."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Examples are illustrative snippets, not executable application configuration."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 750,
+        "y": 1350,
+        "width": 600,
+        "height": 400,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eef3f8",
+        "stroke": "#536b8e",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "notation": {
+      "id": "notation",
+      "parentId": null,
+      "type": "frame",
+      "name": "Connection notation gallery",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Routes and relationships"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Straight and elbow paths; free and bound endpoints; solid, dashed and dotted lines."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "All 18 endpoint marker styles, plus nested boundary bridges."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 1500,
+        "y": 1350,
+        "width": 600,
+        "height": 400,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#f5effa",
+        "stroke": "#8d619c",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "quality": {
+      "id": "quality",
+      "parentId": null,
+      "type": "rectangle",
+      "name": "Sample acceptance & tour",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Try it yourself"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Apply bookmarks and compare D0 → D3."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Follow the agent → app → MCP bridge chain."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Inspect every code language and marker."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Save, reopen and export the active view."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Move a parent; its visible children travel with it."
+                  }
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Destructive import/recovery cases are tested separately; this sample opens as a valid, usable document.",
+              "marks": {
+                "italic": true
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 2250,
+        "y": 1350,
+        "width": 550,
+        "height": 400,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eaf7f3",
+        "stroke": "#348476",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "renderer": {
+      "id": "renderer",
+      "parentId": "app",
+      "type": "frame",
+      "name": "React renderer",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "The interactive workspace"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "React + TypeScript + Konva."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Canvas, selection, rich-text editing, bookmarks, properties and navigation."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 300,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eaf2ff",
+        "stroke": "#4b73a2",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "native": {
+      "id": "native",
+      "parentId": "app",
+      "type": "frame",
+      "name": "Tauri native host & bridge",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "The native boundary"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Rust host owns native dialogs, file grants, atomic saves, recovery and window lifecycle."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "The typed desktop module exposes a narrow Tauri command and event API."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 600,
+        "y": -390,
+        "width": 950,
+        "height": 650,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#e8f5ed",
+        "stroke": "#508466",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "domain": {
+      "id": "domain",
+      "parentId": "app",
+      "type": "frame",
+      "name": "Recursive document domain",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "One source of truth"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Schema-v2 objects and ownership, depth layouts, visibility, geometry, rich content and document transactions."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Bookmarks restore a view without replacing shared content."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -600,
+        "y": 360,
+        "width": 950,
+        "height": 650,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fff3df",
+        "stroke": "#ac7f41",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "mcp": {
+      "id": "mcp",
+      "parentId": "app",
+      "type": "frame",
+      "name": "Local MCP runtime",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Versioned local commands"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "25 tools are registered by the depth, editor and file contracts."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Private app descriptor → local service → dispatcher → editor transaction or file operation."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "App access and approved folders are enabled locally for each run."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 600,
+        "y": 360,
+        "width": 950,
+        "height": 650,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#f3ebfb",
+        "stroke": "#8a66a3",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      },
+      "boundaryPoints": {
+        "commands": {
+          "side": "left",
+          "offset": 0.73
+        }
+      }
+    },
+    "canvas": {
+      "id": "canvas",
+      "parentId": "renderer",
+      "type": "rectangle",
+      "name": "Canvas scene",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Konva scene + camera"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "World geometry, hit testing, pan/zoom, selection and SVG/PNG capture."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-editor": {
+      "id": "rich-editor",
+      "parentId": "renderer",
+      "type": "rectangle",
+      "name": "Rich-content editor",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Structured content"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Paragraphs, headings, lists, quotes, marked text and language-aware code blocks."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "bookmarks-ui": {
+      "id": "bookmarks-ui",
+      "parentId": "renderer",
+      "type": "rectangle",
+      "name": "Bookmarks & navigation",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Audience-specific views"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Save and restore depths, collapsed branches, positions, dimensions and camera."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "selection-ui": {
+      "id": "selection-ui",
+      "parentId": "renderer",
+      "type": "rectangle",
+      "name": "Selection & arrangement",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Direct manipulation"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Align, distribute, resize, rotate, stack, reparent and select a parent."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "file-io": {
+      "id": "file-io",
+      "parentId": "native",
+      "type": "rectangle",
+      "name": "Document lifecycle",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "New → open → save"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Validates documents and commits atomic writes; asynchronous operations return receipts."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "desktop-bridge": {
+      "id": "desktop-bridge",
+      "parentId": "native",
+      "type": "rectangle",
+      "name": "Typed Tauri desktop API",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Narrow IPC bridge"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "src/renderer/desktop.ts exposes typed Tauri commands and events backed by the Rust native host."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "recovery": {
+      "id": "recovery",
+      "parentId": "native",
+      "type": "rectangle",
+      "name": "Recovery checkpoints",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Recover unsaved work"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "App-owned checkpoints can be previewed, restored or discarded through explicit decisions."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "exports": {
+      "id": "exports",
+      "parentId": "native",
+      "type": "rectangle",
+      "name": "Rendered exports",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "SVG / PNG / JSON"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Image exports include visible offscreen content. JSON preserves the complete document."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "hierarchy": {
+      "id": "hierarchy",
+      "parentId": "domain",
+      "type": "rectangle",
+      "name": "Parent / child hierarchy",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Recursive ownership"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "A child has one parent. Root depth controls reveal descendants; branches can collapse independently."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "layouts": {
+      "id": "layouts",
+      "parentId": "domain",
+      "type": "rectangle",
+      "name": "Depth-specific layouts",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Preserved arrangements"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Each depth retains its own geometry. Moving an expanded parent carries the visible subtree."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": -130,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "transactions": {
+      "id": "transactions",
+      "parentId": "domain",
+      "type": "rectangle",
+      "name": "Atomic transactions",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "One edit = one Undo step"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "MCP batches validate and publish together. Undo and Redo use the same history as the UI."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "routing": {
+      "id": "routing",
+      "parentId": "domain",
+      "type": "rectangle",
+      "name": "Connections & boundaries",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Cross-container routes"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Bound endpoints, boundary ports and inward bridges keep ownership explicit. Repairs are separate records."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "adapter": {
+      "id": "adapter",
+      "parentId": "mcp",
+      "type": "rectangle",
+      "name": "MCP stdio adapter",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Client protocol endpoint"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Advertises the typed tools and forwards requests to the explicitly selected running app."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": -180,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "service": {
+      "id": "service",
+      "parentId": "mcp",
+      "type": "rectangle",
+      "name": "Private local service",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Per-run access"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Access starts Off. The app publishes a private descriptor; enabling rotates local credentials."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": -180,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "dispatch": {
+      "id": "dispatch",
+      "parentId": "mcp",
+      "type": "rectangle",
+      "name": "Command dispatcher",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Guard → validate → apply"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Checks app/session identity, document/view revisions and busy state before dispatch."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      },
+      "boundaryPoints": {
+        "request": {
+          "side": "left",
+          "offset": 0.5
+        }
+      }
+    },
+    "contracts": {
+      "id": "contracts",
+      "parentId": "mcp",
+      "type": "rectangle",
+      "name": "Shared tool contracts",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "25 discoverable tools"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "depthApiContract + editorApiContract + mcpFileContract are combined in mcpRegistry."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 250,
+        "y": 170,
+        "width": 390,
+        "height": 230,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "version-guard": {
+      "id": "version-guard",
+      "parentId": "dispatch",
+      "type": "rectangle",
+      "name": "Identity & revision guard",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Reject stale commands"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "if (request.sessionId !== session.id)\n  return staleSession();\nif (expectedRevision !== revision)\n  return staleRevision();",
+          "language": "typescript",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Illustrative pseudocode: no partial edit is published."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 330,
+        "height": 310,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fff8e8",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "atomic-edit": {
+      "id": "atomic-edit",
+      "parentId": "dispatch",
+      "type": "rectangle",
+      "name": "Atomic edit transaction",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Publish once"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "const next = clone(document);\nfor (const action of actions) {\n  validateAndApply(next, action);\n}\npublish(next); // one Undo entry",
+          "language": "typescript",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Illustrative transaction flow. Reused request IDs replay the original receipt."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 210,
+        "y": 10,
+        "width": 350,
+        "height": 350,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ecf7f1",
+        "stroke": "#508466",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-javascript": {
+      "id": "code-javascript",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "JavaScript",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "JavaScript"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "const selected = objects.filter(o => o.visible);\nconsole.log(selected.length);",
+          "language": "javascript",
+          "wrap": false
+        }
+      ],
+      "geometry": {
+        "x": -500,
+        "y": -850,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#526277",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-typescript": {
+      "id": "code-typescript",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "TypeScript",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "TypeScript"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "type View = { depth: number; scale: number };\nconst overview: View = { depth: 0, scale: 0.75 };",
+          "language": "typescript",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": -600,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-json": {
+      "id": "code-json",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "JSON",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "JSON"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "{\n  \"formatVersion\": 2,\n  \"sample\": \"DepthPlan feature tour\",\n  \"safeToExplore\": true\n}",
+          "language": "json",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping enabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": -600,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-yaml": {
+      "id": "code-yaml",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "YAML",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "YAML"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "tour:\n  start: overview\n  depths: [0, 1, 2, 3]\n  keepContent: true",
+          "language": "yaml",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -720,
+        "y": -200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-python": {
+      "id": "code-python",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "Python",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Python"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "def visible_at_depth(nodes, depth):\n    return [n for n in nodes if n.level <= depth]",
+          "language": "python",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping enabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": -200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-sql": {
+      "id": "code-sql",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "SQL",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "SQL"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "SELECT parent_id, COUNT(*) AS children\nFROM diagram_objects\nGROUP BY parent_id;",
+          "language": "sql",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": -200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-bash": {
+      "id": "code-bash",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "Bash",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Bash"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "npm ci\nnpm run dev\nnpm test -- --runInBand\nnpm run typecheck",
+          "language": "bash",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping enabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -720,
+        "y": 200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-csharp": {
+      "id": "code-csharp",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "C#",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "C#"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "record Bookmark(string Name, int Depth);\nvar view = new Bookmark(\"Overview\", 0);",
+          "language": "csharp",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-java": {
+      "id": "code-java",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "Java",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Java"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "record View(String name, int depth) {}\nvar overview = new View(\"Overview\", 0);",
+          "language": "java",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping enabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": 200,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-html": {
+      "id": "code-html",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "HTML",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "HTML"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "<article aria-label=\"Architecture\">\n  <h1>DepthPlan</h1>\n  <p>One diagram, many views.</p>\n</article>",
+          "language": "html",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -720,
+        "y": 600,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-css": {
+      "id": "code-css",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "CSS",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "CSS"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": ":root { --accent: #3569aa; }\n.diagram {\n  display: grid;\n  gap: 1rem;\n}",
+          "language": "css",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping enabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 600,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "code-plaintext": {
+      "id": "code-plaintext",
+      "parentId": "code",
+      "type": "rectangle",
+      "name": "Plain text",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Plain text"
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "USER → CLIENT → MCP → DOCUMENT\nDraft → validate → publish → save\nUnicode: café / 日本語 / ✓ / Δ\nLiteral text: <tag> & \"quotes\"",
+          "language": "plaintext",
+          "wrap": false
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Wrapping disabled",
+              "marks": {
+                "italic": true,
+                "color": "#63758c"
+              }
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": 600,
+        "width": 620,
+        "height": 330,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8295b1",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-marks": {
+      "id": "rich-marks",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Text marks & typography",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Emphasis with purpose"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Bold ",
+              "marks": {
+                "bold": true
+              }
+            },
+            {
+              "text": "italic ",
+              "marks": {
+                "italic": true
+              }
+            },
+            {
+              "text": "underline ",
+              "marks": {
+                "underline": true
+              }
+            },
+            {
+              "text": "strikethrough",
+              "marks": {
+                "strike": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Large blue text",
+              "marks": {
+                "font": "Georgia",
+                "size": 22,
+                "color": "#3569aa"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Combined marks remain editable.",
+              "marks": {
+                "bold": true,
+                "italic": true,
+                "color": "#805090"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Literal characters: < > & \"quotes\". Unicode: café • 日本語 • Δ • ✓."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 620,
+        "height": 530,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-headings": {
+      "id": "rich-headings",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Heading levels 1–6",
+      "content": [
+        {
+          "type": "heading",
+          "level": 1,
+          "runs": [
+            {
+              "text": "Heading 1 • hierarchy"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Heading 2 • hierarchy"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Heading 3 • hierarchy"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 4,
+          "runs": [
+            {
+              "text": "Heading 4 • hierarchy"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 5,
+          "runs": [
+            {
+              "text": "Heading 5 • hierarchy"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 6,
+          "runs": [
+            {
+              "text": "Heading 6 • hierarchy"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": -650,
+        "width": 620,
+        "height": 530,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-lists": {
+      "id": "rich-lists",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Nested & numbered lists",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "A small tour checklist"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "start": 3,
+          "items": [
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Select a parent container."
+                  }
+                ]
+              },
+              {
+                "type": "list",
+                "ordered": false,
+                "items": [
+                  [
+                    {
+                      "type": "paragraph",
+                      "runs": [
+                        {
+                          "text": "Increase its displayed depth."
+                        }
+                      ]
+                    }
+                  ],
+                  [
+                    {
+                      "type": "paragraph",
+                      "runs": [
+                        {
+                          "text": "Collapse one branch independently."
+                        }
+                      ]
+                    }
+                  ]
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Apply a saved bookmark."
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "type": "paragraph",
+                "runs": [
+                  {
+                    "text": "Save and reopen the document."
+                  }
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "This numbered list deliberately starts at 3."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": -650,
+        "width": 620,
+        "height": 530,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-quote": {
+      "id": "rich-quote",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Quotes & links",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Context stays close to the diagram"
+            }
+          ]
+        },
+        {
+          "type": "quote",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "runs": [
+                {
+                  "text": "One diagram can serve several audiences."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "runs": [
+                {
+                  "text": "Keep the explanation with the structure.",
+                  "marks": {
+                    "italic": true
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "TypeScript documentation",
+              "marks": {
+                "underline": true,
+                "color": "#3569aa",
+                "link": "https://www.typescriptlang.org/docs/"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "This link is document content; no network access is required to view the sample."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -720,
+        "y": -50,
+        "width": 620,
+        "height": 500,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-align": {
+      "id": "rich-align",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Paragraph alignment",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Four alignments"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Left aligned: ordinary explanation."
+            }
+          ],
+          "align": "left"
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Centered: a short caption."
+            }
+          ],
+          "align": "center"
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Right aligned: a small annotation."
+            }
+          ],
+          "align": "right"
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Justified paragraphs distribute words across the available line width. This example contains enough text to wrap and make the spacing visible in a wide card."
+            }
+          ],
+          "align": "justify"
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": -50,
+        "width": 620,
+        "height": 500,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "rich-transfer": {
+      "id": "rich-transfer",
+      "parentId": "rich",
+      "type": "rectangle",
+      "name": "Chunked MCP content",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Assembled before publication"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "This card was transferred in multiple MCP chunks, then applied as one atomic rich-content edit."
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "text": "begin → append → append → edit_object",
+          "language": "plaintext",
+          "wrap": true
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Offsets count UTF-16 code units. Literal text survives: \\n, <tag>, &, “quotes”, 日本語 and ✓."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": -50,
+        "width": 620,
+        "height": 500,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fffdf7",
+        "stroke": "#aa7935",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "shape-ellipse": {
+      "id": "shape-ellipse",
+      "parentId": "rich",
+      "type": "ellipse",
+      "name": "Ellipse • soft boundary",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "External actor"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Opacity 85% • dotted outline"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -720,
+        "y": 650,
+        "width": 510,
+        "height": 340,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#e8f5ed",
+        "stroke": "#508466",
+        "strokeWidth": 3,
+        "opacity": 0.85,
+        "cornerRadius": 12,
+        "strokeStyle": "dotted"
+      }
+    },
+    "shape-diamond": {
+      "id": "shape-diamond",
+      "parentId": "rich",
+      "type": "diamond",
+      "name": "Diamond • decision",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Valid?"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Decision point"
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 650,
+        "width": 470,
+        "height": 350,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fff0d5",
+        "stroke": "#ac7f41",
+        "strokeWidth": 2,
+        "cornerRadius": 12,
+        "strokeStyle": "dashed"
+      }
+    },
+    "shape-frame": {
+      "id": "shape-frame",
+      "parentId": "rich",
+      "type": "frame",
+      "name": "Clipped frame & rotation",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "A frame can contain its own children."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 720,
+        "y": 650,
+        "width": 620,
+        "height": 480,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#f3ebfb",
+        "stroke": "#8a66a3",
+        "strokeWidth": 2,
+        "cornerRadius": 12,
+        "clipToFrame": true
+      }
+    },
+    "shape-rotated": {
+      "id": "shape-rotated",
+      "parentId": "shape-frame",
+      "type": "rectangle",
+      "name": "Rotated child",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Rotated 8°"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Nested inside a clipping frame."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 170,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#ffffff",
+        "stroke": "#8a66a3",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "notation-key": {
+      "id": "notation-key",
+      "parentId": "notation",
+      "type": "rectangle",
+      "name": "Connection notation key",
+      "content": [
+        {
+          "type": "heading",
+          "level": 2,
+          "runs": [
+            {
+              "text": "Endpoint markers & routes"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Each row names the marker applied at both ends. The lower examples show binding, bends, curved paths and line styles."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 2000,
+        "height": 150,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fcf9ff",
+        "stroke": "#8d619c",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "route-a": {
+      "id": "route-a",
+      "parentId": "notation",
+      "type": "rectangle",
+      "name": "Source / fixed binding",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Left endpoint uses a fixed side and offset."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": -700,
+        "y": 640,
+        "width": 450,
+        "height": 170,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eef3ff",
+        "stroke": "#536b8e",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "route-b": {
+      "id": "route-b",
+      "parentId": "notation",
+      "type": "rectangle",
+      "name": "Destination / auto binding",
+      "content": [
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Arrowhead, label, dash and route points are editable."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 650,
+        "y": 640,
+        "width": 450,
+        "height": 170,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#eef7f0",
+        "stroke": "#508466",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    },
+    "route-note": {
+      "id": "route-note",
+      "parentId": "notation",
+      "type": "rectangle",
+      "name": "Route behavior",
+      "content": [
+        {
+          "type": "heading",
+          "level": 3,
+          "runs": [
+            {
+              "text": "Containers own their connections"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Sibling nodes connect directly. Routes across containers use a boundary point and an inward bridge. The architecture bookmarks demonstrate a three-level bridge chain."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "runs": [
+            {
+              "text": "Free lines below use explicit bend points. Endpoint markers cover arrows, bars, circles, triangles, diamonds, crow feet and cardinalities."
+            }
+          ]
+        }
+      ],
+      "geometry": {
+        "x": 0,
+        "y": 1180,
+        "width": 2000,
+        "height": 240,
+        "rotation": 0,
+        "z": 0
+      },
+      "style": {
+        "fill": "#fcf9ff",
+        "stroke": "#8d619c",
+        "strokeWidth": 2,
+        "cornerRadius": 12
+      }
+    }
+  },
+  "rootDepths": {
+    "guide": 0,
+    "app": 0,
+    "agent": 0,
+    "files": 0,
+    "rich": 0,
+    "code": 0,
+    "notation": 0,
+    "quality": 0
+  },
+  "layouts": {
+    "guide": {
+      "0": {
+        "guide": {
+          "x": 1125,
+          "y": -40,
+          "width": 1400,
+          "height": 260,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "app": {
+      "0": {
+        "app": {
+          "x": 1000,
+          "y": 460,
+          "width": 650,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "1": {
+        "app": {
+          "x": 1200,
+          "y": 850,
+          "width": 2400,
+          "height": 1700,
+          "rotation": 0,
+          "z": 0
+        },
+        "renderer": {
+          "x": -600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "native": {
+          "x": 600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "domain": {
+          "x": -600,
+          "y": 360,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "mcp": {
+          "x": 600,
+          "y": 360,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "2": {
+        "app": {
+          "x": 1200,
+          "y": 850,
+          "width": 2400,
+          "height": 1700,
+          "rotation": 0,
+          "z": 0
+        },
+        "renderer": {
+          "x": -600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "native": {
+          "x": 600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "domain": {
+          "x": -600,
+          "y": 360,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "mcp": {
+          "x": 600,
+          "y": 360,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "canvas": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-editor": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "bookmarks-ui": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "selection-ui": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "file-io": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "desktop-bridge": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "recovery": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "exports": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "hierarchy": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "layouts": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "transactions": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "routing": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "adapter": {
+          "x": -250,
+          "y": -180,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "service": {
+          "x": 250,
+          "y": -180,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "dispatch": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "contracts": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "3": {
+        "app": {
+          "x": 1200,
+          "y": 850,
+          "width": 2400,
+          "height": 1900,
+          "rotation": 0,
+          "z": 0
+        },
+        "renderer": {
+          "x": -600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "native": {
+          "x": 600,
+          "y": -390,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "domain": {
+          "x": -600,
+          "y": 360,
+          "width": 950,
+          "height": 650,
+          "rotation": 0,
+          "z": 0
+        },
+        "mcp": {
+          "x": 600,
+          "y": 400,
+          "width": 950,
+          "height": 1040,
+          "rotation": 0,
+          "z": 0
+        },
+        "canvas": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-editor": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "bookmarks-ui": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "selection-ui": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "file-io": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "desktop-bridge": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "recovery": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "exports": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "hierarchy": {
+          "x": -250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "layouts": {
+          "x": 250,
+          "y": -130,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "transactions": {
+          "x": -250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "routing": {
+          "x": 250,
+          "y": 170,
+          "width": 390,
+          "height": 230,
+          "rotation": 0,
+          "z": 0
+        },
+        "adapter": {
+          "x": -250,
+          "y": -380,
+          "width": 390,
+          "height": 180,
+          "rotation": 0,
+          "z": 0
+        },
+        "service": {
+          "x": 250,
+          "y": -380,
+          "width": 390,
+          "height": 180,
+          "rotation": 0,
+          "z": 0
+        },
+        "dispatch": {
+          "x": 0,
+          "y": 230,
+          "width": 820,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "contracts": {
+          "x": 0,
+          "y": -160,
+          "width": 820,
+          "height": 170,
+          "rotation": 0,
+          "z": 0
+        },
+        "version-guard": {
+          "x": -210,
+          "y": 10,
+          "width": 350,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        },
+        "atomic-edit": {
+          "x": 210,
+          "y": 10,
+          "width": 350,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "agent": {
+      "0": {
+        "agent": {
+          "x": 0,
+          "y": 460,
+          "width": 420,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "files": {
+      "0": {
+        "files": {
+          "x": 2000,
+          "y": 460,
+          "width": 460,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "rich": {
+      "0": {
+        "rich": {
+          "x": 0,
+          "y": 990,
+          "width": 550,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "1": {
+        "rich": {
+          "x": 1200,
+          "y": 6100,
+          "width": 2200,
+          "height": 2100,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-marks": {
+          "x": -720,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-headings": {
+          "x": 0,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-lists": {
+          "x": 720,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-quote": {
+          "x": -720,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-align": {
+          "x": 0,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-transfer": {
+          "x": 720,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-ellipse": {
+          "x": -720,
+          "y": 650,
+          "width": 510,
+          "height": 340,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-diamond": {
+          "x": 0,
+          "y": 650,
+          "width": 470,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-frame": {
+          "x": 720,
+          "y": 650,
+          "width": 620,
+          "height": 480,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "2": {
+        "rich": {
+          "x": 1200,
+          "y": 6100,
+          "width": 2200,
+          "height": 2100,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-marks": {
+          "x": -720,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-headings": {
+          "x": 0,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-lists": {
+          "x": 720,
+          "y": -650,
+          "width": 620,
+          "height": 530,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-quote": {
+          "x": -720,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-align": {
+          "x": 0,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "rich-transfer": {
+          "x": 720,
+          "y": -50,
+          "width": 620,
+          "height": 500,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-ellipse": {
+          "x": -720,
+          "y": 650,
+          "width": 510,
+          "height": 340,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-diamond": {
+          "x": 0,
+          "y": 650,
+          "width": 470,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-frame": {
+          "x": 720,
+          "y": 650,
+          "width": 620,
+          "height": 480,
+          "rotation": 0,
+          "z": 0
+        },
+        "shape-rotated": {
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 170,
+          "rotation": 8,
+          "z": 2
+        }
+      }
+    },
+    "code": {
+      "0": {
+        "code": {
+          "x": 750,
+          "y": 990,
+          "width": 600,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "1": {
+        "code": {
+          "x": 1200,
+          "y": 3700,
+          "width": 2200,
+          "height": 1700,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-javascript": {
+          "x": -720,
+          "y": -600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-typescript": {
+          "x": 0,
+          "y": -600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-json": {
+          "x": 720,
+          "y": -600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-yaml": {
+          "x": -720,
+          "y": -200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-python": {
+          "x": 0,
+          "y": -200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-sql": {
+          "x": 720,
+          "y": -200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-bash": {
+          "x": -720,
+          "y": 200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-csharp": {
+          "x": 0,
+          "y": 200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-java": {
+          "x": 720,
+          "y": 200,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-html": {
+          "x": -720,
+          "y": 600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-css": {
+          "x": 0,
+          "y": 600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        },
+        "code-plaintext": {
+          "x": 720,
+          "y": 600,
+          "width": 620,
+          "height": 330,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "notation": {
+      "0": {
+        "notation": {
+          "x": 1500,
+          "y": 990,
+          "width": 600,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      },
+      "1": {
+        "notation": {
+          "x": 1200,
+          "y": 8700,
+          "width": 2200,
+          "height": 2900,
+          "rotation": 0,
+          "z": 0
+        },
+        "notation-key": {
+          "x": 0,
+          "y": -1220,
+          "width": 2000,
+          "height": 150,
+          "rotation": 0,
+          "z": 0
+        },
+        "route-a": {
+          "x": -700,
+          "y": 640,
+          "width": 450,
+          "height": 170,
+          "rotation": 0,
+          "z": 0
+        },
+        "route-b": {
+          "x": 650,
+          "y": 640,
+          "width": 450,
+          "height": 170,
+          "rotation": 0,
+          "z": 0
+        },
+        "route-note": {
+          "x": 0,
+          "y": 1180,
+          "width": 2000,
+          "height": 240,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    },
+    "quality": {
+      "0": {
+        "quality": {
+          "x": 2250,
+          "y": 990,
+          "width": 550,
+          "height": 350,
+          "rotation": 0,
+          "z": 0
+        }
+      }
+    }
+  },
+  "connections": {
+    "client-app": {
+      "id": "client-app",
+      "ownerId": null,
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "agent",
+        "side": "right",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "boundary",
+        "objectId": "app",
+        "pointId": "agent-input"
+      },
+      "style": {
+        "stroke": "#8551a3",
+        "strokeWidth": 2,
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "MCP tools / stdio"
+    },
+    "app-storage": {
+      "id": "app-storage",
+      "ownerId": null,
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "boundary",
+        "objectId": "app",
+        "pointId": "file-output"
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "files",
+        "side": "left",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#3e8060",
+        "strokeWidth": 2,
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "save • open • export"
+    },
+    "app-to-mcp": {
+      "id": "app-to-mcp",
+      "ownerId": "app",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "boundary",
+        "objectId": "app",
+        "pointId": "agent-input"
+      },
+      "end": {
+        "kind": "boundary",
+        "objectId": "mcp",
+        "pointId": "commands"
+      },
+      "style": {
+        "stroke": "#8551a3",
+        "strokeWidth": 2,
+        "strokeStyle": "dashed",
+        "lineType": "elbow"
+      },
+      "label": "local request"
+    },
+    "mcp-to-dispatch": {
+      "id": "mcp-to-dispatch",
+      "ownerId": "mcp",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "boundary",
+        "objectId": "mcp",
+        "pointId": "commands"
+      },
+      "end": {
+        "kind": "boundary",
+        "objectId": "dispatch",
+        "pointId": "request"
+      },
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2
+      }
+    },
+    "dispatch-to-guard": {
+      "id": "dispatch-to-guard",
+      "ownerId": "dispatch",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "boundary",
+        "objectId": "dispatch",
+        "pointId": "request"
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "version-guard",
+        "side": "left",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2
+      }
+    },
+    "guard-to-transaction": {
+      "id": "guard-to-transaction",
+      "ownerId": "dispatch",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "version-guard",
+        "side": "right",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "atomic-edit",
+        "side": "left",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#3e8060",
+        "strokeWidth": 2,
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "valid"
+    },
+    "renderer-native": {
+      "id": "renderer-native",
+      "ownerId": "app",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "renderer",
+        "side": "right",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "native",
+        "side": "left",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#536578",
+        "strokeWidth": 2,
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "Tauri commands/events"
+    },
+    "renderer-domain": {
+      "id": "renderer-domain",
+      "ownerId": "app",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "renderer",
+        "side": "bottom",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "domain",
+        "side": "top",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#536578",
+        "strokeWidth": 2,
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "document edits"
+    },
+    "domain-mcp": {
+      "id": "domain-mcp",
+      "ownerId": "app",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "domain",
+        "side": "right",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "mcp",
+        "side": "left",
+        "offset": 0.46153846153846156
+      },
+      "style": {
+        "stroke": "#536578",
+        "strokeWidth": 2,
+        "strokeStyle": "dotted",
+        "lineType": "elbow",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "typed actions"
+    },
+    "files-export": {
+      "id": "files-export",
+      "ownerId": "native",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "file-io",
+        "side": "bottom",
+        "offset": 0.5
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "exports",
+        "side": "top",
+        "offset": 0.5
+      },
+      "style": {
+        "stroke": "#536578",
+        "strokeWidth": 2,
+        "lineType": "sharp",
+        "arrowheadEnd": "arrow"
+      },
+      "label": "rendered revision"
+    },
+    "marker-none": {
+      "id": "marker-none",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -980
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -980
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "none",
+        "arrowheadEnd": "none"
+      },
+      "label": "none"
+    },
+    "marker-arrow": {
+      "id": "marker-arrow",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -825
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -825
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "arrow",
+        "arrowheadEnd": "arrow"
+      },
+      "label": "arrow"
+    },
+    "marker-bar": {
+      "id": "marker-bar",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -670
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -670
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "bar",
+        "arrowheadEnd": "bar"
+      },
+      "label": "bar"
+    },
+    "marker-circle": {
+      "id": "marker-circle",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -515
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -515
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "circle",
+        "arrowheadEnd": "circle"
+      },
+      "label": "circle"
+    },
+    "marker-circle_outline": {
+      "id": "marker-circle_outline",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -360
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -360
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "circle_outline",
+        "arrowheadEnd": "circle_outline"
+      },
+      "label": "circle outline"
+    },
+    "marker-triangle": {
+      "id": "marker-triangle",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -205
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -205
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "triangle",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "triangle"
+    },
+    "marker-triangle_outline": {
+      "id": "marker-triangle_outline",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": -50
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": -50
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "triangle_outline",
+        "arrowheadEnd": "triangle_outline"
+      },
+      "label": "triangle outline"
+    },
+    "marker-diamond": {
+      "id": "marker-diamond",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": 105
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": 105
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "diamond",
+        "arrowheadEnd": "diamond"
+      },
+      "label": "diamond"
+    },
+    "marker-diamond_outline": {
+      "id": "marker-diamond_outline",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": 260
+      },
+      "end": {
+        "kind": "free",
+        "x": -140,
+        "y": 260
+      },
+      "style": {
+        "stroke": "#6c4c84",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "diamond_outline",
+        "arrowheadEnd": "diamond_outline"
+      },
+      "label": "diamond outline"
+    },
+    "marker-crowfoot_many": {
+      "id": "marker-crowfoot_many",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -980
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -980
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "crowfoot_many",
+        "arrowheadEnd": "crowfoot_many"
+      },
+      "label": "crowfoot many"
+    },
+    "marker-crowfoot_one": {
+      "id": "marker-crowfoot_one",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -825
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -825
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "crowfoot_one",
+        "arrowheadEnd": "crowfoot_one"
+      },
+      "label": "crowfoot one"
+    },
+    "marker-crowfoot_one_or_many": {
+      "id": "marker-crowfoot_one_or_many",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -670
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -670
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "crowfoot_one_or_many",
+        "arrowheadEnd": "crowfoot_one_or_many"
+      },
+      "label": "crowfoot one or many"
+    },
+    "marker-cardinality_one": {
+      "id": "marker-cardinality_one",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -515
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -515
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_one",
+        "arrowheadEnd": "cardinality_one"
+      },
+      "label": "cardinality one"
+    },
+    "marker-cardinality_many": {
+      "id": "marker-cardinality_many",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -360
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -360
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_many",
+        "arrowheadEnd": "cardinality_many"
+      },
+      "label": "cardinality many"
+    },
+    "marker-cardinality_one_or_many": {
+      "id": "marker-cardinality_one_or_many",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -205
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -205
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_one_or_many",
+        "arrowheadEnd": "cardinality_one_or_many"
+      },
+      "label": "cardinality one or many"
+    },
+    "marker-cardinality_exactly_one": {
+      "id": "marker-cardinality_exactly_one",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": -50
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": -50
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_exactly_one",
+        "arrowheadEnd": "cardinality_exactly_one"
+      },
+      "label": "cardinality exactly one"
+    },
+    "marker-cardinality_zero_or_one": {
+      "id": "marker-cardinality_zero_or_one",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": 105
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": 105
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_zero_or_one",
+        "arrowheadEnd": "cardinality_zero_or_one"
+      },
+      "label": "cardinality zero or one"
+    },
+    "marker-cardinality_zero_or_many": {
+      "id": "marker-cardinality_zero_or_many",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": 260
+      },
+      "end": {
+        "kind": "free",
+        "x": 930,
+        "y": 260
+      },
+      "style": {
+        "stroke": "#35697c",
+        "strokeWidth": 3,
+        "lineType": "sharp",
+        "arrowheadStart": "cardinality_zero_or_many",
+        "arrowheadEnd": "cardinality_zero_or_many"
+      },
+      "label": "cardinality zero or many"
+    },
+    "route-fixed": {
+      "id": "route-fixed",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "object",
+        "objectId": "route-a",
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
+      },
+      "end": {
+        "kind": "object",
+        "objectId": "route-b",
+        "side": "left",
+        "offset": 0.5,
+        "binding": "auto"
+      },
+      "style": {
+        "stroke": "#536578",
+        "strokeWidth": 2,
+        "strokeStyle": "dashed",
+        "lineType": "elbow",
+        "arrowheadStart": "circle_outline",
+        "arrowheadEnd": "triangle"
+      },
+      "label": "Elbow / dashed / fixed → auto",
+      "points": [
+        {
+          "x": -250,
+          "y": 600
+        },
+        {
+          "x": -250,
+          "y": 800
+        },
+        {
+          "x": 250,
+          "y": 800
+        }
+      ]
+    },
+    "free-polyline": {
+      "id": "free-polyline",
+      "ownerId": "notation",
+      "kind": "line",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": -900,
+        "y": 920
+      },
+      "end": {
+        "kind": "free",
+        "x": -120,
+        "y": 920
+      },
+      "points": [
+        {
+          "x": -660,
+          "y": 880
+        },
+        {
+          "x": -380,
+          "y": 950
+        }
+      ],
+      "style": {
+        "stroke": "#bb8039",
+        "strokeWidth": 3,
+        "strokeStyle": "dotted"
+      },
+      "label": "Free line / explicit bends"
+    },
+    "curved-arrow": {
+      "id": "curved-arrow",
+      "ownerId": "notation",
+      "kind": "arrow",
+      "z": 0,
+      "start": {
+        "kind": "free",
+        "x": 170,
+        "y": 920
+      },
+      "end": {
+        "kind": "free",
+        "x": 940,
+        "y": 920
+      },
+      "style": {
+        "stroke": "#8d619c",
+        "strokeWidth": 2,
+        "lineType": "curved",
+        "arrowheadStart": "bar",
+        "arrowheadEnd": "arrow"
+      },
+      "label": "Curved arrow / control point",
+      "points": [
+        {
+          "x": 555,
+          "y": 840
+        }
+      ]
+    }
+  },
+  "namedViews": {
+    "welcome": {
+      "id": "welcome",
+      "name": "00 • Start here / how to explore",
+      "rootDepths": {
+        "guide": 0,
+        "app": 0,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1125,
+            "y": -40,
+            "width": 1400,
+            "height": 260,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1000,
+            "y": 460,
+            "width": 650,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": 0,
+            "y": 460,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2000,
+            "y": 460,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 0,
+            "y": 990,
+            "width": 550,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 750,
+            "y": 990,
+            "width": 600,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 1500,
+            "y": 990,
+            "width": 600,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2250,
+            "y": 990,
+            "width": 550,
+            "height": 350,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -219,
+        "y": 340,
+        "scale": 0.65
+      },
+      "cameraFocus": {
+        "x": 1124.6153846153845,
+        "y": 12.307692307692307
+      }
+    },
+    "system-overview": {
+      "id": "system-overview",
+      "name": "01 • System overview",
+      "rootDepths": {
+        "guide": 0,
+        "app": 0,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1125,
+            "y": -40,
+            "width": 1400,
+            "height": 260,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1000,
+            "y": 460,
+            "width": 650,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": 0,
+            "y": 460,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2000,
+            "y": 460,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 0,
+            "y": 990,
+            "width": 550,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 750,
+            "y": 990,
+            "width": 600,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 1500,
+            "y": 990,
+            "width": 600,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2250,
+            "y": 990,
+            "width": 550,
+            "height": 350,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": 135,
+        "y": 210,
+        "scale": 0.33
+      },
+      "cameraFocus": {
+        "x": 1142.4242424242423,
+        "y": 418.1818181818182
+      }
+    },
+    "architecture": {
+      "id": "architecture",
+      "name": "02 • Architecture / depth 1",
+      "rootDepths": {
+        "guide": 0,
+        "app": 1,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1700,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1250,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": 140,
+        "y": 130,
+        "scale": 0.31
+      },
+      "cameraFocus": {
+        "x": 1200,
+        "y": 703.2258064516129
+      }
+    },
+    "modules": {
+      "id": "modules",
+      "name": "03 • Modules / depth 2",
+      "rootDepths": {
+        "guide": 0,
+        "app": 2,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1700,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -180,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -180,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1250,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": 45,
+        "y": 65,
+        "scale": 0.38
+      },
+      "cameraFocus": {
+        "x": 1228.9473684210527,
+        "y": 744.7368421052631
+      }
+    },
+    "implementation": {
+      "id": "implementation",
+      "name": "04 • MCP transaction / depth 3",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1250,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -810,
+        "y": -720,
+        "scale": 0.72
+      },
+      "cameraFocus": {
+        "x": 1836.111111111111,
+        "y": 1483.3333333333335
+      }
+    },
+    "rich-text": {
+      "id": "rich-text",
+      "name": "05 • Rich text / headings, marks, lists, links",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 2,
+        "code": 1,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 1200,
+            "y": 6100,
+            "width": 2200,
+            "height": 2100,
+            "parentId": null
+          },
+          "rich-marks": {
+            "x": -720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-headings": {
+            "x": 0,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-lists": {
+            "x": 720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-quote": {
+            "x": -720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-align": {
+            "x": 0,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-transfer": {
+            "x": 720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "shape-ellipse": {
+            "x": -720,
+            "y": 650,
+            "width": 510,
+            "height": 340,
+            "parentId": "rich"
+          },
+          "shape-diamond": {
+            "x": 0,
+            "y": 650,
+            "width": 470,
+            "height": 350,
+            "parentId": "rich"
+          },
+          "shape-frame": {
+            "x": 720,
+            "y": 650,
+            "width": 620,
+            "height": 480,
+            "parentId": "rich"
+          },
+          "shape-rotated": {
+            "x": 0,
+            "y": 0,
+            "width": 400,
+            "height": 170,
+            "parentId": "shape-frame"
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -5,
+        "y": -2110,
+        "scale": 0.43
+      },
+      "cameraFocus": {
+        "x": 1202.3255813953488,
+        "y": 5716.279069767442
+      }
+    },
+    "code-top": {
+      "id": "code-top",
+      "name": "06 • Code / JS, TS, JSON, YAML, Python, SQL",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 1,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -5,
+        "y": -1120,
+        "scale": 0.43
+      },
+      "cameraFocus": {
+        "x": 1202.3255813953488,
+        "y": 3413.953488372093
+      }
+    },
+    "code-bottom": {
+      "id": "code-bottom",
+      "name": "07 • Code / Bash, C#, Java, HTML, CSS, text",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 1,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -5,
+        "y": -1464,
+        "scale": 0.43
+      },
+      "cameraFocus": {
+        "x": 1202.3255813953488,
+        "y": 4213.9534883720935
+      }
+    },
+    "shapes": {
+      "id": "shapes",
+      "name": "08 • Shapes / nesting, clipping & rotation",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 2,
+        "code": 1,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 1200,
+            "y": 6100,
+            "width": 2200,
+            "height": 2100,
+            "parentId": null
+          },
+          "rich-marks": {
+            "x": -720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-headings": {
+            "x": 0,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-lists": {
+            "x": 720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-quote": {
+            "x": -720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-align": {
+            "x": 0,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-transfer": {
+            "x": 720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "shape-ellipse": {
+            "x": -720,
+            "y": 650,
+            "width": 510,
+            "height": 340,
+            "parentId": "rich"
+          },
+          "shape-diamond": {
+            "x": 0,
+            "y": 650,
+            "width": 470,
+            "height": 350,
+            "parentId": "rich"
+          },
+          "shape-frame": {
+            "x": 720,
+            "y": 650,
+            "width": 620,
+            "height": 480,
+            "parentId": "rich"
+          },
+          "shape-rotated": {
+            "x": 0,
+            "y": 0,
+            "width": 400,
+            "height": 170,
+            "parentId": "shape-frame"
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -5,
+        "y": -2600,
+        "scale": 0.43
+      },
+      "cameraFocus": {
+        "x": 1202.3255813953488,
+        "y": 6855.813953488372
+      }
+    },
+    "markers": {
+      "id": "markers",
+      "name": "09 • Connections / all 18 endpoint markers",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 2,
+        "code": 1,
+        "notation": 1,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 1200,
+            "y": 6100,
+            "width": 2200,
+            "height": 2100,
+            "parentId": null
+          },
+          "rich-marks": {
+            "x": -720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-headings": {
+            "x": 0,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-lists": {
+            "x": 720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-quote": {
+            "x": -720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-align": {
+            "x": 0,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-transfer": {
+            "x": 720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "shape-ellipse": {
+            "x": -720,
+            "y": 650,
+            "width": 510,
+            "height": 340,
+            "parentId": "rich"
+          },
+          "shape-diamond": {
+            "x": 0,
+            "y": 650,
+            "width": 470,
+            "height": 350,
+            "parentId": "rich"
+          },
+          "shape-frame": {
+            "x": 720,
+            "y": 650,
+            "width": 620,
+            "height": 480,
+            "parentId": "rich"
+          },
+          "shape-rotated": {
+            "x": 0,
+            "y": 0,
+            "width": 400,
+            "height": 170,
+            "parentId": "shape-frame"
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 1200,
+            "y": 8700,
+            "width": 2200,
+            "height": 2900,
+            "parentId": null
+          },
+          "notation-key": {
+            "x": 0,
+            "y": -1220,
+            "width": 2000,
+            "height": 150,
+            "parentId": "notation"
+          },
+          "route-a": {
+            "x": -700,
+            "y": 640,
+            "width": 450,
+            "height": 170,
+            "parentId": "notation"
+          },
+          "route-b": {
+            "x": 650,
+            "y": 640,
+            "width": 450,
+            "height": 170,
+            "parentId": "notation"
+          },
+          "route-note": {
+            "x": 0,
+            "y": 1180,
+            "width": 2000,
+            "height": 240,
+            "parentId": "notation"
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": 128,
+        "y": -2310,
+        "scale": 0.32
+      },
+      "cameraFocus": {
+        "x": 1200,
+        "y": 8306.25
+      }
+    },
+    "routes": {
+      "id": "routes",
+      "name": "10 • Connections / binding, bends & line styles",
+      "rootDepths": {
+        "guide": 0,
+        "app": 3,
+        "agent": 0,
+        "files": 0,
+        "rich": 2,
+        "code": 1,
+        "notation": 1,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1900,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 400,
+            "width": 950,
+            "height": 1040,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -380,
+            "width": 390,
+            "height": 180,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": 0,
+            "y": 230,
+            "width": 820,
+            "height": 500,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 0,
+            "y": -160,
+            "width": 820,
+            "height": 170,
+            "parentId": "mcp"
+          },
+          "version-guard": {
+            "x": -210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          },
+          "atomic-edit": {
+            "x": 210,
+            "y": 10,
+            "width": 350,
+            "height": 350,
+            "parentId": "dispatch"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 1200,
+            "y": 6100,
+            "width": 2200,
+            "height": 2100,
+            "parentId": null
+          },
+          "rich-marks": {
+            "x": -720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-headings": {
+            "x": 0,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-lists": {
+            "x": 720,
+            "y": -650,
+            "width": 620,
+            "height": 530,
+            "parentId": "rich"
+          },
+          "rich-quote": {
+            "x": -720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-align": {
+            "x": 0,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "rich-transfer": {
+            "x": 720,
+            "y": -50,
+            "width": 620,
+            "height": 500,
+            "parentId": "rich"
+          },
+          "shape-ellipse": {
+            "x": -720,
+            "y": 650,
+            "width": 510,
+            "height": 340,
+            "parentId": "rich"
+          },
+          "shape-diamond": {
+            "x": 0,
+            "y": 650,
+            "width": 470,
+            "height": 350,
+            "parentId": "rich"
+          },
+          "shape-frame": {
+            "x": 720,
+            "y": 650,
+            "width": 620,
+            "height": 480,
+            "parentId": "rich"
+          },
+          "shape-rotated": {
+            "x": 0,
+            "y": 0,
+            "width": 400,
+            "height": 170,
+            "parentId": "shape-frame"
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1200,
+            "y": 3700,
+            "width": 2200,
+            "height": 1700,
+            "parentId": null
+          },
+          "code-javascript": {
+            "x": -720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-typescript": {
+            "x": 0,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-json": {
+            "x": 720,
+            "y": -600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-yaml": {
+            "x": -720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-python": {
+            "x": 0,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-sql": {
+            "x": 720,
+            "y": -200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-bash": {
+            "x": -720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-csharp": {
+            "x": 0,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-java": {
+            "x": 720,
+            "y": 200,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-html": {
+            "x": -720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-css": {
+            "x": 0,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          },
+          "code-plaintext": {
+            "x": 720,
+            "y": 600,
+            "width": 620,
+            "height": 330,
+            "parentId": "code"
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 1200,
+            "y": 8700,
+            "width": 2200,
+            "height": 2900,
+            "parentId": null
+          },
+          "notation-key": {
+            "x": 0,
+            "y": -1220,
+            "width": 2000,
+            "height": 150,
+            "parentId": "notation"
+          },
+          "route-a": {
+            "x": -700,
+            "y": 640,
+            "width": 450,
+            "height": 170,
+            "parentId": "notation"
+          },
+          "route-b": {
+            "x": 650,
+            "y": 640,
+            "width": 450,
+            "height": 170,
+            "parentId": "notation"
+          },
+          "route-note": {
+            "x": 0,
+            "y": 1180,
+            "width": 2000,
+            "height": 240,
+            "parentId": "notation"
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": -5,
+        "y": -3860,
+        "scale": 0.43
+      },
+      "cameraFocus": {
+        "x": 1202.3255813953488,
+        "y": 9786.046511627907
+      }
+    },
+    "selective": {
+      "id": "selective",
+      "name": "11 • Focused view / collapsed branches",
+      "rootDepths": {
+        "guide": 0,
+        "app": 2,
+        "agent": 0,
+        "files": 0,
+        "rich": 0,
+        "code": 0,
+        "notation": 0,
+        "quality": 0
+      },
+      "layouts": {
+        "guide": {
+          "guide": {
+            "x": 1200,
+            "y": -300,
+            "width": 1400,
+            "height": 340,
+            "parentId": null
+          }
+        },
+        "app": {
+          "app": {
+            "x": 1200,
+            "y": 850,
+            "width": 2400,
+            "height": 1700,
+            "parentId": null
+          },
+          "renderer": {
+            "x": -600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "native": {
+            "x": 600,
+            "y": -390,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "domain": {
+            "x": -600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "mcp": {
+            "x": 600,
+            "y": 360,
+            "width": 950,
+            "height": 650,
+            "parentId": "app"
+          },
+          "canvas": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "rich-editor": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "bookmarks-ui": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "selection-ui": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "renderer"
+          },
+          "file-io": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "desktop-bridge": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "recovery": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "exports": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "native"
+          },
+          "hierarchy": {
+            "x": -250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "layouts": {
+            "x": 250,
+            "y": -130,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "transactions": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "routing": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "domain"
+          },
+          "adapter": {
+            "x": -250,
+            "y": -180,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "service": {
+            "x": 250,
+            "y": -180,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "dispatch": {
+            "x": -250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          },
+          "contracts": {
+            "x": 250,
+            "y": 170,
+            "width": 390,
+            "height": 230,
+            "parentId": "mcp"
+          }
+        },
+        "agent": {
+          "agent": {
+            "x": -450,
+            "y": 850,
+            "width": 420,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "files": {
+          "files": {
+            "x": 2850,
+            "y": 850,
+            "width": 460,
+            "height": 350,
+            "parentId": null
+          }
+        },
+        "rich": {
+          "rich": {
+            "x": 400,
+            "y": 2200,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "code": {
+          "code": {
+            "x": 1250,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "notation": {
+          "notation": {
+            "x": 2100,
+            "y": 2200,
+            "width": 600,
+            "height": 400,
+            "parentId": null
+          }
+        },
+        "quality": {
+          "quality": {
+            "x": 2850,
+            "y": 1400,
+            "width": 550,
+            "height": 400,
+            "parentId": null
+          }
+        }
+      },
+      "camera": {
+        "x": 140,
+        "y": 130,
+        "scale": 0.31
+      },
+      "metadata": {
+        "collapsedObjects": [
+          "renderer",
+          "domain"
+        ]
+      },
+      "cameraFocus": {
+        "x": 1200,
+        "y": 703.2258064516129
+      }
+    }
+  },
+  "extensions": {
+    "layoutArchive": []
+  },
+  "connectionRepairs": {}
+}

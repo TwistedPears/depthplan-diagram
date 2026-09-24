@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.03,0,0,0.03,-3,0.075)">
+    <rect x="207.5" y="120" width="233" height="555" rx="35" fill="none" stroke="currentColor" stroke-width="60" />
+    <rect x="568.5" y="332" width="233" height="343" rx="35" fill="none" stroke="currentColor" stroke-width="60" />
+    <rect x="100" y="655" width="800" height="40" rx="20" />
+  </g>
+</svg>
