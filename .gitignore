@@ -14,8 +14,11 @@ pids
 !/src/renderer/assets/icons/*.svg
 
 # Local documents, except maintained samples
+*.depthplan
 *.depthplan.json
-!/docs/sample/recursive_document.depthplan.json
+!/docs/sample/recursive_document.depthplan
+!/docs/sample/workflow_document.depthplan
+!/docs/sample/depthplan_application_tour.depthplan
 
 # Coverage directory used by tools like istanbul
 coverage
@@ -44,9 +47,6 @@ npm-debug.log.*
 *.css.d.ts
 *.sass.d.ts
 *.scss.d.ts
-
-!/docs/sample/workflow_document.depthplan.json
-!/docs/sample/depthplan_application_tour.depthplan.json
 
 # Native builds and generated contracts
 /src-tauri/target/

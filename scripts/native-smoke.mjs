@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import client from './mcp/native-client.cjs';
 import { launchNative } from './native-driver.mjs';
 import { authoring } from './native-authoring.mjs';
@@ -19,10 +20,17 @@ const {
   drag,
   until,
   close,
-} = await launchNative();
+} = await launchNative(undefined, [
+  pathToFileURL(path.resolve('docs/sample/recursive_document.depthplan')).href,
+]);
 let probe;
 let resumed;
 try {
+  await until(() =>
+    sync(
+      'return document.body.textContent.includes("recursive_document.depthplan")',
+    ),
+  );
   const instance = await native('app:instance-id');
   assert.match(instance, /^[a-f0-9-]{36}$/);
   assert.equal((await native('automation:status')).enabled, false);
@@ -34,7 +42,7 @@ try {
   );
   probe.close();
   const sample = JSON.parse(
-    await readFile('docs/sample/recursive_document.depthplan.json', 'utf8'),
+    await readFile('docs/sample/recursive_document.depthplan', 'utf8'),
   );
   const target = path.join(profile, 'roundtrip.depthplan.json');
   sample.extensions = {
@@ -44,6 +52,10 @@ try {
   await dialogs('save', target);
   let saved = await native('file:save', sample);
   assert.equal(saved.status, 'success', JSON.stringify(saved));
+  assert.deepEqual(await native('test:last-file-dialog'), {
+    kind: 'document-save',
+    name: 'untitled.depthplan',
+  });
   assert.deepEqual(
     JSON.parse(await readFile(target, 'utf8')).extensions,
     sample.extensions,
@@ -70,8 +82,48 @@ try {
     'error',
   );
   assert.equal(await readFile(target, 'utf8'), before);
+  // Ordinary Save retains the legacy source; Save As offers the new suffix and
+  // leaves the source intact. Explicit chooser paths remain the user's choice.
+  saved = await native('file:save', sample, saved.source.id);
+  assert.equal(saved.source.path, target);
+  const legacyBytes = await readFile(target, 'utf8');
+  await dialogs('save', null);
+  assert.equal(
+    (await native('file:save', sample, saved.source.id, true)).status,
+    'canceled',
+  );
+  assert.equal(
+    (await native('test:last-file-dialog')).name,
+    'roundtrip.depthplan',
+  );
+  const migratedPath = path.join(profile, '旧 diagram.depthplan');
+  await dialogs('save', migratedPath);
+  const migrated = await native('file:save', sample, saved.source.id, true);
+  assert.equal(migrated.status, 'success', JSON.stringify(migrated));
+  assert.equal(migrated.source.path, migratedPath);
+  assert.equal(await readFile(target, 'utf8'), legacyBytes);
+  assert.deepEqual(
+    JSON.parse(await readFile(migratedPath, 'utf8')).objects,
+    sample.objects,
+  );
+  assert.equal(
+    (await native('file:reload-document', migrated.source.id)).status,
+    'success',
+  );
+  assert.equal(
+    (await native('file:open-request', migratedPath)).status,
+    'error',
+  );
+  await native('test:open-files', [migratedPath]);
+  await until(() =>
+    sync('return document.body.textContent.includes(arguments[0])', [
+      '旧 diagram.depthplan',
+    ]),
+  );
+  await until(async () => (await native('file:open-requests')).length === 0);
   // Load through the real renderer document lifecycle, with only the native chooser automated.
   await dialogs('open', target);
+  await click('Menu');
   await click('Open');
   await until(() =>
     sync(

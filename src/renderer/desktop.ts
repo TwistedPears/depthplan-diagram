@@ -206,6 +206,34 @@ const desktopHandler = {
       native('transition:reply', id, approved),
   },
   fileSystem: {
+    onOpenRequested: (callback: (id: string) => void) => {
+      let active = true;
+      const delivered = new Set<string>();
+      const receive = (id: string) => {
+        if (active && !delivered.has(id)) {
+          delivered.add(id);
+          callback(id);
+        }
+      };
+      const ready = listen<string>('file:open-request', ({ payload }) => {
+        receive(payload);
+      });
+      // Listen before enumerating so startup events cannot fall into a gap.
+      void ready
+        .then(() => native<string[]>('file:open-requests'))
+        .then((ids) => {
+          ids.forEach(receive);
+        })
+        .catch(console.error);
+      return () => {
+        active = false;
+        void ready.then((stop) => stop()).catch(console.error);
+      };
+    },
+    readOpenRequest: (id: string): Promise<FileResult<FileCandidate>> =>
+      native('file:open-request', id),
+    releaseOpenRequest: (id: string): Promise<void> =>
+      native('file:release-open-request', id),
     newDocument: (): Promise<{ document: RecursiveDocument; filePath: null }> =>
       Promise.resolve({
         document: createRecursiveDocument(
@@ -218,8 +246,9 @@ const desktopHandler = {
     saveDocument: (
       document: RecursiveDocument,
       fileId?: string,
+      saveAs = false,
     ): Promise<FileResult<{ source: SourceFile }>> =>
-      native('file:save', document, fileId),
+      native('file:save', document, fileId, saveAs),
     reloadDocument: (fileId: string): Promise<FileResult<FileCandidate>> =>
       native('file:reload-document', fileId),
   },

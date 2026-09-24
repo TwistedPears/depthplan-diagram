@@ -7,6 +7,6 @@ export default function exportAsJSON(
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
   return window.desktop.export.exportJSON(
     document,
-    `${title}_${timestamp}.depthplan.json`,
+    `${title}_${timestamp}.depthplan`,
   );
 }

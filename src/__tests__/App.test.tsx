@@ -77,6 +77,9 @@ describe('App', () => {
         reply: jest.fn(),
       },
       fileSystem: {
+        onOpenRequested: jest.fn(() => () => {}),
+        readOpenRequest: jest.fn(),
+        releaseOpenRequest: jest.fn().mockResolvedValue(undefined),
         newDocument: jest.fn().mockResolvedValue({
           document: createRecursiveDocument('test-document', 'Test diagram'),
           filePath: null,
@@ -114,9 +117,93 @@ describe('App', () => {
           rootDepths: {},
         }),
         undefined,
+        false,
       ),
     );
     expect(await screen.findByText('Saved')).toBeInTheDocument();
+  });
+
+  it('routes OS file opens through the unsaved-work guard and deduplicates startup events', async () => {
+    const document = recursiveFixture();
+    (window.desktop.fileSystem.readOpenRequest as jest.Mock).mockResolvedValue({
+      status: 'success',
+      document,
+      source: { id: 'os-file', path: '/System.depthplan', fingerprint: 'hash' },
+    });
+    render(<App />);
+    fireEvent.click(screen.getByText('Edit document'));
+    (window.desktop.transitions.confirm as jest.Mock).mockResolvedValue(
+      'cancel',
+    );
+    const receive = (window.desktop.fileSystem.onOpenRequested as jest.Mock)
+      .mock.calls[0][0];
+    act(() => {
+      receive('open-one');
+      receive('open-one');
+    });
+    await waitFor(() =>
+      expect(window.desktop.fileSystem.releaseOpenRequest).toHaveBeenCalledWith(
+        'open-one',
+      ),
+    );
+    expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Startup edit')).toBeInTheDocument();
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    (window.desktop.transitions.confirm as jest.Mock).mockResolvedValue(
+      'discard',
+    );
+    act(() => receive('open-two'));
+    await screen.findByText('Fixture');
+    expect(window.desktop.fileSystem.openDocument).not.toHaveBeenCalled();
+  });
+
+  it('serializes OS requests that arrive while another file is opening', async () => {
+    const candidate = {
+      status: 'success',
+      document: recursiveFixture(),
+      source: { id: 'os-file', path: '/System.depthplan', fingerprint: 'hash' },
+    };
+    let finish!: (value: unknown) => void;
+    (window.desktop.fileSystem.readOpenRequest as jest.Mock)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      )
+      .mockResolvedValue({
+        ...candidate,
+        document: { ...candidate.document, id: 'second-document' },
+      });
+    render(<App />);
+    const receive = (window.desktop.fileSystem.onOpenRequested as jest.Mock)
+      .mock.calls[0][0];
+    act(() => receive('first'));
+    await waitFor(() =>
+      expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    act(() => receive('second'));
+    expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenCalledTimes(1);
+    await act(async () => finish(candidate));
+    await waitFor(() =>
+      expect(window.desktop.fileSystem.releaseOpenRequest).toHaveBeenCalledWith(
+        'second',
+      ),
+    );
+    expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenNthCalledWith(
+      1,
+      'first',
+    );
+    expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenNthCalledWith(
+      2,
+      'second',
+    );
+    expect(screen.getByTestId('recursive-canvas')).toHaveAttribute(
+      'data-document-id',
+      'second-document',
+    );
   });
 
   it('retains startup edits through identity loading, rerenders and a canceled first save', async () => {
@@ -162,6 +249,7 @@ describe('App', () => {
         metadata: expect.objectContaining({ title: 'Startup edit' }),
       }),
       undefined,
+      false,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByText('Untitled Document')).toBeInTheDocument();
@@ -324,6 +412,7 @@ describe('App', () => {
       expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
         document,
         'v2-source',
+        false,
       ),
     );
     chooseFileCommand('New');

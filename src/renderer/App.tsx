@@ -14,6 +14,7 @@ import useDocumentHistoryActions from './hooks/useDocumentHistoryActions';
 import useDocumentState from './hooks/useDocumentState';
 import useDocumentFiles from './hooks/useDocumentFiles';
 import useDocumentTransitions from './hooks/useDocumentTransitions';
+import useDocumentOpenRequests from './hooks/useDocumentOpenRequests';
 import { DocumentDrafts } from './hooks/useDocumentDraft';
 import RecursiveCanvas from './components/RecursiveCanvas';
 import NamedViews from './components/NamedViews';
@@ -138,6 +139,7 @@ function Workspace() {
     files.loading ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
+  useDocumentOpenRequests(transitions, isLoading, showStatus);
   const handleNewDocument = () => {
     if (!isLoading) return transitions.request('new');
   };

@@ -17,7 +17,7 @@ export default function ExportToolbar({
         <Icon name="file-export" /> Export image
       </button>
       <button type="button" onClick={onExportJSON} disabled={isLoading}>
-        <Icon name="file-code" /> Export JSON
+        <Icon name="file-code" /> Export DepthPlan
       </button>
     </>
   );

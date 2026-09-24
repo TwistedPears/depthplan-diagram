@@ -51,8 +51,8 @@ record('unsupported unversioned document', {
   blocks: {},
   connections: {},
 });
-for (const name of readdirSync('docs/sample').filter((n) =>
-  n.endsWith('.depthplan.json'),
+for (const name of readdirSync('docs/sample').filter(
+  (n) => n.endsWith('.depthplan') || n.endsWith('.depthplan.json'),
 ))
   record(name, JSON.parse(readFileSync('docs/sample/' + name, 'utf8')));
 function mutate(name: string, fn: (v: any) => void, source = base) {

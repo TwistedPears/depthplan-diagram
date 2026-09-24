@@ -94,7 +94,7 @@ it.each(['new', 'open', 'reload', 'close'] as const)(
         if (choice === 'save')
           expect(
             window.desktop.fileSystem.saveDocument,
-          ).toHaveBeenLastCalledWith(before.document, before.source?.id);
+          ).toHaveBeenLastCalledWith(before.document, before.source?.id, false);
         unmount();
       }
   },

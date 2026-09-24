@@ -17,15 +17,15 @@ and try the app with a disposable diagram first.
 
 ## Take a five-minute tour
 
-1. Download [the application tour](https://github.com/TwistedPears/depthplan-diagram/raw/refs/heads/main/docs/sample/depthplan_application_tour.depthplan.json).
+1. Download [the application tour](https://github.com/TwistedPears/depthplan-diagram/raw/refs/heads/main/docs/sample/depthplan_application_tour.depthplan).
    In DepthPlan, choose **Menu → Open…** and select the downloaded file.
 2. Choose **Bookmarks → 00 • Start here / how to explore**, then try bookmarks
    01–03 to move from a system overview into nested components.
 3. Select an object and explore its depth controls. Scroll to zoom; right-drag
    or use the Hand tool to pan. Double-click text to edit it, then click outside
    to accept. Try Undo.
-4. Use **Save As…** to keep your own `.depthplan.json` copy, then reopen it.
-5. Export an SVG or PNG. The exported image is for sharing; the `.depthplan.json`
+4. Use **Save As…** to keep your own `.depthplan` copy, then reopen it.
+5. Export an SVG or PNG. The exported image is for sharing; the `.depthplan`
    file is the editable document.
 
 Next, try drawing a small system you know: a parent, a few nested components and

@@ -8,7 +8,7 @@ bookmarks and depth controls to present different levels of detail.
 installed-candidate acceptance, signing and security/support decisions remain
 [release requirements](docs/release.md).
 
-[Try it](docs/preview.md) · [Open the sample tour](docs/sample/depthplan_application_tour.depthplan.json) · [Give feedback](https://github.com/TwistedPears/depthplan-diagram/issues/new/choose)
+[Try it](docs/preview.md) · [Open the sample tour](docs/sample/depthplan_application_tour.depthplan) · [Give feedback](https://github.com/TwistedPears/depthplan-diagram/issues/new/choose)
 
 ![DepthPlan displaying the sample application's nested architecture, connections and depth controls.](docs/images/depthplan-tour.png)
 

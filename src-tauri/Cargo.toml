@@ -24,6 +24,9 @@ automation = ["dep:tauri-plugin-wdio-webdriver", "dep:objc2"]
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6", optional = true }
 
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }
 
