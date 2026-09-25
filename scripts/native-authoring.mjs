@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 // One continuous journey in the same native editor and stdio client as smoke.
@@ -39,6 +39,57 @@ export async function authoring(driver, probe) {
     ...document,
     metadata: { ...document.metadata, modified: null },
   });
+  const bookmarkOrder = () =>
+    sync(
+      `return [...document.querySelectorAll('.bookmark-item')].map(button=>button.dataset.bookmarkId)`,
+    );
+
+  for (const [name, view, route] of [
+    ['depthplan_application_tour', 'implementation', 'dispatch-to-guard'],
+    ['workflow_document', 'details', 'service-bridge'],
+  ]) {
+    const data = await readFile(`docs/sample/${name}.depthplan`, 'utf8');
+    const sample = JSON.parse(data),
+      file = path.join(profile, `${name}.depthplan`);
+    await writeFile(file, data);
+    await dialogs('open', file);
+    await click('Menu');
+    await click('Open');
+    await until(async () => (await state()).source?.path === file);
+    assert.deepEqual(await bookmarkOrder(), Object.keys(sample.namedViews));
+    await sync(`document.querySelector('.recursive-bookmarks').open=true`);
+    await click(sample.namedViews[view].name);
+    await driver.js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
+    assert.equal(
+      await sync(
+        `const stage=window.Konva.stages[0];
+      return stage.find('.boundary-point').length===0 &&
+        stage.findOne('#connection-'+arguments[0]).findOne('.connection-path').points().length>=4;`,
+        [route],
+      ),
+      true,
+      'sample keeps its parent-to-child route without legacy boundary dots',
+    );
+    await click('Save document');
+    await until(async () => !(await state()).dirty);
+    assert.deepEqual(
+      Object.keys(JSON.parse(await readFile(file, 'utf8')).namedViews),
+      Object.keys(sample.namedViews),
+    );
+    await sync(`document.querySelector('.recursive-bookmarks').open=true`);
+    const screenshot = await driver.request(
+      `/session/${driver.session}/screenshot`,
+      undefined,
+      'GET',
+    );
+    await writeFile(
+      path.join(profile, `${name}-bookmarks.png`),
+      Buffer.from(screenshot, 'base64'),
+    );
+    await sync(`document.querySelector('.recursive-bookmarks').open=false`);
+  }
 
   await click('Menu');
   await click('New');
@@ -95,8 +146,14 @@ export async function authoring(driver, probe) {
       endTarget: 'store',
     },
   );
+  // Names and IDs deliberately differ from creation order.
+  await bookmark('create', { id: 'z-first', name: 'Zulu' });
   await bookmark('create', { name: 'Overview' });
+  await bookmark('create', { id: 'a-last', name: 'Alpha' });
+  const expectedOrder = ['z-first', 'overview', 'a-last'];
+  assert.deepEqual(await bookmarkOrder(), expectedOrder);
   const authored = await save();
+  assert.deepEqual(Object.keys(authored.namedViews), expectedOrder);
   assert.equal(Object.keys(authored.objects).length, 4);
   assert.equal(authored.objects.api.parentId, 'system');
   assert.equal(authored.objects.api.content[1].text, 'return 200;');
@@ -212,6 +269,12 @@ export async function authoring(driver, probe) {
   assert.equal((await save()).namedViews?.overview, undefined);
   await history('undo');
   const beforeOpen = await save();
+  assert.deepEqual(
+    await bookmarkOrder(),
+    expectedOrder,
+    'rename/reset/delete/Undo preserve bookmark order',
+  );
+  assert.deepEqual(Object.keys(beforeOpen.namedViews), expectedOrder);
   const previous = await state();
   await click('Menu');
   await click('New');
@@ -223,6 +286,11 @@ export async function authoring(driver, probe) {
   await click('Open');
   await until(async () => (await state()).source?.path === target);
   assert.equal((await state()).canUndo, false);
+  assert.deepEqual(
+    await bookmarkOrder(),
+    expectedOrder,
+    'reopening preserves creation order',
+  );
   // Save from the reopened renderer, not just a second read of the original file.
   await edit({ type: 'move', ids: ['peer'], delta: { x: 1, y: 0 } });
   await history('undo');

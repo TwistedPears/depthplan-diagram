@@ -146,16 +146,6 @@
         "stroke": "#3569aa",
         "strokeWidth": 3,
         "cornerRadius": 12
-      },
-      "boundaryPoints": {
-        "agent-input": {
-          "side": "left",
-          "offset": 0.5
-        },
-        "file-output": {
-          "side": "right",
-          "offset": 0.5
-        }
       }
     },
     "agent": {
@@ -389,7 +379,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": "All 18 endpoint marker styles, plus nested boundary bridges."
+              "text": "All 18 endpoint marker styles, plus parent-to-child connections."
             }
           ]
         }
@@ -443,7 +433,7 @@
                 "type": "paragraph",
                 "runs": [
                   {
-                    "text": "Follow the agent → app → MCP bridge chain."
+                    "text": "Follow the agent → app → MCP connection chain."
                   }
                 ]
               }
@@ -701,12 +691,6 @@
         "stroke": "#8a66a3",
         "strokeWidth": 2,
         "cornerRadius": 12
-      },
-      "boundaryPoints": {
-        "commands": {
-          "side": "left",
-          "offset": 0.73
-        }
       }
     },
     "canvas": {
@@ -1157,7 +1141,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": "Bound endpoints, boundary ports and inward bridges keep ownership explicit. Repairs are separate records."
+              "text": "Fixed anchors and free boundary bindings connect objects across containers. Repairs are separate records."
             }
           ]
         }
@@ -1292,12 +1276,6 @@
         "stroke": "#526277",
         "strokeWidth": 2,
         "cornerRadius": 12
-      },
-      "boundaryPoints": {
-        "request": {
-          "side": "left",
-          "offset": 0.5
-        }
       }
     },
     "contracts": {
@@ -2742,7 +2720,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": "Sibling nodes connect directly. Routes across containers use a boundary point and an inward bridge. The architecture bookmarks demonstrate a three-level bridge chain."
+              "text": "Objects connect directly across containers. Collapsing a parent brings hidden child connections to its border; expanding restores them. Parent borders can also connect inward to children, as shown in the architecture bookmarks."
             }
           ]
         },
@@ -3610,9 +3588,11 @@
         "offset": 0.5
       },
       "end": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "app",
-        "pointId": "agent-input"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "style": {
         "stroke": "#8551a3",
@@ -3628,9 +3608,11 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "app",
-        "pointId": "file-output"
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
         "kind": "object",
@@ -3652,14 +3634,18 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "app",
-        "pointId": "agent-input"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "mcp",
-        "pointId": "commands"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "style": {
         "stroke": "#8551a3",
@@ -3675,14 +3661,18 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "mcp",
-        "pointId": "commands"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "dispatch",
-        "pointId": "request"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "style": {
         "stroke": "#475569",
@@ -3695,9 +3685,11 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "dispatch",
-        "pointId": "request"
+        "side": "left",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
         "kind": "object",

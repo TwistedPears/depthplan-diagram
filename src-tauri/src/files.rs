@@ -266,6 +266,42 @@ mod tests {
         assert_eq!(reopened, edited);
     }
     #[test]
+    fn bookmark_order_survives_open_save_and_reopen() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("bookmarks.depthplan");
+        let input = include_str!("../../docs/sample/depthplan_application_tour.depthplan");
+        fs::write(&path, input).unwrap();
+        let expected = [
+            "welcome",
+            "system-overview",
+            "architecture",
+            "modules",
+            "implementation",
+            "rich-text",
+            "code-top",
+            "code-bottom",
+            "shapes",
+            "markers",
+            "routes",
+            "selective",
+        ];
+        let mut store = FileStore::default();
+        for _ in 0..2 {
+            let opened = store.read(&path).unwrap();
+            let document = &opened["document"];
+            let keys: Vec<_> = document["namedViews"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect();
+            assert_eq!(keys, expected);
+            store
+                .save(&path, document, hash(&path).unwrap().as_deref(), &|| Ok(()))
+                .unwrap();
+        }
+    }
+    #[test]
     fn round_trip_preserves_documents_and_rejects_invalid_replacement() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("document.json");
