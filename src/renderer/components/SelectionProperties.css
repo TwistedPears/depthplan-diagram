@@ -159,25 +159,6 @@
   width: 24px;
   height: 24px;
 }
-.property-row {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.property-row .property-group {
-  flex: 3;
-  margin: 0;
-}
-.property-row .property-group + .property-group {
-  flex: 2;
-}
-.property-row .property-choices {
-  flex-wrap: nowrap;
-}
-.property-row:has(.property-group + .property-group) button {
-  width: 30px;
-  padding: 3px;
-}
 .property-group input[type='range'] {
   width: 100%;
   padding: 0;

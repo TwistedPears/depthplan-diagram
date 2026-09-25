@@ -320,8 +320,8 @@ export async function expansion(driver, probe) {
   const icons = bible.assets.map(
     (asset) => asset.summary.match(/Target SVG: (.*?)\.svg/)[1],
   );
-  icons.push('square-stack-2', 'square-stack-3');
-  assert.equal(icons.length, 42);
+  icons.push('square-stack-2', 'square-stack-3', 'stroke-width-none');
+  assert.equal(icons.length, 43);
   assert.deepEqual(
     await sync(
       `return arguments[0].filter(name => {
@@ -495,13 +495,52 @@ export async function expansion(driver, probe) {
     );
     await writeFile(path.join(profile, name), Buffer.from(data, 'base64'));
   };
-  assert.equal(
-    await sync(
-      `return new Set(['Thin stroke','Medium stroke','Thick stroke'].map(name => document.querySelector('[aria-label="'+name+'"]').getBoundingClientRect().top)).size`,
-    ),
-    1,
-    'stroke widths stay on one row',
+  const strokeChoices = [
+    'No stroke',
+    'Thin stroke',
+    'Medium stroke',
+    'Thick stroke',
+  ];
+  const strokeLayout = await sync(
+    `const buttons=arguments[0].map(name=>document.querySelector('[aria-label="'+name+'"]'));
+    const widths=buttons[0].closest('fieldset'), corners=document.querySelector('[aria-label="Sharp corners"]').closest('fieldset');
+    return {order:[...widths.querySelectorAll('button')].map(b=>b.getAttribute('aria-label')),
+      rows:new Set(buttons.map(b=>b.getBoundingClientRect().top)).size,
+      cornersBelow:corners.getBoundingClientRect().top>widths.getBoundingClientRect().bottom,
+      aligned:corners.getBoundingClientRect().left===widths.getBoundingClientRect().left};`,
+    [strokeChoices],
   );
+  assert.deepEqual(strokeLayout, {
+    order: strokeChoices,
+    rows: 1,
+    cornersBelow: true,
+    aligned: true,
+  });
+  const paintedWidth = () =>
+    sync(
+      `return window.Konva.stages[0].findOne('#object-b1').findOne('.object-hit-area').strokeWidth();`,
+    );
+  for (const [name, width] of [
+    ['Thin stroke', 1.5],
+    ['Medium stroke', 3],
+    ['Thick stroke', 5],
+    ['No stroke', 0],
+  ]) {
+    await click(name);
+    assert.equal(await paintedWidth(), width);
+    assert.equal(
+      await sync(
+        `return document.querySelector('[aria-label="'+arguments[0]+'"]').getAttribute('aria-pressed');`,
+        [name],
+      ),
+      'true',
+    );
+  }
+  await click('Undo');
+  assert.equal(await paintedWidth(), 5);
+  await click('Redo');
+  assert.equal(await paintedWidth(), 0);
+  assert.equal((await save()).objects.b1.style.strokeWidth, 0);
   await screenshot('style-icons-shape-screen.png');
   await sync(
     `const panel=document.getElementById('selection-controls');panel.scrollTop=panel.scrollHeight;`,
@@ -531,7 +570,10 @@ export async function expansion(driver, probe) {
   await click('Open');
   await until(async () => !(await state()).canUndo);
   await select('b1');
-  assert.equal((await save()).objects.b1.style.fillType, 'cross-hatch');
+  const reopenedStyle = (await save()).objects.b1.style;
+  assert.equal(reopenedStyle.fillType, 'cross-hatch');
+  assert.equal(reopenedStyle.strokeWidth, 0);
+  assert.equal(await paintedWidth(), 0);
   await click('No fill');
   assert.equal(
     await sync(
@@ -546,6 +588,14 @@ export async function expansion(driver, probe) {
     objects: [],
     connections: ['arrow'],
   });
+  await click('No stroke');
+  assert.equal(
+    await sync(
+      `return window.Konva.stages[0].findOne('#connection-arrow').findOne('.connection-path').strokeWidth();`,
+    ),
+    0,
+  );
+  await click('Undo');
   await click('Curved path');
   await sync(
     `document.querySelector('summary[aria-label="Start marker"]').click()`,
@@ -570,7 +620,7 @@ export async function expansion(driver, probe) {
     { open: false, focus: 'End marker' },
   );
   console.log(
-    'PASS Style icons: 42 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, hidden Link with stored links retained, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
+    'PASS Style icons: 43 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, hidden Link with stored links retained, separate Corners row, No stroke/width controls with Undo/Redo and reopen, fill controls, hatch SVG/PNG, path/marker choices.',
   );
   await screenshot('expansion-screen.png');
   assert.deepEqual(await sync('return window.nativeErrors'), []);

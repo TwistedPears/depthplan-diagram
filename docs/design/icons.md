@@ -16,19 +16,22 @@ files together. No image service or runtime download is used.
 ## Interface icons
 
 The [interface asset directory](../../src/renderer/assets/icons/) currently contains
-80 SVGs, including Style controls and the two/three-square child indicators.
+81 SVGs, including Style controls and the two/three-square child indicators.
 The shipped files are the inventory; the prompt collections describe overlapping
 generation sets, not a count of all integrated icons:
 
 - [Base icon prompt bible](DepthPlan%20Icon%20Prompt%20Bible.json).
 - [Style popup icon prompt bible](DepthPlan%20Style%20Popup%20Icon%20Prompt%20Bible.json).
 
-The five stroke width/pattern assets are integrated; there is no outstanding
+The six stroke width/pattern assets are integrated; there is no outstanding
 placeholder-icon backlog. Keep the Style bible's path and `assets[].summary`
 `Target SVG:` entries stable: [native-expansion.mjs](../../scripts/native-expansion.mjs)
-uses them to validate its 40-icon set plus `square-stack-2` and `square-stack-3`.
-Corner previews show only the top-left corner. The Link asset and implementation
-are retained while its Style action is hidden.
+uses them to validate its 40-icon set plus `square-stack-2`, `square-stack-3`, and
+`stroke-width-none`. Stroke widths use solid 2/3/4px previews; No stroke adds a
+centered X to the thin line and sets the selected stroke width to zero.
+Corner previews show only the top-left corner, on their own row below Stroke
+width. The Link asset and implementation are retained while its Style action is
+hidden.
 
 Use the shared prompt in the appropriate bible to generate original monochrome
 geometric artwork: rounded ends/joins, consistent optical weight, clear negative

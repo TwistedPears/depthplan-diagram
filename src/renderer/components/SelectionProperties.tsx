@@ -215,36 +215,33 @@ export default function SelectionProperties({
               />
             </>
           )}
-          <div className="property-row">
+          <IconChoices
+            label="Stroke width"
+            value={Number(style.strokeWidth ?? (shapesOnly ? 1.5 : 2))}
+            options={[
+              [0, 'No stroke', 'stroke-width-none'],
+              [1.5, 'Thin stroke', 'stroke-width-thin'],
+              [3, 'Medium stroke', 'stroke-width-medium'],
+              [5, 'Thick stroke', 'stroke-width-thick'],
+            ]}
+            onChange={(value) => setStyle('strokeWidth', value)}
+          />
+          {items.every(
+            (item) =>
+              'type' in item && ['rectangle', 'frame'].includes(item.type),
+          ) && (
             <IconChoices
-              label="Stroke width"
-              value={Number(style.strokeWidth ?? (shapesOnly ? 1.5 : 2))}
+              label="Corners"
+              value={Number(style.cornerRadius ?? 0) > 0 ? 'rounded' : 'sharp'}
               options={[
-                [1.5, 'Thin stroke', 'stroke-width-thin'],
-                [3, 'Medium stroke', 'stroke-width-medium'],
-                [5, 'Thick stroke', 'stroke-width-thick'],
+                ['sharp', 'Sharp corners', 'corner-sharp'],
+                ['rounded', 'Rounded corners', 'corner-rounded'],
               ]}
-              onChange={(value) => setStyle('strokeWidth', value)}
+              onChange={(value) =>
+                setStyle('cornerRadius', value === 'rounded' ? 12 : 0)
+              }
             />
-            {items.every(
-              (item) =>
-                'type' in item && ['rectangle', 'frame'].includes(item.type),
-            ) && (
-              <IconChoices
-                label="Corners"
-                value={
-                  Number(style.cornerRadius ?? 0) > 0 ? 'rounded' : 'sharp'
-                }
-                options={[
-                  ['sharp', 'Sharp corners', 'corner-sharp'],
-                  ['rounded', 'Rounded corners', 'corner-rounded'],
-                ]}
-                onChange={(value) =>
-                  setStyle('cornerRadius', value === 'rounded' ? 12 : 0)
-                }
-              />
-            )}
-          </div>
+          )}
           <IconChoices
             label="Stroke style"
             value={String(style.strokeStyle ?? 'solid')}
