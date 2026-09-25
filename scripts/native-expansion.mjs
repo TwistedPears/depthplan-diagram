@@ -299,7 +299,7 @@ export async function expansion(driver, probe) {
     (asset) => asset.summary.match(/Target SVG: (.*?)\.svg/)[1],
   );
   icons.push('square-stack-2', 'square-stack-3');
-  assert.equal(icons.length, 46);
+  assert.equal(icons.length, 45);
   assert.deepEqual(
     await sync(
       `return arguments[0].filter(name => {
@@ -536,7 +536,7 @@ export async function expansion(driver, probe) {
     { open: false, focus: 'End marker' },
   );
   console.log(
-    'PASS Style icons: 46 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, Link, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
+    'PASS Style icons: 45 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, Link, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
   );
   await screenshot('expansion-screen.png');
   assert.deepEqual(await sync('return window.nativeErrors'), []);

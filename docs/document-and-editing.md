@@ -101,8 +101,8 @@ object's world center/rotation and its descendants' local geometry. Drag adoptio
 uses the actual outline, chooses deepest candidate then Z, area and ID, and needs
 400 ms of intentional hover. Current-parent tolerance is eight screen pixels.
 Resizing across another shape does not adopt it. A canceled drag restores its
-starting state. Explicit Add child reveals its branch; dropping into a collapsed
-container keeps it collapsed.
+starting state. Drawing a shape inside a container creates a child and reveals its
+branch; dropping into a collapsed container keeps it collapsed.
 
 When ancestry changes from generation `g` to `h`, source depth `d` maps to
 `d - g + h`. Destination layouts initialize before insertion. Negative translated

@@ -8,7 +8,7 @@
     "mainNegatives": {
       "name": "Main Negatives",
       "summary": "Shared exclusions that keep the icon family monochrome, readable at small sizes, and easy to vectorize.",
-      "prompt": "No photographs, realistic objects, 3D, isometric or perspective views, scenery, people, materials, gradients, shadows, glow, bevels or decorative color. No gray interiors, blur, rough sketching, sloppiness, distressed surfaces, halftone or decorative texture. Only the selected Fill Hachure or Fill Cross Hatch asset may contain the intentional geometric hatch pattern specified in its prompt. Normal edge antialiasing is acceptable; keep all visible interior artwork opaque black. No accidental hairlines or excessive detail; the deliberately thin stroke-width preview is allowed.\n\nNo words, labels, captions, filenames, numbers, signatures, logos, watermarks, application screenshots, button tiles, UI mockups, grids, contact sheets or alternative versions. Only the Edit Text asset may contain a single capital T as the icon itself. No sloppiness-control icons. No photographic or hand-drawn texture in fill previews. Do not draw transparency checkerboards, selection highlights, hover colors or disabled variants.\n\nNo surrounding border unless it is part of the specified glyph. No background objects, cropped arrowheads, cut-off outlines, unbalanced padding or stray marks. Do not reverse layer arrows or endpoint direction. Do not confuse Duplicate with Layers, Link with an arrow connector, Add Child with Duplicate, Add Boundary Point with Add Child, Deselect with Delete, or shape corner style with connector path type. Do not turn hatch fill into dotted fill. Do not fill outline endpoint markers or put white-on-black button backgrounds behind them."
+      "prompt": "No photographs, realistic objects, 3D, isometric or perspective views, scenery, people, materials, gradients, shadows, glow, bevels or decorative color. No gray interiors, blur, rough sketching, sloppiness, distressed surfaces, halftone or decorative texture. Only the selected Fill Hachure or Fill Cross Hatch asset may contain the intentional geometric hatch pattern specified in its prompt. Normal edge antialiasing is acceptable; keep all visible interior artwork opaque black. No accidental hairlines or excessive detail; the deliberately thin stroke-width preview is allowed.\n\nNo words, labels, captions, filenames, numbers, signatures, logos, watermarks, application screenshots, button tiles, UI mockups, grids, contact sheets or alternative versions. Only the Edit Text asset may contain a single capital T as the icon itself. No sloppiness-control icons. No photographic or hand-drawn texture in fill previews. Do not draw transparency checkerboards, selection highlights, hover colors or disabled variants.\n\nNo surrounding border unless it is part of the specified glyph. No background objects, cropped arrowheads, cut-off outlines, unbalanced padding or stray marks. Do not reverse layer arrows or endpoint direction. Do not confuse Duplicate with Layers, Link with an arrow connector, Deselect with Delete, or shape corner style with connector path type. Do not turn hatch fill into dotted fill. Do not fill outline endpoint markers or put white-on-black button backgrounds behind them."
     }
   },
   "zones": [],
@@ -32,12 +32,6 @@
       "prompt": "Create the Edit Text icon for DepthPlan. Its interface role is: Edit text / Edit connector label.\n\nOne upright capital T with a broad top stroke and centered vertical stem, paired with a slim I-beam text cursor immediately to its right. Keep a clear gap between the T and the cursor. The cursor has short top and bottom caps and the same visual weight as the family.\n\nOnly the single capital T is lettering. No word, paragraph, page outline, pencil or button tile. This edits the selected object text or connector label; it is not a text-alignment control."
     },
     {
-      "id": "AddChild",
-      "name": "Add Child",
-      "summary": "Category: StyleActions | Target SVG: add-child.svg | Control: Add child to selected object | Status: New asset for existing control.",
-      "prompt": "Create the Add Child icon for DepthPlan. Its interface role is: Add child to selected object.\n\nA large unfilled parent rectangle containing a smaller unfilled child rectangle in its lower-left interior. Place a compact plus in the upper-right interior, separated from both outlines. Keep the child entirely inside the parent.\n\nCommunicate containment and addition. Do not use two overlapping peer rectangles, which would mean Duplicate, or a dot on the parent edge, which would mean Add Boundary Point."
-    },
-    {
       "id": "AddBoundaryPoint",
       "name": "Add Boundary Point",
       "summary": "Category: StyleActions | Target SVG: add-boundary-point.svg | Control: Add boundary point to selected object | Status: New asset for existing control.",
@@ -59,7 +53,7 @@
       "id": "Duplicate",
       "name": "Duplicate",
       "summary": "Category: StyleActions | Target SVG: duplicate.svg | Control: Duplicate selected object or selection | Status: New asset for planned control.",
-      "prompt": "Create the Duplicate icon for DepthPlan. Its interface role is: Duplicate selected object or selection.\n\nTwo equal unfilled squares offset diagonally: rear square toward the upper left, front square toward the lower right. Hide only the rear segments occluded by the front square, keeping two distinct outlines and a clear offset.\n\nNo plus, page fold, text lines or stack of three planes. The two peer shapes mean Duplicate, not Add Child or Layers."
+      "prompt": "Create the Duplicate icon for DepthPlan. Its interface role is: Duplicate selected object or selection.\n\nTwo equal unfilled squares offset diagonally: rear square toward the upper left, front square toward the lower right. Hide only the rear segments occluded by the front square, keeping two distinct outlines and a clear offset.\n\nNo plus, page fold, text lines or stack of three planes. The two peer shapes mean Duplicate, not Layers."
     },
     {
       "id": "Delete",

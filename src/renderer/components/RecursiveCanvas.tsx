@@ -170,7 +170,6 @@ export default memo(function RecursiveCanvas({
   const tool = canvas.tool as ToolMode;
   useCanvasPan(stageRef, tool);
   const { selected, selectedPoint, minimap, selectionCollapsed } = canvas;
-  const [creationParent, setCreationParent] = useState<string | null>(null);
   const [properties, setProperties] = useState<string | null>(null);
   const [textEditing, setTextEditing] = useState<string | null>(null);
   const [linkEditing, setLinkEditing] = useState<string | null>(null);
@@ -293,10 +292,7 @@ export default memo(function RecursiveCanvas({
       setSelected([`connection-${id}`]);
       setSelectedPoint(null);
     },
-    onFinish: () => {
-      setTool(ToolMode.POINTER);
-      setCreationParent(null);
-    },
+    onFinish: () => setTool(ToolMode.POINTER),
   });
   const shapesOnly = selection.every((id) => id.startsWith('object-'));
   const arrangementIds = shapesOnly ? selection.map((id) => id.slice(7)) : [];
@@ -319,7 +315,6 @@ export default memo(function RecursiveCanvas({
         setSelectedPoint(null);
         setMarquee(null);
         setDraw(null);
-        setCreationParent(null);
         setTool(ToolMode.POINTER);
       }
     };
@@ -335,8 +330,7 @@ export default memo(function RecursiveCanvas({
         pointProperties ||
         linkEditing ||
         draw ||
-        marquee ||
-        creationParent
+        marquee
       ),
     );
   }, [
@@ -346,7 +340,6 @@ export default memo(function RecursiveCanvas({
     linkEditing,
     draw,
     marquee,
-    creationParent,
     onBusyChange,
   ]);
   useLayoutEffect(
@@ -435,17 +428,9 @@ export default memo(function RecursiveCanvas({
   useDocumentDraft({
     label: 'canvas gesture or connector',
     active: () =>
-      !!(
-        gesture.current ||
-        pointGesture.current ||
-        draw ||
-        marquee ||
-        creationParent ||
-        bridge
-      ),
+      !!(gesture.current || pointGesture.current || draw || marquee || bridge),
     discard: () => {
       cancelDrag();
-      setCreationParent(null);
       setTool(ToolMode.POINTER);
     },
   });
@@ -1047,14 +1032,11 @@ export default memo(function RecursiveCanvas({
                   : tool === ToolMode.FRAME
                     ? 'frame'
                     : 'rectangle';
-            const parent =
-              creationParent ??
-              (draw.alt ? null : eligibleParent(document, geometry));
+            const parent = draw.alt ? null : eligibleParent(document, geometry);
             onEdit(createShape(id, kind, geometry, parent));
             setSelected([`object-${id}`]);
             setDraw(null);
             setSelectedPoint(null);
-            setCreationParent(null);
             setTool(ToolMode.POINTER);
             suppressClick.current = true;
             return;
@@ -1349,7 +1331,6 @@ export default memo(function RecursiveCanvas({
               !!textEditing ||
               !!properties ||
               !!draw ||
-              !!creationParent ||
               !!pointProperties ||
               !!linkEditing ||
               drawing
@@ -1398,7 +1379,6 @@ export default memo(function RecursiveCanvas({
         onChangeTool={(next) => {
           cancelDrag();
           setTool(next);
-          setCreationParent(null);
         }}
       />
       {searchQuery !== null && (
@@ -1483,7 +1463,6 @@ export default memo(function RecursiveCanvas({
         className="recursive-selection-toolbar"
         style={{ pointerEvents: preview ? 'none' : undefined }}
         hidden={
-          !creationParent &&
           !bridge &&
           (!selection.length ||
             selectionCollapsed ||
@@ -1495,7 +1474,7 @@ export default memo(function RecursiveCanvas({
           <output aria-label="Selected items">
             {selection.length} selected
           </output>
-          {!creationParent && !bridge && !properties && (
+          {!bridge && !properties && (
             <button
               ref={hideSelectionRef}
               type="button"
@@ -1559,7 +1538,7 @@ export default memo(function RecursiveCanvas({
                     aria-label={`${scene.expanded.has(id) ? 'Hide' : 'Reveal'} ${count} ${count === 1 ? 'child' : 'children'}`}
                     title={`${scene.expanded.has(id) ? 'Hide' : 'Reveal'} ${count} ${count === 1 ? 'child' : 'children'}. Ctrl-click to collapse all descendants.`}
                     aria-expanded={scene.expanded.has(id)}
-                    disabled={!!properties || !!draw || !!creationParent}
+                    disabled={!!properties || !!draw}
                     onClick={(event) => toggleChildren(id, event)}
                     onContextMenu={(event) => toggleChildren(id, event)}
                   >
@@ -1629,20 +1608,6 @@ export default memo(function RecursiveCanvas({
             }}
           >
             <Icon name="sliders" />
-          </button>
-          <button
-            type="button"
-            aria-label="Add child"
-            title="Add child"
-            disabled={
-              selection.length !== 1 || !selection[0]?.startsWith('object-')
-            }
-            onClick={() => {
-              setCreationParent(selection[0].slice(7));
-              setTool(ToolMode.SQUARE);
-            }}
-          >
-            <Icon name="add-child" />
           </button>
           {selection.length === 1 &&
             selection[0].startsWith('object-') &&
@@ -1750,12 +1715,6 @@ export default memo(function RecursiveCanvas({
               Escape cancels.
             </span>
           )}
-          {creationParent && (
-            <span>
-              Draw a child of {objectLabel(document.objects[creationParent])}.
-              Escape cancels.
-            </span>
-          )}
           <RecursiveDelete
             document={document}
             selection={selection}
@@ -1768,8 +1727,7 @@ export default memo(function RecursiveCanvas({
                 marquee ||
                 properties ||
                 textEditing ||
-                pointProperties ||
-                creationParent
+                pointProperties
               )
             }
             onEdit={onEdit}
@@ -1829,7 +1787,6 @@ export default memo(function RecursiveCanvas({
       {selection.length > 0 &&
         tool === ToolMode.POINTER &&
         selectionCollapsed &&
-        !creationParent &&
         !bridge && (
           <button
             ref={showSelectionRef}
@@ -1960,7 +1917,7 @@ export default memo(function RecursiveCanvas({
             </span>
           </div>
         )}
-      {drawing && !creationParent && (
+      {drawing && (
         <p className="drawing-hint">
           Click and drag to draw. <kbd>Esc</kbd> to cancel.
         </p>
