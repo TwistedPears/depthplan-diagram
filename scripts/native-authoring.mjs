@@ -77,28 +77,22 @@ export async function authoring(driver, probe) {
     },
     { type: 'arrange', ids: ['api', 'store'], action: 'align-top' },
     {
-      type: 'boundary',
-      objectId: 'system',
-      pointId: 'out',
-      action: 'create',
-      point: { side: 'right', offset: 0.5 },
-    },
-    {
       type: 'create_connection',
       id: 'external',
       kind: 'arrow',
-      start: { x: 600, y: 350 },
-      end: { x: 875, y: 350 },
-      startTarget: { objectId: 'system', pointId: 'out' },
-      endTarget: 'peer',
+      start: { x: 875, y: 350 },
+      end: { x: 340, y: 320 },
+      startTarget: 'peer',
+      endTarget: 'api',
     },
     {
-      type: 'bridge',
+      type: 'create_connection',
       id: 'internal',
-      source: { objectId: 'system', pointId: 'out' },
-      target: 'api',
-      point: { x: 280, y: 320 },
       kind: 'arrow',
+      start: { x: 340, y: 320 },
+      end: { x: 370, y: 320 },
+      startTarget: 'api',
+      endTarget: 'store',
     },
   );
   await bookmark('create', { name: 'Overview' });
@@ -107,6 +101,20 @@ export async function authoring(driver, probe) {
   assert.equal(authored.objects.api.parentId, 'system');
   assert.equal(authored.objects.api.content[1].text, 'return 200;');
   assert.equal(Object.keys(authored.connections).length, 2);
+  assert(
+    Object.values(authored.objects).every((object) => !object.boundaryPoints),
+  );
+  for (const [id, ownerId, start, end] of [
+    ['external', null, 'peer', 'api'],
+    ['internal', 'system', 'api', 'store'],
+  ]) {
+    const connection = authored.connections[id];
+    assert.equal(connection.ownerId, ownerId);
+    assert.equal(connection.start.kind, 'object');
+    assert.equal(connection.start.objectId, start);
+    assert.equal(connection.end.kind, 'object');
+    assert.equal(connection.end.objectId, end);
+  }
   assert.equal(authored.rootDepths.system, 1);
   assert.equal(authored.rootDepths.peer, 0);
   assert.equal(

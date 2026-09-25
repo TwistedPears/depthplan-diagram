@@ -246,19 +246,33 @@ export async function connectors(driver, probe) {
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
   );
   assert.deepEqual(await endHandle(), { x: 682, y: 300 });
-  assert.equal(
-    await sync(
-      'return !!document.querySelector(`[aria-label="Add boundary point"]`)',
-    ),
-    false,
-  );
+  // Check the removed action in the shape Style panel, including a legacy port.
+  for (const object of ['a', 'b']) {
+    await command('depthplan_selection', {
+      action: 'set',
+      objects: [object],
+      connections: [],
+    });
+    await until(() =>
+      sync(
+        'return !!document.querySelector(`#selection-controls [aria-label="Sharp corners"]`)',
+      ),
+    );
+    assert.equal(
+      await sync(
+        'return !!document.querySelector(`[aria-label="Add boundary point"]`)',
+      ),
+      false,
+      'Style must not offer custom boundary-point creation',
+    );
+  }
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   await click('Arrow');
   await pointer('mousemove', 400, 300);
   await capture('connector-snapping.png');
   await click('Pointer (Select/Edit)');
   console.log(
-    'PASS connector snapping: four shape anchors, creation, snap/release in one drag, boundary endpoint priority, reattachment/detachment, visible-side fallback, Undo and reopen.',
+    'PASS connector snapping: four fixed anchors, snap/release, reattachment/detachment, visible-side fallback, Undo and reopen. Legacy endpoint compatibility retained; Add boundary point absent from shape Style controls.',
   );
 
   const nested = structuredClone(document);

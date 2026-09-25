@@ -236,7 +236,7 @@ it('keeps omitted patch fields omitted and rejects unknown actions and reserved 
   ).toBe(false);
 });
 
-it('shares rich-content, style, movement, arrangement and bridge repair operations with the editor', () => {
+it('retains MCP named-boundary and bridge repair commands alongside editor operations', () => {
   const { result, request, call, doc } = setup();
   call(
     'edit',
