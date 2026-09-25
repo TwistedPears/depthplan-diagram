@@ -35,6 +35,9 @@ Shape fills support solid, none, hachure and cross-hatch, with transparent gaps
 for patterns. Corner radius is a numeric style value; quick controls use 0 or 12,
 and Properties accepts custom values. Stroke width/dash, color and opacity remain
 shared across views. Object links are separate from rich-text links.
+New shapes and connectors use the 2px Thin stroke preset, selected in Style on
+creation. Older 1.5px Thin strokes are also recognized without changing their
+stored width.
 
 Geometry is `{x, y, z, width, height, rotation}`. X/Y are centers in canvas units,
 positive Y points down, dimensions are finite and positive, Z is an integer

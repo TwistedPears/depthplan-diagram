@@ -521,7 +521,7 @@ export async function expansion(driver, probe) {
       `return window.Konva.stages[0].findOne('#object-b1').findOne('.object-hit-area').strokeWidth();`,
     );
   for (const [name, width] of [
-    ['Thin stroke', 1.5],
+    ['Thin stroke', 2],
     ['Medium stroke', 3],
     ['Thick stroke', 5],
     ['No stroke', 0],

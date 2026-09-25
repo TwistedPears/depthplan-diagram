@@ -122,6 +122,54 @@ export async function authoring(driver, probe) {
     authored.layouts.system[1].store.y,
   );
 
+  // The creation defaults must match a selected Style preset before any edits.
+  for (const [id, kind] of [
+    ['api', 'object'],
+    ['external', 'connection'],
+  ]) {
+    await command('depthplan_selection', {
+      action: 'set',
+      objects: kind === 'object' ? [id] : [],
+      connections: kind === 'connection' ? [id] : [],
+    });
+    assert.deepEqual(
+      await sync(
+        `const [id,kind]=arguments;
+      const item=window.Konva.stages[0].findOne('#'+kind+'-'+id);
+      const shape=item.findOne(kind==='object'?'.object-hit-area':'.connection-path');
+      const group=document.querySelector('[aria-label="Thin stroke"]').closest('fieldset');
+      return {width:shape.strokeWidth(), selected:[...group.querySelectorAll('[aria-pressed="true"]')].map(b=>b.getAttribute('aria-label'))};`,
+        [id, kind],
+      ),
+      { width: 2, selected: ['Thin stroke'] },
+    );
+    const revision = (await state()).revision;
+    await click('Thin stroke');
+    assert.equal(
+      (await state()).revision,
+      revision,
+      'selected Thin preserves the creation width',
+    );
+  }
+  await edit({ type: 'edit_object', id: 'api', style: { strokeWidth: 1.5 } });
+  await command('depthplan_selection', {
+    action: 'set',
+    objects: ['api'],
+    connections: [],
+  });
+  assert.equal(
+    await sync(
+      `return document.querySelector('[aria-label="Thin stroke"]').getAttribute('aria-pressed');`,
+    ),
+    'true',
+  );
+  assert.equal(
+    (await save()).objects.api.style.strokeWidth,
+    1.5,
+    'recognizing legacy Thin does not rewrite it',
+  );
+  await click('Undo');
+
   // UI history and camera actions interleave with MCP edits in this same session.
   await edit({ type: 'move', ids: ['system'], delta: { x: 30, y: 20 } });
   await click('Undo');

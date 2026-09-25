@@ -126,6 +126,7 @@ export default function SelectionProperties({
     .filter(Boolean);
   const shapesOnly = selection.every((key) => key.startsWith('object-'));
   const style = items[0]?.style ?? {};
+  const strokeWidth = Number(style.strokeWidth ?? 2);
   const opacity = typeof style.opacity === 'number' ? style.opacity : 1;
   const [opacityDraft, setOpacityDraft] = useState(opacity);
   const selectionKey = selection.join(',');
@@ -217,10 +218,11 @@ export default function SelectionProperties({
           )}
           <IconChoices
             label="Stroke width"
-            value={Number(style.strokeWidth ?? (shapesOnly ? 1.5 : 2))}
+            // Recognize the previous Thin preset without changing saved widths.
+            value={strokeWidth === 1.5 ? 2 : strokeWidth}
             options={[
               [0, 'No stroke', 'stroke-width-none'],
-              [1.5, 'Thin stroke', 'stroke-width-thin'],
+              [2, 'Thin stroke', 'stroke-width-thin'],
               [3, 'Medium stroke', 'stroke-width-medium'],
               [5, 'Thick stroke', 'stroke-width-thick'],
             ]}
