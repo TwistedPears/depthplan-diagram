@@ -80,6 +80,7 @@ import {
   type Bounds,
   type Camera,
   geometryBounds,
+  intersectsBounds,
   sceneBounds,
   fitCamera,
   zoomCamera,
@@ -764,6 +765,12 @@ export default memo(function RecursiveCanvas({
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
+  const draggedBounds: Bounds[] = [];
+  const draggedIds = new Set(lifted);
+  for (const id of draggedIds) {
+    draggedBounds.push(geometryBounds(scene.world.get(id)!));
+    for (const child of scene.children.get(id) ?? []) draggedIds.add(child);
+  }
   // Recheck native paint bounds after scene or viewport changes. UI-only renders
   // leave both the geometry and the previous culling result intact.
   useLayoutEffect(() => {
@@ -1213,6 +1220,20 @@ export default memo(function RecursiveCanvas({
           x = camera.x + anchor.x * camera.scale - 16;
           y = camera.y + anchor.y * camera.scale - 16;
         }
+        // DOM controls sit above the canvas. Clear a dragged subtree's footprint,
+        // while keeping the controls that travel with that subtree visible.
+        if (
+          !draggedIds.has(id) &&
+          draggedBounds.some((box) =>
+            intersectsBounds(box, {
+              x: (x - camera.x) / camera.scale,
+              y: (y - camera.y) / camera.scale,
+              width: 32 / camera.scale,
+              height: 32 / camera.scale,
+            }),
+          )
+        )
+          return null;
         const expanded = scene.expanded.has(id);
         const icon =
           children.length > 1 || scene.hierarchy.children.has(children[0])

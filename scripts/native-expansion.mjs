@@ -649,6 +649,46 @@ export async function expansion(driver, probe) {
         );
       }
       await screenshot(`stack-corners-${types[0]}-${phase}.png`);
+      // DOM badges must clear the lifted object, including at rotated/zoomed views.
+      const drag = await sync(`const stage=window.Konva.stages[0];
+        const canvas=stage.container().getBoundingClientRect();
+        const group=stage.findOne('#object-b');
+        const start=group.getAbsoluteTransform().point({x:-group.width()*0.42,y:0});
+        const center=group.getAbsolutePosition();
+        const badge=document.querySelector('.child-stack-toggle[aria-label$="children of a"]').getBoundingClientRect();
+        return {start:{x:start.x+canvas.left,y:start.y+canvas.top},
+          end:{x:start.x+badge.left+16-center.x,y:start.y+badge.top+16-center.y}};`);
+      const pointer = async (type, point) => {
+        await sync(
+          `const [type,p]=arguments;
+          document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
+            bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,
+            button:0,buttons:type==='mouseup'?0:1,ctrlKey:true}));`,
+          [type, point],
+        );
+        await js(
+          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+        );
+      };
+      const visibleBadge = (id) =>
+        sync(
+          `return !!document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');`,
+          [id],
+        );
+      await pointer('mousedown', drag.start);
+      await pointer('mousemove', drag.end);
+      assert.equal(await visibleBadge('a'), false, 'covered badge clears drag');
+      assert.equal(await visibleBadge('b'), true, 'moving badge stays visible');
+      await screenshot(`stack-drag-${types[0]}-${phase}.png`);
+      await pointer('mousemove', drag.start);
+      assert.equal(await visibleBadge('a'), true, 'uncovered badge returns');
+      await pointer('mousemove', drag.end);
+      assert.equal(await visibleBadge('a'), false);
+      await sync(
+        `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`,
+      );
+      await until(() => visibleBadge('a'));
+      await pointer('mouseup', drag.start);
     }
     if (types[0] === 'diamond') {
       await edit({
@@ -672,7 +712,7 @@ export async function expansion(driver, probe) {
     await until(async () => !(await state()).dirty);
   }
   console.log(
-    'PASS stack icons: rectangle corners, diamond/circle outline attachments after expansion, resize, rotation, pan and zoom, fixed screen size, collapsed gray borders. Independent ellipse edits survive disclosure changes.',
+    'PASS stack icons: rectangle corners, diamond/circle outline attachments after expansion, resize, rotation, pan and zoom, fixed screen size, collapsed gray borders, drag occlusion and restoration. Independent ellipse edits survive disclosure changes.',
   );
 
   const siblings = structuredClone(document);
