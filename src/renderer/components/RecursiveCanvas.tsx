@@ -82,6 +82,8 @@ import {
   type Bounds,
   type Camera,
   geometryBounds,
+  intersectsBounds,
+  unionBounds,
   sceneBounds,
   fitCamera,
   zoomCamera,
@@ -104,6 +106,7 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
+import { objectContentBounds } from '../../shared/objectContentBounds';
 
 const transformHandles = [-1, 0, 1].flatMap((x) =>
   [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
@@ -221,6 +224,17 @@ export default memo(function RecursiveCanvas({
   const displayed = preview?.base === document ? preview.value : animated;
   const scene = useMemo(() => recursiveScene(displayed), [displayed]);
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
+  const subtreeBounds = useMemo(() => {
+    const result = new Map(bounds.objects);
+    for (const id of [...scene.hierarchy.entries.keys()].reverse()) {
+      const box = result.get(id);
+      const parent = document.objects[id].parentId;
+      if (!box || parent === null) continue;
+      const owner = result.get(parent);
+      result.set(parent, owner ? unionBounds([owner, box])! : box);
+    }
+    return result;
+  }, [bounds.objects, scene.hierarchy, document.objects]);
   const toggleChildren = (
     id: string,
     event: ReactMouseEvent<HTMLButtonElement> | MouseEvent,
@@ -864,7 +878,8 @@ export default memo(function RecursiveCanvas({
         camera.scale) /
         21,
     );
-    if (!scale) continue; // The stroke occupies the entire interior.
+    // Below a 4px dot, antialiasing makes native hit testing unreliable.
+    if (scale < 0.25) continue;
     const inset = ((21 * scale) / camera.scale + stroke) * extent;
     halfWidth = Math.max(0, halfWidth - inset);
     halfHeight = Math.max(0, halfHeight - inset);
@@ -889,6 +904,42 @@ export default memo(function RecursiveCanvas({
       geometry,
     );
     const expanded = scene.expanded.has(id);
+    const { title, body } = objectContentBounds(
+      object,
+      geometry.width,
+      geometry.height,
+      true,
+    );
+    const localCenter = localPoint(center, geometry);
+    const worldHalf = ((scale < 0.6 ? 9 : 17) * scale) / camera.scale;
+    const half = worldHalf * extent;
+    const control = {
+      x: localCenter.x - half,
+      y: localCenter.y - half,
+      width: 2 * half,
+      height: 2 * half,
+    };
+    const worldControl = {
+      x: center.x - worldHalf,
+      y: center.y - worldHalf,
+      width: 2 * worldHalf,
+      height: 2 * worldHalf,
+    };
+    // Rotation/small frames can leave no clear slot. Selection still provides
+    // the full-size Reveal/Hide action without covering text or stealing hits.
+    // ponytail: conservative boxes can hide clear slots; use ink bounds if needed.
+    if (
+      (object.name && title.width > 0 && intersectsBounds(control, title)) ||
+      (!expanded &&
+        object.content.length > 0 &&
+        body.height > 10 &&
+        intersectsBounds(control, body)) ||
+      children.some((child) => {
+        const box = subtreeBounds.get(child);
+        return box && intersectsBounds(worldControl, box);
+      })
+    )
+      continue;
     const icon =
       children.length > 1 || scene.hierarchy.children.has(children[0])
         ? 'square-stack-3'
@@ -1490,6 +1541,7 @@ export default memo(function RecursiveCanvas({
           key={textEditing}
           document={document}
           objectId={textEditing}
+          hasChildren={scene.hierarchy.children.has(textEditing)}
           geometry={scene.world.get(textEditing)!}
           camera={camera}
           toolbarTarget={textToolbar}

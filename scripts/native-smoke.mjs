@@ -10,6 +10,7 @@ import { layering } from './native-layering.mjs';
 import { expansion } from './native-expansion.mjs';
 import { connectors } from './native-connectors.mjs';
 import { rotation } from './native-rotation.mjs';
+import { childContent } from './native-child-content.mjs';
 const {
   adapter,
   profile,
@@ -507,6 +508,7 @@ try {
   await expansion(resumed, probe);
   await connectors(resumed, probe);
   await rotation(resumed, probe);
+  await childContent(resumed, probe);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',

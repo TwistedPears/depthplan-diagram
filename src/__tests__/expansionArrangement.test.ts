@@ -103,6 +103,10 @@ it('grows physical parents, separates children and nearby roots, and restores wi
       activeGeometry(original, 'far'),
     );
     separated(document, 'a1', 'a2');
+    for (const child of ['a1', 'a2'])
+      expect(
+        geometryBounds(activeGeometry(document, child)).y,
+      ).toBeGreaterThanOrEqual(-activeGeometry(document, 'a').height / 2 + 44);
     separated(document, 'a', 'b');
     expect(
       transactDocument(document, setChildrenExpanded('a', true)).status,

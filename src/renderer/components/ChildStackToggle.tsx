@@ -87,8 +87,6 @@ export default function ChildStackToggle({
           fill="#2d62d5"
           stroke={focused || hovered ? '#214fac' : '#2d62d5'}
           strokeWidth={focused ? 2 : 1}
-          // Preserve a 12px pointer target without enlarging the visible dot.
-          hitStrokeWidth={Math.max(1, 12 / displayScale - 16)}
         />
       ) : (
         <>

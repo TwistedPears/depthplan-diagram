@@ -9,10 +9,12 @@ import {
 } from '../../shared/documentTransactions';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import RichTextEditor from './RichTextEditor';
+import { objectContentBounds } from '../../shared/objectContentBounds';
 
 export default function InlineObjectText({
   document,
   objectId,
+  hasChildren,
   geometry,
   camera,
   toolbarTarget,
@@ -21,6 +23,7 @@ export default function InlineObjectText({
 }: {
   document: RecursiveDocument;
   objectId: string;
+  hasChildren: boolean;
   geometry: Geometry;
   camera: { x: number; y: number; scale: number };
   toolbarTarget: HTMLElement | null;
@@ -79,11 +82,12 @@ export default function InlineObjectText({
       window.removeEventListener('keydown', finishKey, true);
     };
   }, []);
-  const inset =
-    object.type === 'ellipse' ? 0.15 : object.type === 'diamond' ? 0.25 : 0;
-  const textX = Math.max(6, geometry.width * inset);
-  const textY = Math.max(4, geometry.height * inset);
-  const titleHeight = object.name ? 24 : 0;
+  const { body } = objectContentBounds(
+    object,
+    geometry.width,
+    geometry.height,
+    hasChildren,
+  );
   return (
     <div
       ref={host}
@@ -101,10 +105,10 @@ export default function InlineObjectText({
       <div
         className="inline-object-text-body"
         style={{
-          left: textX,
-          top: textY + titleHeight,
-          width: Math.max(40, geometry.width - 2 * textX),
-          height: Math.max(24, geometry.height - 2 * textY - titleHeight),
+          left: body.x + geometry.width / 2,
+          top: body.y + geometry.height / 2,
+          width: Math.max(40, body.width),
+          height: Math.max(24, body.height),
         }}
       >
         <RichTextEditor
