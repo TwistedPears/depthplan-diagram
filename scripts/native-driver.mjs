@@ -26,10 +26,13 @@ export async function launchNative(existingProfile, fileArguments = []) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let diagnostics = '';
-  app.stdout.on('data', (s) => (diagnostics += s));
-  app.stderr.on('data', (s) => (diagnostics += s));
+  const capture = (s) => (diagnostics = (diagnostics + s).slice(-65536));
+  app.stdout.on('data', capture);
+  app.stderr.on('data', capture);
+  let spawnError;
   app.on('error', (e) => {
-    diagnostics += e.message;
+    spawnError = e;
+    capture(e.message);
   });
   const base = `http://127.0.0.1:${port}`;
   let session;
@@ -88,6 +91,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
     throw new Error('Timed out');
   }
   async function close() {
+    if (app.exitCode !== null || app.signalCode !== null || !app.pid) return;
     app.kill();
     if (app.exitCode === null)
       await new Promise((resolve) => {
@@ -103,9 +107,13 @@ export async function launchNative(existingProfile, fileArguments = []) {
   }
   try {
     await until(async () => {
-      if (app.exitCode !== null) throw new Error(`App exited: ${diagnostics}`);
+      if (spawnError) throw spawnError;
+      if (app.exitCode !== null || app.signalCode !== null)
+        throw new Error(`App exited (${app.signalCode ?? app.exitCode})`);
       try {
-        return (await fetch(base + '/status')).ok;
+        return (
+          await fetch(base + '/status', { signal: AbortSignal.timeout(1000) })
+        ).ok;
       } catch {
         return false;
       }
@@ -140,6 +148,8 @@ export async function launchNative(existingProfile, fileArguments = []) {
     };
   } catch (error) {
     await close();
-    throw error;
+    throw new Error(`Native startup failed: ${error.message}\n${diagnostics}`, {
+      cause: error,
+    });
   }
 }

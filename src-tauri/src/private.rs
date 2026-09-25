@@ -53,13 +53,14 @@ pub fn path(path: &Path, secure: bool, directory: bool) -> Result<()> {
     {
         return Err("Unsafe local endpoint".into());
     }
-    if !powershell(if secure { "secure" } else { "verify" }, path.as_os_str())
+    let output = powershell(if secure { "secure" } else { "verify" }, path.as_os_str())
         .output()
-        .map_err(|e| e.to_string())?
-        .status
-        .success()
-    {
-        return Err("Unsafe local endpoint ACL".into());
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(format!(
+            "Unsafe local endpoint ACL: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
     }
     Ok(())
 }

@@ -22,6 +22,10 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v7
+      - name: Windows private endpoint permissions
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/test-windows-acl.ps1
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -56,6 +60,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:hooks
+      - run: node --test scripts/native-driver.test.mjs
       - run: npm test -- --runInBand
       - run: npm run test:native
       - run: npm run build:automation
