@@ -42,6 +42,10 @@ export async function launchNative(existingProfile, fileArguments = []) {
       headers: { 'content-type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(15000),
+    }).catch((error) => {
+      throw new Error(`WebDriver ${method} ${route}: ${error.message}`, {
+        cause: error,
+      });
     });
     const bodyText = await r.text();
     assert.equal(r.ok, true, `WebDriver ${r.status}: ${bodyText}`);
@@ -65,11 +69,20 @@ export async function launchNative(existingProfile, fileArguments = []) {
       [method, args],
     );
   const dialogs = (kind, value) => native('test:dialogs', [{ kind, value }]);
-  const click = (label) =>
-    sync(
-      'const b=Array.from(document.querySelectorAll("button")).find(b=>b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]);if(!b)throw new Error("Missing button "+arguments[0]);b.click()',
-      [label],
+  const click = async (label) => {
+    // MCP state can advance before React paints the toolbar for that selection.
+    await js(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
     );
+    await until(
+      () =>
+        sync(
+          'const b=Array.from(document.querySelectorAll("button")).find(b=>b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]);if(!b)return false;b.click();return true',
+          [label],
+        ),
+      `Timed out waiting for button ${label}`,
+    );
+  };
   // The embedded driver's Actions implementation uses 1 << button (right=4)
   // and drops held buttons on move. Dispatch spec-correct DOM mouse events.
   // This exercises WKWebView handlers, not OS input or hardware latency.
@@ -83,12 +96,12 @@ export async function launchNative(existingProfile, fileArguments = []) {
        }`,
       [x, y, dx, dy, button],
     );
-  async function until(fn) {
+  async function until(fn, message = 'Timed out') {
     for (let i = 0; i < 100; i++) {
       if (await fn()) return;
       await new Promise((r) => setTimeout(r, 100));
     }
-    throw new Error('Timed out');
+    throw new Error(message);
   }
   async function close() {
     if (app.exitCode !== null || app.signalCode !== null || !app.pid) return;

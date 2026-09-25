@@ -89,7 +89,11 @@ export async function expansion(driver, probe) {
   await click('Reset view');
   const save = async () => {
     await click('Save document');
-    await until(async () => !(await state()).dirty);
+    // Dirty clears before recovery cleanup releases the file-operation lock.
+    await until(async () => {
+      const current = await state();
+      return !current.dirty && !current.busyReasons.includes('file-operation');
+    });
     return JSON.parse(await readFile(target, 'utf8'));
   };
   const placements = (d) =>
