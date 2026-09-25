@@ -767,8 +767,6 @@ export default memo(function RecursiveCanvas({
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
   const [focusedToggle, setFocusedToggle] = useState<string | null>(null);
   const toggleScale = Math.min(1, camera.scale);
-  const toggleSize = 32 * toggleScale;
-  const toggleInset = 4 * toggleScale;
   const togglesDisabled =
     !!preview ||
     !!textEditing ||
@@ -781,6 +779,7 @@ export default memo(function RecursiveCanvas({
     {
       x: number;
       y: number;
+      displayScale: number;
       icon: string;
       expanded: boolean;
       label: string;
@@ -801,23 +800,46 @@ export default memo(function RecursiveCanvas({
       top + box.height * camera.scale < 0
     )
       continue;
-    let x = Math.max(
-      toggleInset,
-      Math.min(size.width, right) - toggleSize - toggleInset,
-    );
-    let y = Math.max(
-      toggleInset,
-      Math.min(size.height - toggleSize - toggleInset, top + toggleInset),
-    );
     const object = document.objects[id];
+    // Fit the upright button in an inscribed rectangle so rounded corners,
+    // sloping edges, and the object's stroke all stay clear of its focus ring.
+    let halfWidth = geometry.width / 2;
+    let halfHeight = geometry.height / 2;
     if (object.type === 'diamond' || object.type === 'ellipse') {
-      const anchor = worldPoint(
-        boundaryPosition({ side: 'top', offset: 1 }, geometry, object),
-        geometry,
-      );
-      x = camera.x + anchor.x * camera.scale - toggleSize / 2;
-      y = camera.y + anchor.y * camera.scale - toggleSize / 2;
+      const factor = object.type === 'diamond' ? 0.5 : Math.SQRT1_2;
+      halfWidth *= factor;
+      halfHeight *= factor;
+    } else {
+      const radius =
+        typeof object.style?.cornerRadius === 'number'
+          ? Math.max(
+              0,
+              Math.min(halfWidth, halfHeight, object.style.cornerRadius),
+            )
+          : 0;
+      halfWidth -= radius * (1 - Math.SQRT1_2);
+      halfHeight -= radius * (1 - Math.SQRT1_2);
     }
+    const angle = (geometry.rotation * Math.PI) / 180;
+    const extent = Math.abs(Math.cos(angle)) + Math.abs(Math.sin(angle));
+    const stroke =
+      typeof object.style?.strokeWidth === 'number'
+        ? Math.max(0, object.style.strokeWidth) / 2
+        : 0.75;
+    // 16px half-button + 1px focus ring + 4px clear space. Small shapes use
+    // the same shrinking-dot treatment as zooming out.
+    const scale = Math.min(
+      toggleScale,
+      (Math.max(0, Math.min(halfWidth, halfHeight) / extent - stroke) *
+        camera.scale) /
+        21,
+    );
+    if (!scale) continue; // The stroke occupies the entire interior.
+    const inset = ((21 * scale) / camera.scale + stroke) * extent;
+    const center = worldPoint(
+      { x: halfWidth - inset, y: -halfHeight + inset },
+      geometry,
+    );
     const expanded = scene.expanded.has(id);
     const icon =
       children.length > 1 || scene.hierarchy.children.has(children[0])
@@ -825,8 +847,9 @@ export default memo(function RecursiveCanvas({
         : 'square-stack-2';
     const label = `${expanded ? 'Hide' : 'Reveal'} children of ${objectLabel(object)}`;
     childToggles.set(id, {
-      x,
-      y,
+      x: camera.x + center.x * camera.scale - 16 * scale,
+      y: camera.y + center.y * camera.scale - 16 * scale,
+      displayScale: scale,
       icon,
       expanded,
       label,
@@ -1092,9 +1115,8 @@ export default memo(function RecursiveCanvas({
                   {...position}
                   id={`child-toggle-${id}`}
                   rotation={-geometry.rotation}
-                  displayScale={toggleScale}
-                  scaleX={toggleScale / camera.scale}
-                  scaleY={toggleScale / camera.scale}
+                  scaleX={toggle.displayScale / camera.scale}
+                  scaleY={toggle.displayScale / camera.scale}
                   disabled={togglesDisabled}
                   focused={focusedToggle === id}
                   onToggle={(event) => toggleChildren(id, event)}
@@ -1292,7 +1314,7 @@ export default memo(function RecursiveCanvas({
           style={{
             left: toggle.x,
             top: toggle.y,
-            transform: `scale(${toggleScale})`,
+            transform: `scale(${toggle.displayScale})`,
             transformOrigin: 'top left',
           }}
           aria-expanded={toggle.expanded}

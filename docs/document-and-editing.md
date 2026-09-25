@@ -63,9 +63,11 @@ adds no dotted child enclosure or substitute frame.
 Ordinary collapse folds only that parent and preserves descendants' disclosure.
 Reopening restores those descendants. Ctrl+click on the stack control folds the
 whole subtree; the next reveal opens only immediate children. Newly reachable
-levels start folded. The control follows the upper-right rectangle/frame corner or
-diamond/ellipse outline. It shrinks with zoom, becomes a clickable blue dot below
-60%, and returns to the stack icon when zooming in, capped at 32 screen pixels.
+levels start folded. The control sits inside the upper-right part of its shape,
+with space for the border, rounded corners, and rotation. It shrinks with zoom,
+becomes a clickable blue dot below 60%, and returns to the stack icon when
+zooming in, capped at 32 screen pixels. Small shapes also shrink the control to
+fit their interior. Panning does not pin it to the viewport edge.
 The icon has a light gray border when collapsed. A single leaf child uses two
 stacked squares; other branches use three. Controls never appear in exports.
 

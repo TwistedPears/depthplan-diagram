@@ -577,6 +577,43 @@ export async function expansion(driver, probe) {
   console.log(
     'PASS expansion: disclosure/selection/MCP, physical growth and neighbor movement, nested restoration, manual state edits, Undo/Redo, reopen, independent collapse, arrow bindings/Z, no bookmarks, SVG/PNG.',
   );
+  const assertToggleInside = async (id) => {
+    const placement = await sync(
+      `const stage=window.Konva.stages[0];
+      const toggle=stage.findOne('#child-toggle-'+arguments[0]);
+      const owner=toggle.getParent(), shape=owner.findOne('.object-hit-area');
+      const badge=(toggle.findOne('Rect') || toggle.findOne('Circle')).getClientRect();
+      const padding=shape.strokeWidth()*owner.getAbsoluteScale().x/2 + 3*toggle.getAbsoluteScale().x;
+      const inverse=owner.getAbsoluteTransform().copy().invert();
+      return {type:shape.getClassName(), a:owner.width()/2, b:owner.height()/2,
+        radius:Math.min(owner.width()/2, owner.height()/2, shape.cornerRadius?.() || 0),
+        corners:[[-1,-1],[-1,1],[1,-1],[1,1]].map(([x,y])=>inverse.point({
+          x:badge.x+badge.width/2+x*(badge.width/2+padding),
+          y:badge.y+badge.height/2+y*(badge.height/2+padding)}))};`,
+      [id],
+    );
+    const { type, a, b, radius, corners } = placement;
+    for (const { x, y } of corners) {
+      const nx = Math.abs(x) / a,
+        ny = Math.abs(y) / b;
+      const inside =
+        type === 'Ellipse'
+          ? nx * nx + ny * ny <= 1
+          : type === 'Line'
+            ? nx + ny <= 1
+            : nx <= 1 &&
+              ny <= 1 &&
+              (!radius ||
+                Math.max(0, Math.abs(x) - a + radius) ** 2 +
+                  Math.max(0, Math.abs(y) - b + radius) ** 2 <=
+                  radius ** 2);
+      assert(
+        inside,
+        'toggle and clearance stay inside outline: ' +
+          JSON.stringify(placement),
+      );
+    }
+  };
   for (const types of [
     ['rectangle', 'rectangle'],
     ['diamond', 'ellipse'],
@@ -653,22 +690,29 @@ export async function expansion(driver, probe) {
         );
         const type = fixture.objects[id].type;
         if (type === 'rectangle') {
-          assert(Math.abs(placement.right - 4) < 1, JSON.stringify(placement));
-          assert(Math.abs(placement.top - 4) < 1, JSON.stringify(placement));
+          assert(
+            Math.abs(placement.right - 6.5) < 0.01,
+            JSON.stringify(placement),
+          );
+          assert(
+            Math.abs(placement.top - 6.5) < 0.01,
+            JSON.stringify(placement),
+          );
         } else {
-          assert(placement.x > 0 && placement.y < 0, 'upper-right outline');
+          assert(
+            placement.x >= -1e-6 && placement.y <= 1e-6,
+            `${phase}: upper-right interior ${JSON.stringify(placement)}`,
+          );
           const perimeter =
             type === 'diamond'
               ? Math.abs(placement.x) + Math.abs(placement.y)
               : placement.x ** 2 + placement.y ** 2;
-          assert(
-            Math.abs(perimeter - 1) < 0.01,
-            `${phase}: ${JSON.stringify(placement)}`,
-          );
+          assert(perimeter < 1, `${phase}: ${JSON.stringify(placement)}`);
         }
+        await assertToggleInside(id);
         const expectedSize = 32 * (phase === 'transformed' ? 0.85 : 1);
-        assert(Math.abs(placement.width - expectedSize) < 1e-6);
-        assert(Math.abs(placement.height - expectedSize) < 1e-6);
+        assert(placement.width > 0 && placement.width <= expectedSize + 1e-6);
+        assert(Math.abs(placement.height - placement.width) < 1e-6);
         assert(placement.controlOffset < 1, 'accessible control follows paint');
         assert.equal(placement.owner, `object-${id}`);
         assert.equal(
@@ -848,6 +892,11 @@ export async function expansion(driver, probe) {
       { type: 'children', id: 'b', expanded: false },
     );
     await until(() => sync('return window.Konva.stages[0].listening()'));
+    await edit({
+      type: 'geometry',
+      id: 'a',
+      patch: { width: 240, height: 240 },
+    });
     const toggleSnapshot = (id) =>
       sync(
         `const stage=window.Konva.stages[0];
@@ -856,12 +905,9 @@ export async function expansion(driver, probe) {
       const shape=dot || toggle.findOne('Rect');
       const box=shape.getClientRect({skipStroke:true});
       const p=toggle.getAbsoluteTransform().point({x:16,y:16});
-      const object=toggle.getParent();
-      const local=object.getAbsoluteTransform().copy().invert().point(p);
       const canvas=stage.container().getBoundingClientRect();
       const button=document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');
       return {mode:dot?'dot':'icon', width:box.width, fill:shape.fill(),
-        x:local.x/(object.width()/2),y:local.y/(object.height()/2),
         controlWidth:button.getBoundingClientRect().width,
         hit:stage.getIntersection({x:p.x+5,y:p.y})?.findAncestor('.child-stack-toggle',true)?.id(),
         center:{x:p.x+canvas.left,y:p.y+canvas.top}};`,
@@ -894,11 +940,7 @@ export async function expansion(driver, probe) {
         'small dots retain a usable pointer target',
       );
       if (dot) assert.equal(toggle.fill, '#2d62d5');
-      if (types[0] === 'diamond')
-        assert(
-          Math.abs(Math.abs(toggle.x) + Math.abs(toggle.y) - 1) < 1e-6,
-          'dot stays on the rotated outline',
-        );
+      await assertToggleInside('a');
       if (scale === 0.25) {
         await screenshot(`stack-dot-${types[0]}.png`);
         for (const id of ['a', 'b']) {
@@ -921,11 +963,62 @@ export async function expansion(driver, probe) {
         }
       }
     }
+    // Thick borders and rounded corners must remain clear at high zoom too.
+    await edit(
+      {
+        type: 'edit_object',
+        id: 'a',
+        style: { strokeWidth: 6, cornerRadius: 48 },
+      },
+      { type: 'geometry', id: 'b', patch: { x: 1800 } },
+    );
+    for (const [scale, rotation] of [
+      [4, 0],
+      [1, 0],
+      [0.6, 35],
+    ]) {
+      await edit({
+        type: 'geometry',
+        id: 'a',
+        patch: { width: 240, height: 200, rotation },
+      });
+      await command('depthplan_camera', {
+        action: {
+          type: 'set',
+          camera: {
+            x: 400 - 400 * scale,
+            y: (scale === 4 ? 500 : 350) - 350 * scale,
+            scale,
+          },
+        },
+      });
+      await assertToggleInside('a');
+      await screenshot(`stack-interior-${types[0]}-${scale}.png`);
+    }
+    const beforePan = await toggleSnapshot('a');
+    await command('depthplan_camera', {
+      action: { type: 'set', camera: { x: -200, y: -170, scale: 0.6 } },
+    });
+    const afterPan = await toggleSnapshot('a');
+    assert(Math.abs(afterPan.center.x - beforePan.center.x + 360) < 1e-6);
+    assert(Math.abs(afterPan.center.y - beforePan.center.y + 310) < 1e-6);
+    await assertToggleInside('a');
+    await edit({
+      type: 'geometry',
+      id: 'a',
+      patch: { width: 36, height: 36, rotation: 25 },
+    });
+    await command('depthplan_camera', {
+      action: { type: 'set', camera: { x: 0, y: 0, scale: 1 } },
+    });
+    const small = await toggleSnapshot('a');
+    assert.equal(small.mode, 'dot', 'small objects keep the control inside');
+    await assertToggleInside('a');
     await click('Save document');
     await until(async () => !(await state()).dirty);
   }
   console.log(
-    'PASS stack icons: object-relative layering, partial overlap during drag/drop, Z/Undo, pointer/hand clicks, keyboard focus, capped size and clickable shrinking blue dots through zoom/rotation. Independent ellipse edits survive disclosure changes.',
+    'PASS stack icons: object-relative layering, partial overlap during drag/drop, Z/Undo, pointer/hand clicks, keyboard focus, interior clearance for thick borders/rounded corners, capped size and clickable shrinking blue dots through zoom/rotation. Independent ellipse edits survive disclosure changes.',
   );
 
   const siblings = structuredClone(document);
