@@ -46,6 +46,13 @@ stacking order, and rotation is in degrees. Authored rotations normalize to
 inherit ancestor translation/rotation. Resizing a parent neither scales children
 nor changes their coordinate origin.
 
+To rotate a selected shape, move just outside any resize handle until the rotation
+cursor appears, then drag around its center. Rotation uses whole degrees. Pull
+40 screen pixels farther from the center to snap to 15° increments; move inward
+again for 1° increments. The angle and snapping mode appear during the gesture.
+Children rotate with their parent, and attached arrows follow their shapes.
+Release to commit one Undo step, or press Escape to cancel.
+
 `layouts[rootId][depth][objectId]` stores depth-specific geometry. D0 and the active
 depth must exist, with geometry for every depth-revealed member. Additional hidden
 entries and inactive depths beyond the current maximum can retain authored data;

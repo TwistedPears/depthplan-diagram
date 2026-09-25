@@ -1001,6 +1001,10 @@ export async function expansion(driver, probe) {
             await until(() =>
               sync('return window.Konva.stages[0].listening()'),
             );
+            // Listening resumes before Konva repaints the final hit canvas.
+            await js(
+              'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+            );
             assert.equal(
               await sync(
                 `return document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]')?.getAttribute('aria-expanded');`,

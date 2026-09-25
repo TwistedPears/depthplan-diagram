@@ -9,6 +9,7 @@ import { searchProbe } from './native-search.mjs';
 import { layering } from './native-layering.mjs';
 import { expansion } from './native-expansion.mjs';
 import { connectors } from './native-connectors.mjs';
+import { rotation } from './native-rotation.mjs';
 const {
   adapter,
   profile,
@@ -482,6 +483,7 @@ try {
   await layering(resumed, probe);
   await expansion(resumed, probe);
   await connectors(resumed, probe);
+  await rotation(resumed, probe);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',

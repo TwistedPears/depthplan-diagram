@@ -63,6 +63,7 @@ import {
   moveSelection,
   previewGeometry,
   resizeGeometry,
+  rotationFromPointer,
 } from '../../shared/recursiveMovement';
 import {
   alignObjects,
@@ -103,6 +104,10 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
+
+const transformHandles = [-1, 0, 1].flatMap((x) =>
+  [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
+);
 
 export default memo(function RecursiveCanvas({
   document,
@@ -353,6 +358,8 @@ export default memo(function RecursiveCanvas({
     document: RecursiveDocument;
     world: Map<string, Geometry>;
     resize?: { x: number; y: number };
+    rotate: boolean;
+    snapped: boolean;
     delta: Point;
     patches: Map<string, Partial<Geometry>>;
     moved: boolean;
@@ -367,6 +374,8 @@ export default memo(function RecursiveCanvas({
       }
     >;
   } | null>(null);
+  const [rotationHover, setRotationHover] = useState(false);
+  useEffect(() => setRotationHover(false), [selected, tool]);
   const [dropTargets, setDropTargets] = useState<
     Array<{ id: string; parent: string | null }>
   >([]);
@@ -387,6 +396,7 @@ export default memo(function RecursiveCanvas({
     for (const change of gesture.current?.parentChanges.values() ?? [])
       clearTimeout(change.timer);
     gesture.current = null;
+    setRotationHover(false);
     setPreview(null);
     setDropTargets([]);
     setDraw(null);
@@ -427,7 +437,7 @@ export default memo(function RecursiveCanvas({
       window.removeEventListener('mouseup', cancelOutside);
     };
   }, [cancelDrag]);
-  const beginGeometry = (ids: string[], resize?: { x: number; y: number }) => {
+  const beginGeometry = (ids: string[], handle?: Point | 'rotate') => {
     const movers = topmostObjects(
       document,
       ids.filter((id) => id.startsWith('object-')).map((id) => id.slice(7)),
@@ -438,7 +448,9 @@ export default memo(function RecursiveCanvas({
       start: pointer(),
       document,
       world: scene.world,
-      resize,
+      resize: typeof handle === 'object' ? handle : undefined,
+      rotate: handle === 'rotate',
+      snapped: false,
       delta: { x: 0, y: 0 },
       patches: new Map(),
       moved: false,
@@ -451,6 +463,12 @@ export default memo(function RecursiveCanvas({
     const active = gesture.current;
     if (!active || !active.ids.length) return;
     const point = pointer();
+    if (active.rotate) {
+      const center = active.world.get(active.ids[0])!;
+      // The angle is undefined at the center; retain the last preview there.
+      if (Math.hypot(point.x - center.x, point.y - center.y) * camera.scale < 3)
+        return;
+    }
     const delta = { x: point.x - active.start.x, y: point.y - active.start.y };
     if (!active.moved && Math.hypot(delta.x, delta.y) * camera.scale < 3)
       return;
@@ -465,6 +483,16 @@ export default memo(function RecursiveCanvas({
         const g = active.world.get(id)!;
         if (active.resize) {
           return [id, resizeGeometry(g, active.resize, delta)];
+        }
+        if (active.rotate) {
+          const { rotation, snapped } = rotationFromPointer(
+            g,
+            active.start,
+            point,
+            camera.scale,
+          );
+          active.snapped = snapped;
+          return [id, { rotation }];
         }
         return [id, { x: g.x + delta.x, y: g.y + delta.y }];
       }),
@@ -484,7 +512,7 @@ export default memo(function RecursiveCanvas({
         clearTimeout(change.timer);
       active.parentChanges.clear();
       setDropTargets([]);
-    } else if (!active.resize) {
+    } else if (!active.resize && !active.rotate) {
       const publish = () =>
         setDropTargets(
           [...active.parentChanges]
@@ -534,7 +562,8 @@ export default memo(function RecursiveCanvas({
     if (
       event.key === 'Control' &&
       gesture.current?.moved &&
-      !gesture.current.resize
+      !gesture.current.resize &&
+      !gesture.current.rotate
     )
       updateGeometry(event.ctrlKey);
   });
@@ -554,23 +583,24 @@ export default memo(function RecursiveCanvas({
       return;
     }
     suppressClick.current = true;
-    const edit: DocumentEdit = active.resize
-      ? (draft) => {
-          draft.layouts = previewGeometry(draft, active.patches).layouts;
-        }
-      : moveSelection(
-          active.ids,
-          active.delta,
-          new Map(
-            active.ids.map((id) => {
-              const change = active.parentChanges.get(id);
-              return [
-                id,
-                change?.ready ? change.parent : document.objects[id].parentId,
-              ];
-            }),
-          ),
-        );
+    const edit: DocumentEdit =
+      active.resize || active.rotate
+        ? (draft) => {
+            draft.layouts = previewGeometry(draft, active.patches).layouts;
+          }
+        : moveSelection(
+            active.ids,
+            active.delta,
+            new Map(
+              active.ids.map((id) => {
+                const change = active.parentChanges.get(id);
+                return [
+                  id,
+                  change?.ready ? change.parent : document.objects[id].parentId,
+                ];
+              }),
+            ),
+          );
     const result = transactDocument(document, edit);
     if (result.status === 'rejected') setMoveError(result.error);
     else {
@@ -761,7 +791,7 @@ export default memo(function RecursiveCanvas({
     ],
   );
   const lifted =
-    gesture.current?.moved && !gesture.current.resize
+    gesture.current?.moved && !gesture.current.resize && !gesture.current.rotate
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
@@ -872,9 +902,41 @@ export default memo(function RecursiveCanvas({
     renderBoundaryPoints,
     liftedIds,
   ]);
+  const rotationAt = (target: Konva.Node) => {
+    if (
+      tool !== ToolMode.POINTER ||
+      selection.length !== 1 ||
+      !selection[0].startsWith('object-') ||
+      draw ||
+      selectedPoint ||
+      textEditing ||
+      properties ||
+      linkEditing ||
+      isBusy() ||
+      target.hasName('resize-handle') ||
+      target.findAncestor('.child-stack-toggle, .boundary-point', true)
+    )
+      return false;
+    const g = scene.world.get(selection[0].slice(7))!;
+    const p = localPoint(pointer(), g);
+    return transformHandles.some(({ x, y }) => {
+      const offset = 14 / (Math.hypot(x, y) * camera.scale);
+      return (
+        Math.hypot(
+          p.x - x * (g.width / 2 + offset),
+          p.y - y * (g.height / 2 + offset),
+        ) *
+          camera.scale <=
+        10
+      );
+    });
+  };
   return (
     <div
       className="canvas-container"
+      data-rotation-cursor={
+        rotationHover || gesture.current?.rotate || undefined
+      }
       onDoubleClick={(event) => {
         if (
           animating ||
@@ -887,6 +949,7 @@ export default memo(function RecursiveCanvas({
         const stage = stageRef.current!;
         stage.setPointersPositions(event.nativeEvent);
         const hit = stage.getIntersection(stage.getPointerPosition()!);
+        if (hit && rotationAt(hit)) return;
         const key = hit && targetKey(hit);
         if (connector.doubleClick(hit, event)) return;
         if (!key?.startsWith('object-')) return;
@@ -917,6 +980,11 @@ export default memo(function RecursiveCanvas({
           if (animating || properties || textEditing || event.evt.button !== 0)
             return;
           if (connector.mouseDown(event)) return;
+          if (rotationAt(event.target)) {
+            suppressClick.current = true;
+            beginGeometry(selection, 'rotate');
+            return;
+          }
           onBusyChange('canvas-gesture', true);
           suppressClick.current = false;
           if (bridge) return;
@@ -962,12 +1030,14 @@ export default memo(function RecursiveCanvas({
             updateGeometry(event.evt.ctrlKey);
             return;
           }
+          setRotationHover(rotationAt(event.target));
           if (draw) {
             setDraw({ ...draw, end: pointer(), square: event.evt.shiftKey });
             return;
           }
           if (marquee) setMarquee({ ...marquee, end: pointer() });
         }}
+        onMouseLeave={() => setRotationHover(false)}
         onMouseUp={(event) => {
           if (connector.mouseUp(event)) return;
           if (event.evt.button !== 0) return;
@@ -1082,6 +1152,7 @@ export default memo(function RecursiveCanvas({
         }}
         onWheel={(event) => {
           event.evt.preventDefault();
+          if (gesture.current?.rotate) return;
           zoom(
             Math.exp(-event.evt.deltaY * 0.002),
             event.target.getStage()!.getPointerPosition()!,
@@ -1252,40 +1323,46 @@ export default memo(function RecursiveCanvas({
             !draw &&
             !selectedPoint &&
             !textEditing &&
+            !properties &&
+            !linkEditing &&
             (() => {
               const id = selection[0].slice(7),
                 g = scene.world.get(id)!;
               return (
                 <Group x={g.x} y={g.y} rotation={g.rotation}>
-                  {[-1, 0, 1].flatMap((x) =>
-                    [-1, 0, 1]
-                      .filter((y) => x || y)
-                      .map((y) => (
-                        <Rect
-                          key={`${x}:${y}`}
-                          name="resize-handle"
-                          x={(x * g.width) / 2 - 4 / camera.scale}
-                          y={(y * g.height) / 2 - 4 / camera.scale}
-                          width={8 / camera.scale}
-                          height={8 / camera.scale}
-                          fill="white"
-                          stroke="#2563eb"
-                          strokeWidth={1 / camera.scale}
-                          onMouseDown={(event) => {
-                            event.cancelBubble = true;
-                            beginGeometry(selection, { x, y });
-                          }}
-                          onClick={(event) => {
-                            event.cancelBubble = true;
-                          }}
-                        />
-                      )),
-                  )}
+                  {transformHandles.map(({ x, y }) => (
+                    <Rect
+                      key={`${x}:${y}`}
+                      name="resize-handle"
+                      x={(x * g.width) / 2 - 4 / camera.scale}
+                      y={(y * g.height) / 2 - 4 / camera.scale}
+                      width={8 / camera.scale}
+                      height={8 / camera.scale}
+                      fill="white"
+                      stroke="#2563eb"
+                      strokeWidth={1 / camera.scale}
+                      onMouseDown={(event) => {
+                        event.cancelBubble = true;
+                        if (event.evt.button === 0 && !isBusy())
+                          beginGeometry(selection, { x, y });
+                      }}
+                      onClick={(event) => {
+                        event.cancelBubble = true;
+                      }}
+                    />
+                  ))}
                 </Group>
               );
             })()}
         </Layer>
       </Stage>
+      {(rotationHover || gesture.current?.rotate) && (
+        <div className="connection-editing-hint" role="status">
+          {gesture.current?.rotate
+            ? `${Math.round(scene.world.get(gesture.current.ids[0])!.rotation)}° · ${gesture.current.snapped ? '15° steps' : '1° steps · Pull outward for 15° steps'}`
+            : 'Drag to rotate · Pull outward for 15° steps'}
+        </div>
+      )}
       {connector.labelEditor}
       {connector.hint && (
         <div className="connection-editing-hint" role="status">

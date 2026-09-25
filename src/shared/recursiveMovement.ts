@@ -129,6 +129,28 @@ export function resizeGeometry(
   return { ...geometry, x: center.x, y: center.y, width, height };
 }
 
+/** Preserve the grab angle; pulling 40 screen pixels outward enables 15° steps. */
+export function rotationFromPointer(
+  geometry: Geometry,
+  start: { x: number; y: number },
+  point: { x: number; y: number },
+  scale: number,
+) {
+  const sx = start.x - geometry.x,
+    sy = start.y - geometry.y,
+    dx = point.x - geometry.x,
+    dy = point.y - geometry.y;
+  const snapped = (Math.hypot(dx, dy) - Math.hypot(sx, sy)) * scale >= 40;
+  const step = snapped ? 15 : 1;
+  const angle =
+    geometry.rotation +
+    ((Math.atan2(dy, dx) - Math.atan2(sy, sx)) * 180) / Math.PI;
+  return {
+    rotation: (((Math.round(angle / step) * step) % 360) + 360) % 360,
+    snapped,
+  };
+}
+
 /** Copy only touched layout maps; patches describe the resulting world geometry. */
 export function previewGeometry(
   document: RecursiveDocument,

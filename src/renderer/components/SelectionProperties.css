@@ -377,6 +377,11 @@
   text-align: center;
   pointer-events: none;
 }
+.canvas-container[data-rotation-cursor] canvas {
+  cursor:
+    url('../assets/rotate-cursor.svg') 12 12,
+    crosshair;
+}
 @media (max-width: 600px) {
   .connection-editing-hint {
     top: 154px;
