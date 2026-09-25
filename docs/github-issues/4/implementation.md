@@ -75,6 +75,8 @@ variable from its child environment, following Microsoft's
 [intermediate-process guidance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6#starting-windows-powershell-from-powershell-7).
 An early Windows probe compiles the production Rust helper and tests both files
 and directories, including rejection and repair of a foreign allow entry.
+The subsequent Windows Clippy gate exposed an unused Unix socket helper; its
+function and read-trait import now use the same Unix guard as its call site.
 
 Ubuntu stalled before WebDriver started. CI now creates a D-Bus session after
 Xvfb starts so activated desktop services inherit its display. This setup passes

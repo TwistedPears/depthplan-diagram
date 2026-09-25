@@ -7,10 +7,9 @@ use std::{
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::oneshot,
-};
+#[cfg(unix)]
+use tokio::io::AsyncReadExt;
+use tokio::{io::AsyncWriteExt, sync::oneshot};
 use uuid::Uuid;
 pub fn failure(code: &str, message: &str) -> Value {
     json!({"ok":false,"state":null,"error":{"code":code,"message":message,"retryable":matches!(code,"APP_UNAVAILABLE"|"BUSY")}})
@@ -268,6 +267,7 @@ impl Service {
         }
     }
 }
+#[cfg(unix)]
 async fn serve_socket<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
     mut socket: S,
     app: AppHandle,
