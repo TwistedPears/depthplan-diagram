@@ -101,32 +101,30 @@ it('preserves internal local coordinates and repairs a group only after both end
   expect(moved.document.connections.inside).toEqual(d.connections.inside);
   expect(moved.document.connectionRepairs).toBeUndefined();
 });
-it('archives an invalid crossing, round trips, explicitly repairs it and restores exact history', () => {
-  const d = recursiveFixture();
-  d.connections.route = route({
+it('loads a legacy pending repair, resolves it, and restores exact history', () => {
+  const d = transactDocument(
+    recursiveFixture(),
+    moveSubtree('api', 'payments', { x: 880, y: 20 }),
+  ).document;
+  const original = route({
     ownerId: null,
-    end: { kind: 'object', objectId: 'payments', side: 'left', offset: 0.5 },
+    end: { kind: 'object', objectId: 'app', side: 'left', offset: 0.5 },
   });
-  const original = JSON.stringify(d);
+  d.connectionRepairs = {
+    route: {
+      connection: original,
+      ownerGeometry: null,
+      start: { x: 450, y: 20 },
+      end: { x: 350, y: 20 },
+      reason: 'Legacy boundary crossing',
+    },
+  };
   const { result } = renderHook(() => useDocumentState(d));
-  act(() =>
-    result.current.transact(moveSubtree('api', 'payments', { x: 880, y: 20 })),
-  );
-  expect(result.current.result!.status).toBe('accepted');
-  const archived = result.current.document as RecursiveDocument;
+  const archived = d;
   expect(archived.connections).toEqual({});
-  expect(archived.connectionRepairs!.route.connection).toEqual(
-    d.connections.route,
-  );
   expect(() =>
     validateRecursiveDocument(JSON.parse(JSON.stringify(archived))),
   ).not.toThrow();
-  expect(JSON.stringify(d)).toBe(original);
-  expect(result.current.past).toHaveLength(1);
-  act(() => result.current.undo());
-  expect(result.current.document).toEqual(d);
-  act(() => result.current.redo());
-  expect(result.current.document).toEqual(archived);
   act(() =>
     result.current.transact((draft) => {
       draft.objects.payments.boundaryPoints = {
@@ -149,7 +147,7 @@ it('archives an invalid crossing, round trips, explicitly repairs it and restore
     ownerId: 'payments',
     z: 7,
     label: 'keep me',
-    style: d.connections.route.style,
+    style: original.style,
   });
   expect(repaired.connections.new).toBeUndefined();
   act(() => result.current.undo());

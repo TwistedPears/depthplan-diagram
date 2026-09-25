@@ -8,6 +8,8 @@ import { authoring } from './native-authoring.mjs';
 import { searchProbe } from './native-search.mjs';
 import { layering } from './native-layering.mjs';
 import { expansion } from './native-expansion.mjs';
+import { connectors } from './native-connectors.mjs';
+import { rotation } from './native-rotation.mjs';
 const {
   adapter,
   profile,
@@ -315,6 +317,19 @@ try {
   await native('mcp:release', lease);
   const orphanId = crypto.randomUUID(),
     oldInstance = crypto.randomUUID();
+  const recoverySample = {
+    ...sample,
+    namedViews: Object.fromEntries(
+      ['z-first', 'a-last'].map((id) => [
+        id,
+        {
+          id,
+          name: id,
+          rootDepths: sample.rootDepths,
+        },
+      ]),
+    ),
+  };
   const orphan = path.join(profile, 'recovery', `2147483647-${oldInstance}`);
   await mkdir(orphan, { recursive: true });
   await writeFile(
@@ -327,7 +342,7 @@ try {
       revision: 4,
       capturedAt: new Date().toISOString(),
       source: null,
-      document: sample,
+      document: recoverySample,
     }),
   );
   await writeFile(path.join(orphan, 'corrupt.json'), '{bad');
@@ -335,7 +350,11 @@ try {
   assert.equal(found.entries.length, 1);
   assert.equal(found.warnings.length, 1);
   const recovered = await native('recovery:prepare', found.entries[0].id);
-  assert.deepEqual(recovered.document, sample);
+  assert.deepEqual(recovered.document, recoverySample);
+  assert.deepEqual(Object.keys(recovered.document.namedViews), [
+    'z-first',
+    'a-last',
+  ]);
   await native('recovery:release', found.entries[0].id);
   const accepted = await native('recovery:prepare', found.entries[0].id);
   await native('recovery:write', {
@@ -357,6 +376,12 @@ try {
     accepted.sessionId + '.json',
   );
   assert.equal(JSON.parse(await readFile(checkpoint, 'utf8')).revision, 2);
+  assert.deepEqual(
+    Object.keys(
+      JSON.parse(await readFile(checkpoint, 'utf8')).document.namedViews,
+    ),
+    ['z-first', 'a-last'],
+  );
   await native('recovery:remove', accepted.sessionId);
   await assert.rejects(() => readFile(checkpoint));
   await native('automation:enable', false);
@@ -480,6 +505,8 @@ try {
   assert.deepEqual(await resumed.sync('return window.nativeErrors'), []);
   await layering(resumed, probe);
   await expansion(resumed, probe);
+  await connectors(resumed, probe);
+  await rotation(resumed, probe);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',

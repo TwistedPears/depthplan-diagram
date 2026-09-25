@@ -46,7 +46,7 @@ it('creates the first child of a rotated collapsed leaf, reveals only its owning
   expect(world.y).toBeCloseTo(120);
   expect(r.document.layouts.app).toEqual(d.layouts.app);
 });
-it('creates free and attached lines/arrows with stable references and rejects cross-container shortcuts', () => {
+it('creates free lines and attached arrows with stable references and rejects attached ordinary lines', () => {
   let d: RecursiveDocument = recursiveFixture();
   for (const kind of ['line', 'arrow'] as const) {
     const r = transactDocument(

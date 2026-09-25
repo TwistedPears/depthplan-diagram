@@ -5,18 +5,20 @@ examples, not capacity claims or real project data. Keep generated stress files
 under the owned `out/stress-runs` directory. Only the three filenames
 below are allowed through `.gitignore`.
 
-| Sample                                                             | Declared format and purpose                                             | Exact scenarios                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [recursive_document](recursive_document.depthplan)                 | V2, seven objects; uneven nesting and independent roots.                | `app` D0: `app,payments`; D1 adds `api,cache`; D2 adds `endpoint`; D3 adds `handler`. `payments` remains D0 until changed independently; D1 adds `ledger`. App overview width is 160 and deepest width 640; returning to D0 restores its saved layout. |
-| [workflow_document](workflow_document.depthplan)                   | V2, four objects; boundaries, repairs, rich/code content and bookmarks. | Roots `system,client`; `service` belongs to system, `worker` belongs to service. Starts system D2/client D0. Contains two inward bridges and one global external route. `detached` is a pending repair and never a drawn/exported connection.          |
-| [depthplan_application_tour](depthplan_application_tour.depthplan) | V2; comprehensive application map.                                      | 56 objects, eight roots, 31 connections, three inward bridges, app D0–D3, 12 bookmarks, all 12 code languages, all 18 endpoint markers, and no pending repairs.                                                                                        |
+| Sample                                                             | Declared format and purpose                                                   | Exact scenarios                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [recursive_document](recursive_document.depthplan)                 | V2, seven objects; uneven nesting and independent roots.                      | `app` D0: `app,payments`; D1 adds `api,cache`; D2 adds `endpoint`; D3 adds `handler`. `payments` remains D0 until changed independently; D1 adds `ledger`. App overview width is 160 and deepest width 640; returning to D0 restores its saved layout.     |
+| [workflow_document](workflow_document.depthplan)                   | V2, four objects; fixed connectors, repairs, rich/code content and bookmarks. | Roots `system,client`; `service` belongs to system, `worker` belongs to service. Starts system D2/client D0. Contains two parent-to-child connections and one global external route. `detached` is a pending repair and never a drawn/exported connection. |
+| [depthplan_application_tour](depthplan_application_tour.depthplan) | V2; comprehensive application map.                                            | 56 objects, eight roots, 31 connections, three parent-to-child routes, app D0–D3, 12 bookmarks, all 12 code languages, all 18 endpoint markers, and no pending repairs.                                                                                    |
 
 ## Application tour
 
 Open `depthplan_application_tour.depthplan`, then choose **Bookmarks →
 00 • Start here / how to explore**. The file stores the compact system overview;
 opening a file resets ordinary camera navigation, so apply a bookmark to restore
-its intended framing. Numbered bookmarks guide readers through:
+its intended framing. Bookmark creation order is preserved when saving and reopening.
+All samples use fixed object anchors or free boundary bindings; none contain legacy
+custom boundary points. Numbered bookmarks guide readers through:
 
 - **00–04:** instructions, system context, subsystems, modules and a nested MCP
   transaction. Follow `agent → app → mcp → dispatch → version-guard`, then the
@@ -50,11 +52,11 @@ reveal hidden objects. Save/reopen retains every inactive layout.
 
 For the workflow sample:
 
-| Depth/bookmark       | Whole visible objects / connections                                      | Selecting system                                                        |
-| -------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| Overview / system D0 | `system,client` / `external`                                             | `system` only; overview text visible; no service, code, or connectors.  |
-| system D1            | `system,service,client` / `external,system-bridge`                       | `system,service` and `system-bridge`; service rich text is visible.     |
-| Details / system D2  | `system,service,worker,client` / `external,system-bridge,service-bridge` | `system,service,worker` and both bridges; worker TypeScript is visible. |
+| Depth/bookmark       | Whole visible objects / connections                                      | Selecting system                                                                       |
+| -------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Overview / system D0 | `system,client` / `external`                                             | `system` only; overview text visible; no service, code, or connectors.                 |
+| system D1            | `system,service,client` / `external,system-bridge`                       | `system,service` and `system-bridge`; service rich text is visible.                    |
+| Details / system D2  | `system,service,worker,client` / `external,system-bridge,service-bridge` | `system,service,worker` and both parent-to-child routes; worker TypeScript is visible. |
 
 An explicitly selected visible connector is included by itself. Neither export
 scope includes the pending `detached` repair. Both SVG and PNG are flattened;

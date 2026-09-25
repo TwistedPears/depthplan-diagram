@@ -1,6 +1,7 @@
 import useConnectionEditing from '../hooks/useConnectionEditing';
 import type { CanvasState } from '../../shared/editorApiContract';
 import Icon from './Icon';
+import ChildStackToggle from './ChildStackToggle';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import useCanvasPan from '../hooks/useCanvasPan';
 import useExpansionAnimation from '../hooks/useExpansionAnimation';
@@ -49,13 +50,7 @@ import {
   setChildrenExpanded,
 } from '../../shared/recursiveLayouts';
 import RootDepthControls from './RootDepthControls';
-import BoundaryPointProperties from './BoundaryPointProperties';
-import {
-  boundaryPosition,
-  boundaryPlacement,
-  editBoundaryPoint,
-  previewBoundaryPoint,
-} from '../../shared/recursiveBoundary';
+import { boundaryPosition } from '../../shared/recursiveBoundary';
 import { ToolMode } from '../types/CanvasTools';
 import {
   createShape,
@@ -68,6 +63,7 @@ import {
   moveSelection,
   previewGeometry,
   resizeGeometry,
+  rotationFromPointer,
 } from '../../shared/recursiveMovement';
 import {
   alignObjects,
@@ -92,7 +88,6 @@ import {
 } from '../../shared/recursiveCamera';
 import type {
   Geometry,
-  BoundaryPoint,
   RecursiveDocument,
 } from '../../shared/recursiveDocument';
 import {
@@ -101,7 +96,7 @@ import {
   transactDocument,
 } from '../../shared/documentTransactions';
 import { toWorldGeometry } from '../../shared/recursiveHierarchy';
-import { worldPoint } from '../../shared/connectionGeometry';
+import { localPoint, worldPoint } from '../../shared/connectionGeometry';
 import {
   createInwardBridge,
   reattachInwardBridge,
@@ -109,6 +104,10 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
+
+const transformHandles = [-1, 0, 1].flatMap((x) =>
+  [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
+);
 
 export default memo(function RecursiveCanvas({
   document,
@@ -170,7 +169,6 @@ export default memo(function RecursiveCanvas({
   const tool = canvas.tool as ToolMode;
   useCanvasPan(stageRef, tool);
   const { selected, selectedPoint, minimap, selectionCollapsed } = canvas;
-  const [creationParent, setCreationParent] = useState<string | null>(null);
   const [properties, setProperties] = useState<string | null>(null);
   const [textEditing, setTextEditing] = useState<string | null>(null);
   const [linkEditing, setLinkEditing] = useState<string | null>(null);
@@ -186,15 +184,6 @@ export default memo(function RecursiveCanvas({
     bridge?: { source: BoundaryReference; connectionId?: string };
   } | null>(null);
   const bridge = draw?.bridge;
-  const [pointProperties, setPointProperties] = useState(false);
-  const pointGesture = useRef<{
-    document: RecursiveDocument;
-    objectId: string;
-    pointId: string;
-    start: Point;
-    point: BoundaryPoint;
-    moved: boolean;
-  } | null>(null);
   const suppressClick = useRef(false);
   const drawing = tool !== ToolMode.POINTER && tool !== ToolMode.HAND;
   const [size, setSize] = useState({
@@ -234,7 +223,7 @@ export default memo(function RecursiveCanvas({
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
   const toggleChildren = (
     id: string,
-    event: ReactMouseEvent<HTMLButtonElement>,
+    event: ReactMouseEvent<HTMLButtonElement> | MouseEvent,
   ) => {
     // macOS dispatches Ctrl-click as a context menu instead of a normal click.
     if (event.type === 'contextmenu' && !event.ctrlKey) return;
@@ -258,8 +247,7 @@ export default memo(function RecursiveCanvas({
       ]),
     [bounds],
   );
-  const showSelectionRef = useRef<HTMLButtonElement>(null);
-  const hideSelectionRef = useRef<HTMLButtonElement>(null);
+  const selectionControlsRef = useRef<HTMLDivElement>(null);
   const [marquee, setMarquee] = useState<{
     start: { x: number; y: number };
     end: { x: number; y: number };
@@ -284,7 +272,7 @@ export default memo(function RecursiveCanvas({
     tool,
     selected: selection,
     stageRef,
-    disabled: !!(properties || textEditing || bridge || pointProperties),
+    disabled: !!(properties || textEditing || bridge),
     onEdit,
     onBusyChange,
     onStatus,
@@ -293,10 +281,7 @@ export default memo(function RecursiveCanvas({
       setSelected([`connection-${id}`]);
       setSelectedPoint(null);
     },
-    onFinish: () => {
-      setTool(ToolMode.POINTER);
-      setCreationParent(null);
-    },
+    onFinish: () => setTool(ToolMode.POINTER),
   });
   const shapesOnly = selection.every((id) => id.startsWith('object-'));
   const arrangementIds = shapesOnly ? selection.map((id) => id.slice(7)) : [];
@@ -319,7 +304,6 @@ export default memo(function RecursiveCanvas({
         setSelectedPoint(null);
         setMarquee(null);
         setDraw(null);
-        setCreationParent(null);
         setTool(ToolMode.POINTER);
       }
     };
@@ -329,26 +313,9 @@ export default memo(function RecursiveCanvas({
   useLayoutEffect(() => {
     onBusyChange(
       'canvas-draft',
-      !!(
-        properties ||
-        textEditing ||
-        pointProperties ||
-        linkEditing ||
-        draw ||
-        marquee ||
-        creationParent
-      ),
+      !!(properties || textEditing || linkEditing || draw || marquee),
     );
-  }, [
-    properties,
-    textEditing,
-    pointProperties,
-    linkEditing,
-    draw,
-    marquee,
-    creationParent,
-    onBusyChange,
-  ]);
+  }, [properties, textEditing, linkEditing, draw, marquee, onBusyChange]);
   useLayoutEffect(
     () => () => {
       onBusyChange('canvas-draft', false);
@@ -383,7 +350,6 @@ export default memo(function RecursiveCanvas({
         ])
     ) {
       setSelectedPoint(null);
-      setPointProperties(false);
     }
   }, [document, scene.world, selectedPoint, setSelectedPoint]);
   const gesture = useRef<{
@@ -392,6 +358,8 @@ export default memo(function RecursiveCanvas({
     document: RecursiveDocument;
     world: Map<string, Geometry>;
     resize?: { x: number; y: number };
+    rotate: boolean;
+    snapped: boolean;
     delta: Point;
     patches: Map<string, Partial<Geometry>>;
     moved: boolean;
@@ -406,6 +374,8 @@ export default memo(function RecursiveCanvas({
       }
     >;
   } | null>(null);
+  const [rotationHover, setRotationHover] = useState(false);
+  useEffect(() => setRotationHover(false), [selected, tool]);
   const [dropTargets, setDropTargets] = useState<
     Array<{ id: string; parent: string | null }>
   >([]);
@@ -426,7 +396,7 @@ export default memo(function RecursiveCanvas({
     for (const change of gesture.current?.parentChanges.values() ?? [])
       clearTimeout(change.timer);
     gesture.current = null;
-    pointGesture.current = null;
+    setRotationHover(false);
     setPreview(null);
     setDropTargets([]);
     setDraw(null);
@@ -434,33 +404,20 @@ export default memo(function RecursiveCanvas({
   }, [onBusyChange, cancelConnector]);
   useDocumentDraft({
     label: 'canvas gesture or connector',
-    active: () =>
-      !!(
-        gesture.current ||
-        pointGesture.current ||
-        draw ||
-        marquee ||
-        creationParent ||
-        bridge
-      ),
+    active: () => !!(gesture.current || draw || marquee || bridge),
     discard: () => {
       cancelDrag();
-      setCreationParent(null);
       setTool(ToolMode.POINTER);
     },
   });
 
   useEffect(() => {
-    if (
-      (gesture.current && gesture.current.document !== document) ||
-      (pointGesture.current && pointGesture.current.document !== document)
-    )
-      cancelDrag();
+    if (gesture.current && gesture.current.document !== document) cancelDrag();
   }, [document, cancelDrag]);
   const cancelOutside = useEffectEvent((event: MouseEvent) => {
     if (
       !(event.target instanceof HTMLCanvasElement) &&
-      (gesture.current || pointGesture.current || draw || marquee)
+      (gesture.current || draw || marquee)
     )
       cancelDrag();
   });
@@ -480,29 +437,7 @@ export default memo(function RecursiveCanvas({
       window.removeEventListener('mouseup', cancelOutside);
     };
   }, [cancelDrag]);
-  const updatePoint = () => {
-    const active = pointGesture.current;
-    if (!active) return;
-    const at = pointer();
-    if (
-      !active.moved &&
-      Math.hypot(at.x - active.start.x, at.y - active.start.y) * camera.scale <
-        3
-    )
-      return;
-    active.moved = true;
-    active.point = boundaryPlacement(at, scene.world.get(active.objectId)!);
-    setPreview({
-      base: document,
-      value: previewBoundaryPoint(
-        document,
-        active.objectId,
-        active.pointId,
-        active.point,
-      ),
-    });
-  };
-  const beginGeometry = (ids: string[], resize?: { x: number; y: number }) => {
+  const beginGeometry = (ids: string[], handle?: Point | 'rotate') => {
     const movers = topmostObjects(
       document,
       ids.filter((id) => id.startsWith('object-')).map((id) => id.slice(7)),
@@ -513,7 +448,9 @@ export default memo(function RecursiveCanvas({
       start: pointer(),
       document,
       world: scene.world,
-      resize,
+      resize: typeof handle === 'object' ? handle : undefined,
+      rotate: handle === 'rotate',
+      snapped: false,
       delta: { x: 0, y: 0 },
       patches: new Map(),
       moved: false,
@@ -526,6 +463,12 @@ export default memo(function RecursiveCanvas({
     const active = gesture.current;
     if (!active || !active.ids.length) return;
     const point = pointer();
+    if (active.rotate) {
+      const center = active.world.get(active.ids[0])!;
+      // The angle is undefined at the center; retain the last preview there.
+      if (Math.hypot(point.x - center.x, point.y - center.y) * camera.scale < 3)
+        return;
+    }
     const delta = { x: point.x - active.start.x, y: point.y - active.start.y };
     if (!active.moved && Math.hypot(delta.x, delta.y) * camera.scale < 3)
       return;
@@ -540,6 +483,16 @@ export default memo(function RecursiveCanvas({
         const g = active.world.get(id)!;
         if (active.resize) {
           return [id, resizeGeometry(g, active.resize, delta)];
+        }
+        if (active.rotate) {
+          const { rotation, snapped } = rotationFromPointer(
+            g,
+            active.start,
+            point,
+            camera.scale,
+          );
+          active.snapped = snapped;
+          return [id, { rotation }];
         }
         return [id, { x: g.x + delta.x, y: g.y + delta.y }];
       }),
@@ -559,7 +512,7 @@ export default memo(function RecursiveCanvas({
         clearTimeout(change.timer);
       active.parentChanges.clear();
       setDropTargets([]);
-    } else if (!active.resize) {
+    } else if (!active.resize && !active.rotate) {
       const publish = () =>
         setDropTargets(
           [...active.parentChanges]
@@ -609,7 +562,8 @@ export default memo(function RecursiveCanvas({
     if (
       event.key === 'Control' &&
       gesture.current?.moved &&
-      !gesture.current.resize
+      !gesture.current.resize &&
+      !gesture.current.rotate
     )
       updateGeometry(event.ctrlKey);
   });
@@ -629,23 +583,24 @@ export default memo(function RecursiveCanvas({
       return;
     }
     suppressClick.current = true;
-    const edit: DocumentEdit = active.resize
-      ? (draft) => {
-          draft.layouts = previewGeometry(draft, active.patches).layouts;
-        }
-      : moveSelection(
-          active.ids,
-          active.delta,
-          new Map(
-            active.ids.map((id) => {
-              const change = active.parentChanges.get(id);
-              return [
-                id,
-                change?.ready ? change.parent : document.objects[id].parentId,
-              ];
-            }),
-          ),
-        );
+    const edit: DocumentEdit =
+      active.resize || active.rotate
+        ? (draft) => {
+            draft.layouts = previewGeometry(draft, active.patches).layouts;
+          }
+        : moveSelection(
+            active.ids,
+            active.delta,
+            new Map(
+              active.ids.map((id) => {
+                const change = active.parentChanges.get(id);
+                return [
+                  id,
+                  change?.ready ? change.parent : document.objects[id].parentId,
+                ];
+              }),
+            ),
+          );
     const result = transactDocument(document, edit);
     if (result.status === 'rejected') setMoveError(result.error);
     else {
@@ -787,7 +742,6 @@ export default memo(function RecursiveCanvas({
     );
   };
   useCanvasKeyboardShortcuts({ zoomToFit: fit, setViewBox: setCamera });
-  const { boundaryIndex } = connector;
   const renderBoundaryPoints = useCallback(
     (id: string) => {
       const object = displayed.objects[id],
@@ -814,23 +768,9 @@ export default memo(function RecursiveCanvas({
               }
               onMouseDown={(event) => {
                 if (tool !== ToolMode.POINTER || event.evt.button !== 0) return;
-                if (
-                  (event.evt.ctrlKey || event.evt.metaKey) &&
-                  boundaryIndex(id, pointId) !== null
-                )
-                  return;
                 event.cancelBubble = true;
-                onBusyChange('canvas-gesture', true);
                 setSelected([`object-${id}`]);
                 setSelectedPoint({ objectId: id, pointId });
-                pointGesture.current = {
-                  document,
-                  objectId: id,
-                  pointId,
-                  start: stageRef.current!.getRelativePointerPosition()!,
-                  point,
-                  moved: false,
-                };
               }}
               onClick={(event) => {
                 if (tool === ToolMode.POINTER) event.cancelBubble = true;
@@ -846,18 +786,124 @@ export default memo(function RecursiveCanvas({
       camera.scale,
       selectedPoint,
       tool,
-      boundaryIndex,
-      onBusyChange,
       setSelected,
       setSelectedPoint,
-      document,
     ],
   );
   const lifted =
-    gesture.current?.moved && !gesture.current.resize
+    gesture.current?.moved && !gesture.current.resize && !gesture.current.rotate
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
+  const [focusedToggle, setFocusedToggle] = useState<string | null>(null);
+  const toggleScale = Math.min(1, camera.scale);
+  const togglesDisabled =
+    !!preview ||
+    !!textEditing ||
+    !!properties ||
+    !!draw ||
+    !!linkEditing ||
+    drawing;
+  const childToggles = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      displayScale: number;
+      icon: string;
+      expanded: boolean;
+      label: string;
+      title: string;
+    }
+  >();
+  for (const [id, geometry] of scene.world) {
+    const children = scene.hierarchy.children.get(id) ?? [];
+    const box = bounds.objects.get(id);
+    if (!children.length || !box) continue;
+    const left = camera.x + box.x * camera.scale;
+    const top = camera.y + box.y * camera.scale;
+    const right = left + box.width * camera.scale;
+    if (
+      right < 0 ||
+      left > size.width ||
+      top > size.height ||
+      top + box.height * camera.scale < 0
+    )
+      continue;
+    const object = document.objects[id];
+    // Fit the upright button in an inscribed rectangle so rounded corners,
+    // sloping edges, and the object's stroke all stay clear of its focus ring.
+    let halfWidth = geometry.width / 2;
+    let halfHeight = geometry.height / 2;
+    if (object.type === 'diamond' || object.type === 'ellipse') {
+      const factor = object.type === 'diamond' ? 0.5 : Math.SQRT1_2;
+      halfWidth *= factor;
+      halfHeight *= factor;
+    } else {
+      const radius =
+        typeof object.style?.cornerRadius === 'number'
+          ? Math.max(
+              0,
+              Math.min(halfWidth, halfHeight, object.style.cornerRadius),
+            )
+          : 0;
+      halfWidth -= radius * (1 - Math.SQRT1_2);
+      halfHeight -= radius * (1 - Math.SQRT1_2);
+    }
+    const angle = (geometry.rotation * Math.PI) / 180;
+    const extent = Math.abs(Math.cos(angle)) + Math.abs(Math.sin(angle));
+    const stroke =
+      typeof object.style?.strokeWidth === 'number'
+        ? Math.max(0, object.style.strokeWidth) / 2
+        : 0.75;
+    // 16px half-button + 1px focus ring + 4px clear space. Small shapes use
+    // the same shrinking-dot treatment as zooming out.
+    const scale = Math.min(
+      toggleScale,
+      (Math.max(0, Math.min(halfWidth, halfHeight) / extent - stroke) *
+        camera.scale) /
+        21,
+    );
+    if (!scale) continue; // The stroke occupies the entire interior.
+    const inset = ((21 * scale) / camera.scale + stroke) * extent;
+    halfWidth = Math.max(0, halfWidth - inset);
+    halfHeight = Math.max(0, halfHeight - inset);
+    // Aim toward the screen's upper-right corner, then stop at the safe
+    // interior. A local upper-right corner would rotate below the object.
+    const interior = geometryBounds({
+      ...geometry,
+      width: 2 * halfWidth,
+      height: 2 * halfHeight,
+    });
+    const target = localPoint(
+      { x: interior.x + interior.width, y: interior.y },
+      geometry,
+    );
+    const fraction = Math.min(
+      1,
+      target.x ? halfWidth / Math.abs(target.x) : 1,
+      target.y ? halfHeight / Math.abs(target.y) : 1,
+    );
+    const center = worldPoint(
+      { x: target.x * fraction, y: target.y * fraction },
+      geometry,
+    );
+    const expanded = scene.expanded.has(id);
+    const icon =
+      children.length > 1 || scene.hierarchy.children.has(children[0])
+        ? 'square-stack-3'
+        : 'square-stack-2';
+    const label = `${expanded ? 'Hide' : 'Reveal'} children of ${objectLabel(object)}`;
+    childToggles.set(id, {
+      x: camera.x + center.x * camera.scale - 16 * scale,
+      y: camera.y + center.y * camera.scale - 16 * scale,
+      displayScale: scale,
+      icon,
+      expanded,
+      label,
+      title: `${label} (${children.length} direct ${children.length === 1 ? 'child' : 'children'}). Ctrl-click to collapse all descendants.`,
+    });
+  }
   // Recheck native paint bounds after scene or viewport changes. UI-only renders
   // leave both the geometry and the previous culling result intact.
   useLayoutEffect(() => {
@@ -874,9 +920,41 @@ export default memo(function RecursiveCanvas({
     renderBoundaryPoints,
     liftedIds,
   ]);
+  const rotationAt = (target: Konva.Node) => {
+    if (
+      tool !== ToolMode.POINTER ||
+      selection.length !== 1 ||
+      !selection[0].startsWith('object-') ||
+      draw ||
+      selectedPoint ||
+      textEditing ||
+      properties ||
+      linkEditing ||
+      isBusy() ||
+      target.hasName('resize-handle') ||
+      target.findAncestor('.child-stack-toggle, .boundary-point', true)
+    )
+      return false;
+    const g = scene.world.get(selection[0].slice(7))!;
+    const p = localPoint(pointer(), g);
+    return transformHandles.some(({ x, y }) => {
+      const offset = 14 / (Math.hypot(x, y) * camera.scale);
+      return (
+        Math.hypot(
+          p.x - x * (g.width / 2 + offset),
+          p.y - y * (g.height / 2 + offset),
+        ) *
+          camera.scale <=
+        10
+      );
+    });
+  };
   return (
     <div
       className="canvas-container"
+      data-rotation-cursor={
+        rotationHover || gesture.current?.rotate || undefined
+      }
       onDoubleClick={(event) => {
         if (
           animating ||
@@ -889,6 +967,7 @@ export default memo(function RecursiveCanvas({
         const stage = stageRef.current!;
         stage.setPointersPositions(event.nativeEvent);
         const hit = stage.getIntersection(stage.getPointerPosition()!);
+        if (hit && rotationAt(hit)) return;
         const key = hit && targetKey(hit);
         if (connector.doubleClick(hit, event)) return;
         if (!key?.startsWith('object-')) return;
@@ -919,6 +998,11 @@ export default memo(function RecursiveCanvas({
           if (animating || properties || textEditing || event.evt.button !== 0)
             return;
           if (connector.mouseDown(event)) return;
+          if (rotationAt(event.target)) {
+            suppressClick.current = true;
+            beginGeometry(selection, 'rotate');
+            return;
+          }
           onBusyChange('canvas-gesture', true);
           suppressClick.current = false;
           if (bridge) return;
@@ -960,39 +1044,22 @@ export default memo(function RecursiveCanvas({
         }}
         onMouseMove={(event) => {
           if (connector.mouseMove(event)) return;
-          if (pointGesture.current) {
-            updatePoint();
-            return;
-          }
           if (gesture.current) {
             updateGeometry(event.evt.ctrlKey);
             return;
           }
+          setRotationHover(rotationAt(event.target));
           if (draw) {
             setDraw({ ...draw, end: pointer(), square: event.evt.shiftKey });
             return;
           }
           if (marquee) setMarquee({ ...marquee, end: pointer() });
         }}
+        onMouseLeave={() => setRotationHover(false)}
         onMouseUp={(event) => {
           if (connector.mouseUp(event)) return;
           if (event.evt.button !== 0) return;
           onBusyChange('canvas-gesture', false);
-          if (pointGesture.current) {
-            const active = pointGesture.current;
-            updatePoint();
-            cancelDrag();
-            if (active.moved)
-              onEdit(
-                editBoundaryPoint(
-                  active.objectId,
-                  active.pointId,
-                  active.point,
-                ),
-              );
-            suppressClick.current = true;
-            return;
-          }
           if (gesture.current) {
             finishGeometry(event.evt.ctrlKey);
             return;
@@ -1047,14 +1114,11 @@ export default memo(function RecursiveCanvas({
                   : tool === ToolMode.FRAME
                     ? 'frame'
                     : 'rectangle';
-            const parent =
-              creationParent ??
-              (draw.alt ? null : eligibleParent(document, geometry));
+            const parent = draw.alt ? null : eligibleParent(document, geometry);
             onEdit(createShape(id, kind, geometry, parent));
             setSelected([`object-${id}`]);
             setDraw(null);
             setSelectedPoint(null);
-            setCreationParent(null);
             setTool(ToolMode.POINTER);
             suppressClick.current = true;
             return;
@@ -1106,6 +1170,7 @@ export default memo(function RecursiveCanvas({
         }}
         onWheel={(event) => {
           event.evt.preventDefault();
+          if (gesture.current?.rotate) return;
           zoom(
             Math.exp(-event.evt.deltaY * 0.002),
             event.target.getStage()!.getPointerPosition()!,
@@ -1122,6 +1187,31 @@ export default memo(function RecursiveCanvas({
             scale={camera.scale}
             onError={setMoveError}
             renderBoundaryPoints={renderBoundaryPoints}
+            renderChildrenToggle={(id) => {
+              const toggle = childToggles.get(id);
+              if (!toggle) return null;
+              const geometry = scene.world.get(id)!;
+              const position = localPoint(
+                {
+                  x: (toggle.x - camera.x) / camera.scale,
+                  y: (toggle.y - camera.y) / camera.scale,
+                },
+                geometry,
+              );
+              return (
+                <ChildStackToggle
+                  {...toggle}
+                  {...position}
+                  id={`child-toggle-${id}`}
+                  rotation={-geometry.rotation}
+                  scaleX={toggle.displayScale / camera.scale}
+                  scaleY={toggle.displayScale / camera.scale}
+                  disabled={togglesDisabled}
+                  focused={focusedToggle === id}
+                  onToggle={(event) => toggleChildren(id, event)}
+                />
+              );
+            }}
           />
         </Layer>
         <Layer listening={false}>
@@ -1251,40 +1341,46 @@ export default memo(function RecursiveCanvas({
             !draw &&
             !selectedPoint &&
             !textEditing &&
+            !properties &&
+            !linkEditing &&
             (() => {
               const id = selection[0].slice(7),
                 g = scene.world.get(id)!;
               return (
                 <Group x={g.x} y={g.y} rotation={g.rotation}>
-                  {[-1, 0, 1].flatMap((x) =>
-                    [-1, 0, 1]
-                      .filter((y) => x || y)
-                      .map((y) => (
-                        <Rect
-                          key={`${x}:${y}`}
-                          name="resize-handle"
-                          x={(x * g.width) / 2 - 4 / camera.scale}
-                          y={(y * g.height) / 2 - 4 / camera.scale}
-                          width={8 / camera.scale}
-                          height={8 / camera.scale}
-                          fill="white"
-                          stroke="#2563eb"
-                          strokeWidth={1 / camera.scale}
-                          onMouseDown={(event) => {
-                            event.cancelBubble = true;
-                            beginGeometry(selection, { x, y });
-                          }}
-                          onClick={(event) => {
-                            event.cancelBubble = true;
-                          }}
-                        />
-                      )),
-                  )}
+                  {transformHandles.map(({ x, y }) => (
+                    <Rect
+                      key={`${x}:${y}`}
+                      name="resize-handle"
+                      x={(x * g.width) / 2 - 4 / camera.scale}
+                      y={(y * g.height) / 2 - 4 / camera.scale}
+                      width={8 / camera.scale}
+                      height={8 / camera.scale}
+                      fill="white"
+                      stroke="#2563eb"
+                      strokeWidth={1 / camera.scale}
+                      onMouseDown={(event) => {
+                        event.cancelBubble = true;
+                        if (event.evt.button === 0 && !isBusy())
+                          beginGeometry(selection, { x, y });
+                      }}
+                      onClick={(event) => {
+                        event.cancelBubble = true;
+                      }}
+                    />
+                  ))}
                 </Group>
               );
             })()}
         </Layer>
       </Stage>
+      {(rotationHover || gesture.current?.rotate) && (
+        <div className="connection-editing-hint" role="status">
+          {gesture.current?.rotate
+            ? `${Math.round(scene.world.get(gesture.current.ids[0])!.rotation)}° · ${gesture.current.snapped ? '15° steps' : '1° steps · Pull outward for 15° steps'}`
+            : 'Drag to rotate · Pull outward for 15° steps'}
+        </div>
+      )}
       {connector.labelEditor}
       {connector.hint && (
         <div className="connection-editing-hint" role="status">
@@ -1304,63 +1400,28 @@ export default memo(function RecursiveCanvas({
           ].join(' · ')}
         </div>
       )}
-      {[...scene.world.entries()].map(([id, geometry]) => {
-        const children = scene.hierarchy.children.get(id) ?? [];
-        const box = bounds.objects.get(id);
-        if (!children.length || !box) return null;
-        const left = camera.x + box.x * camera.scale;
-        const top = camera.y + box.y * camera.scale;
-        const right = left + box.width * camera.scale;
-        if (
-          right < 0 ||
-          left > size.width ||
-          top > size.height ||
-          top + box.height * camera.scale < 0
-        )
-          return null;
-        let x = Math.max(4, Math.min(size.width - 36, right - 36));
-        let y = Math.max(4, Math.min(size.height - 36, top + 4));
-        const object = document.objects[id];
-        if (object.type === 'diamond' || object.type === 'ellipse') {
-          const anchor = worldPoint(
-            boundaryPosition({ side: 'top', offset: 1 }, geometry, object),
-            geometry,
-          );
-          x = camera.x + anchor.x * camera.scale - 16;
-          y = camera.y + anchor.y * camera.scale - 16;
-        }
-        const expanded = scene.expanded.has(id);
-        const icon =
-          children.length > 1 || scene.hierarchy.children.has(children[0])
-            ? 'square-stack-3'
-            : 'square-stack-2';
-        const label = `${expanded ? 'Hide' : 'Reveal'} children of ${objectLabel(object)}`;
-        return (
-          <button
-            key={id}
-            type="button"
-            className="child-stack-toggle"
-            style={{ left: x, top: y }}
-            aria-expanded={expanded}
-            aria-label={label}
-            title={`${label} (${children.length} direct ${children.length === 1 ? 'child' : 'children'}). Ctrl-click to collapse all descendants.`}
-            disabled={
-              !!preview ||
-              !!textEditing ||
-              !!properties ||
-              !!draw ||
-              !!creationParent ||
-              !!pointProperties ||
-              !!linkEditing ||
-              drawing
-            }
-            onClick={(event) => toggleChildren(id, event)}
-            onContextMenu={(event) => toggleChildren(id, event)}
-          >
-            <Icon name={icon} />
-          </button>
-        );
-      })}
+      {/* Keyboard and screen-reader controls; the visible buttons paint in the scene. */}
+      {[...childToggles].map(([id, toggle]) => (
+        <button
+          key={id}
+          type="button"
+          className="child-stack-toggle"
+          style={{
+            left: toggle.x,
+            top: toggle.y,
+            transform: `scale(${toggle.displayScale})`,
+            transformOrigin: 'top left',
+          }}
+          aria-expanded={toggle.expanded}
+          aria-label={toggle.label}
+          title={toggle.title}
+          disabled={togglesDisabled}
+          onFocus={() => setFocusedToggle(id)}
+          onBlur={() => setFocusedToggle(null)}
+          onClick={(event) => toggleChildren(id, event)}
+          onContextMenu={(event) => toggleChildren(id, event)}
+        />
+      ))}
       {linkEditing && (
         <SelectionLink
           key={linkEditing}
@@ -1398,7 +1459,6 @@ export default memo(function RecursiveCanvas({
         onChangeTool={(next) => {
           cancelDrag();
           setTool(next);
-          setCreationParent(null);
         }}
       />
       {searchQuery !== null && (
@@ -1425,31 +1485,6 @@ export default memo(function RecursiveCanvas({
           }}
         />
       )}
-      {pointProperties &&
-        selectedPoint &&
-        document.objects[selectedPoint.objectId]?.boundaryPoints?.[
-          selectedPoint.pointId
-        ] && (
-          <BoundaryPointProperties
-            key={selectedPoint.pointId}
-            id={selectedPoint.pointId}
-            point={
-              document.objects[selectedPoint.objectId].boundaryPoints![
-                selectedPoint.pointId
-              ]
-            }
-            onApply={(point) =>
-              onEdit(
-                editBoundaryPoint(
-                  selectedPoint.objectId,
-                  selectedPoint.pointId,
-                  point,
-                ),
-              )
-            }
-            onClose={() => setPointProperties(false)}
-          />
-        )}
       {textEditing && scene.world.has(textEditing) && (
         <InlineObjectText
           key={textEditing}
@@ -1478,48 +1513,22 @@ export default memo(function RecursiveCanvas({
       )}
       <div
         id="selection-controls"
+        ref={selectionControlsRef}
         role="toolbar"
         aria-label="Selection"
         className="recursive-selection-toolbar"
         style={{ pointerEvents: preview ? 'none' : undefined }}
         hidden={
-          !creationParent &&
           !bridge &&
           (!selection.length ||
             selectionCollapsed ||
             (tool !== ToolMode.POINTER && !properties))
         }
       >
-        <div className="selection-heading">
-          <h2>{textEditing ? 'Text' : properties ? 'Properties' : 'Style'}</h2>
-          <output aria-label="Selected items">
-            {selection.length} selected
-          </output>
-          {!creationParent && !bridge && !properties && (
-            <button
-              ref={hideSelectionRef}
-              type="button"
-              className="selection-collapse"
-              aria-label="Hide selection controls"
-              title="Hide selection controls"
-              aria-expanded="true"
-              aria-controls="selection-controls"
-              onClick={() => {
-                setSelectionCollapsed(true);
-                requestAnimationFrame(() => showSelectionRef.current?.focus());
-              }}
-            >
-              <Icon name="chevron-right" />
-            </button>
-          )}
-        </div>
-        {selection.length === 1 && (
-          <p className="selection-name">
-            {selection[0].startsWith('object-')
-              ? objectLabel(document.objects[selection[0].slice(7)])
-              : document.connections[selection[0].slice(11)]?.label ||
-                'Connector'}
-          </p>
+        {(textEditing || properties) && (
+          <div className="selection-heading">
+            <h2>{textEditing ? 'Text' : 'Properties'}</h2>
+          </div>
         )}
         {selection.length === 1 &&
           selection[0].startsWith('object-') &&
@@ -1559,7 +1568,7 @@ export default memo(function RecursiveCanvas({
                     aria-label={`${scene.expanded.has(id) ? 'Hide' : 'Reveal'} ${count} ${count === 1 ? 'child' : 'children'}`}
                     title={`${scene.expanded.has(id) ? 'Hide' : 'Reveal'} ${count} ${count === 1 ? 'child' : 'children'}. Ctrl-click to collapse all descendants.`}
                     aria-expanded={scene.expanded.has(id)}
-                    disabled={!!properties || !!draw || !!creationParent}
+                    disabled={!!properties || !!draw}
                     onClick={(event) => toggleChildren(id, event)}
                     onContextMenu={(event) => toggleChildren(id, event)}
                   >
@@ -1630,20 +1639,6 @@ export default memo(function RecursiveCanvas({
           >
             <Icon name="sliders" />
           </button>
-          <button
-            type="button"
-            aria-label="Add child"
-            title="Add child"
-            disabled={
-              selection.length !== 1 || !selection[0]?.startsWith('object-')
-            }
-            onClick={() => {
-              setCreationParent(selection[0].slice(7));
-              setTool(ToolMode.SQUARE);
-            }}
-          >
-            <Icon name="add-child" />
-          </button>
           {selection.length === 1 &&
             selection[0].startsWith('object-') &&
             (() => {
@@ -1651,80 +1646,45 @@ export default memo(function RecursiveCanvas({
                 points = document.objects[objectId].boundaryPoints ?? {},
                 pointIds = Object.keys(points);
               return (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Add boundary point"
-                    title="Add boundary point"
-                    onClick={() => {
-                      const pointId = crypto.randomUUID();
-                      onEdit(
-                        editBoundaryPoint(
-                          objectId,
-                          pointId,
-                          {
-                            side: 'right',
-                            offset:
-                              (pointIds.length + 1) / (pointIds.length + 2),
-                          },
-                          true,
-                        ),
-                      );
-                      setSelectedPoint({ objectId, pointId });
-                    }}
-                  >
-                    <Icon name="add-boundary-point" />
-                  </button>
-                  {pointIds.length > 0 && (
-                    <label>
-                      Boundary point
-                      <select
-                        aria-label="Boundary point"
-                        style={{ maxWidth: 160 }}
-                        value={
-                          selectedPoint?.objectId === objectId
-                            ? selectedPoint.pointId
-                            : ''
-                        }
-                        onChange={(event) =>
-                          setSelectedPoint(
-                            event.target.value
-                              ? { objectId, pointId: event.target.value }
-                              : null,
-                          )
-                        }
-                      >
-                        <option value="">Select a point</option>
-                        {pointIds.map((pointId, index) => (
-                          <option key={pointId} value={pointId}>
-                            {index + 1}: {pointId}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </>
+                pointIds.length > 0 && (
+                  <label>
+                    Boundary point
+                    <select
+                      aria-label="Boundary point"
+                      style={{ maxWidth: 160 }}
+                      value={
+                        selectedPoint?.objectId === objectId
+                          ? selectedPoint.pointId
+                          : ''
+                      }
+                      onChange={(event) =>
+                        setSelectedPoint(
+                          event.target.value
+                            ? { objectId, pointId: event.target.value }
+                            : null,
+                        )
+                      }
+                    >
+                      <option value="">Select a point</option>
+                      {pointIds.map((pointId, index) => (
+                        <option key={pointId} value={pointId}>
+                          {index + 1}: {pointId}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
               );
             })()}
           {selectedPoint && (
-            <>
-              <button
-                type="button"
-                aria-label="Point properties"
-                title="Point properties"
-                onClick={() => setPointProperties(true)}
-              >
-                <Icon name="sliders" />
-              </button>
-              <button
-                type="button"
-                aria-label="Connect inside"
-                title="Connect inside"
-                onClick={() => startInside(selectedPoint)}
-              >
-                <Icon name="connect-inside" />
-              </button>
-            </>
+            <button
+              type="button"
+              aria-label="Connect inside"
+              title="Connect inside"
+              onClick={() => startInside(selectedPoint)}
+            >
+              <Icon name="connect-inside" />
+            </button>
           )}
           {selection.length === 1 &&
             selection[0].startsWith('connection-') &&
@@ -1750,12 +1710,6 @@ export default memo(function RecursiveCanvas({
               Escape cancels.
             </span>
           )}
-          {creationParent && (
-            <span>
-              Draw a child of {objectLabel(document.objects[creationParent])}.
-              Escape cancels.
-            </span>
-          )}
           <RecursiveDelete
             document={document}
             selection={selection}
@@ -1763,13 +1717,10 @@ export default memo(function RecursiveCanvas({
             blocked={() =>
               !!(
                 gesture.current ||
-                pointGesture.current ||
                 draw ||
                 marquee ||
                 properties ||
-                textEditing ||
-                pointProperties ||
-                creationParent
+                textEditing
               )
             }
             onEdit={onEdit}
@@ -1794,6 +1745,7 @@ export default memo(function RecursiveCanvas({
             type="button"
             aria-label="Link"
             title="Add or edit link"
+            hidden
             disabled={selection.length !== 1}
             onClick={() => {
               if (!isBusy()) setLinkEditing(selection[0]);
@@ -1801,38 +1753,13 @@ export default memo(function RecursiveCanvas({
           >
             <Icon name="link" />
           </button>
-          <button
-            type="button"
-            aria-label="Select visible"
-            title="Select visible"
-            onClick={() => {
-              setSelected([...boxes.keys()]);
-              setSelectedPoint(null);
-            }}
-          >
-            <Icon name="select-visible" />
-          </button>
-          <button
-            type="button"
-            aria-label="Deselect"
-            title="Deselect"
-            onClick={() => {
-              setSelected([]);
-              setSelectedPoint(null);
-            }}
-            disabled={!selection.length}
-          >
-            <Icon name="deselect" />
-          </button>
         </div>
       </div>
       {selection.length > 0 &&
         tool === ToolMode.POINTER &&
         selectionCollapsed &&
-        !creationParent &&
         !bridge && (
           <button
-            ref={showSelectionRef}
             className="selection-reopen"
             type="button"
             aria-label="Show selection controls"
@@ -1840,7 +1767,11 @@ export default memo(function RecursiveCanvas({
             aria-controls="selection-controls"
             onClick={() => {
               setSelectionCollapsed(false);
-              requestAnimationFrame(() => hideSelectionRef.current?.focus());
+              requestAnimationFrame(() =>
+                selectionControlsRef.current
+                  ?.querySelector<HTMLButtonElement>('button:not([hidden])')
+                  ?.focus(),
+              );
             }}
           >
             <Icon name="sliders" /> {selection.length} selected
@@ -1960,7 +1891,7 @@ export default memo(function RecursiveCanvas({
             </span>
           </div>
         )}
-      {drawing && !creationParent && (
+      {drawing && (
         <p className="drawing-hint">
           Click and drag to draw. <kbd>Esc</kbd> to cancel.
         </p>

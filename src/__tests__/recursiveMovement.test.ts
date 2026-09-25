@@ -7,6 +7,7 @@ import {
   previewGeometry,
   topmostObjects,
   resizeGeometry,
+  rotationFromPointer,
 } from '../shared/recursiveMovement';
 import { transactDocument } from '../shared/documentTransactions';
 import {
@@ -24,6 +25,79 @@ const handlePoint = (g: Geometry, handle: { x: number; y: number }) =>
     { ...g, x: (handle.x * g.width) / 2, y: (handle.y * g.height) / 2 },
     g,
   );
+
+it.each([0.25, 1, 2])(
+  'rotates from the grab angle and snaps by screen distance at %sx zoom',
+  (scale) => {
+    const g = { x: 300, y: 200, width: 160, height: 100, rotation: 350, z: 0 };
+    const point = (angle: number, radius = 100) => ({
+      x: g.x + radius * Math.cos((angle * Math.PI) / 180),
+      y: g.y + radius * Math.sin((angle * Math.PI) / 180),
+    });
+    const start = point(175);
+    expect(rotationFromPointer(g, start, start, scale)).toEqual({
+      rotation: 350,
+      snapped: false,
+    });
+    expect(rotationFromPointer(g, start, point(-168.6), scale)).toEqual({
+      rotation: 6,
+      snapped: false,
+    });
+    expect(rotationFromPointer(g, start, point(157.6), scale)).toEqual({
+      rotation: 333,
+      snapped: false,
+    });
+    expect(
+      rotationFromPointer(g, start, point(-163, 100 + 41 / scale), scale),
+    ).toEqual({ rotation: 15, snapped: true });
+    expect(
+      rotationFromPointer(g, start, point(-163, 100 + 39 / scale), scale),
+    ).toEqual({ rotation: 12, snapped: false });
+    expect(
+      rotationFromPointer(g, start, point(185, 100 + 41 / scale), scale),
+    ).toEqual({ rotation: 0, snapped: true });
+  },
+);
+
+it('rotates a nested parent and its descendants once, retaining sizes, ownership, inactive layouts and Undo', () => {
+  const d = recursiveFixture();
+  d.rootDepths.app = 2;
+  d.layouts.app[2].app.rotation = 37;
+  d.layouts.app[2].api.rotation = 23;
+  const world = activeWorldGeometry(d);
+  const original = world.get('api')!;
+  const patches = new Map([['api', { rotation: 77 }]]);
+  const { result } = renderHook(() => useDocumentState(d));
+  act(() =>
+    result.current.transact((draft) => {
+      draft.layouts = previewGeometry(draft, patches).layouts;
+    }),
+  );
+  const after = activeWorldGeometry(result.current.document!);
+  expect(after.get('api')).toMatchObject({
+    width: original.width,
+    height: original.height,
+    rotation: 77,
+  });
+  expect(after.get('api')!.x).toBeCloseTo(original.x);
+  expect(after.get('api')!.y).toBeCloseTo(original.y);
+  expect(after.get('endpoint')).toEqual(
+    toWorldGeometry(d.layouts.app[2].endpoint, after.get('api')!),
+  );
+  expect(result.current.document!.layouts.app[2].endpoint).toEqual(
+    d.layouts.app[2].endpoint,
+  );
+  expect(result.current.document!.layouts.app[0]).toEqual(d.layouts.app[0]);
+  expect(result.current.document!.layouts.app[1]).toEqual(d.layouts.app[1]);
+  expect(result.current.document!.objects).toEqual(d.objects);
+  expect(result.current.past).toHaveLength(1);
+  act(() => result.current.undo());
+  expect(result.current.document).toEqual(d);
+  act(() => result.current.redo());
+  expect(
+    activeWorldGeometry(result.current.document!).get('api')!.rotation,
+  ).toBe(77);
+});
 
 it.each(
   [0, 37, 90].flatMap((rotation) =>

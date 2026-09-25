@@ -16,11 +16,17 @@ export default function useCanvasPan(
         (event.button !== 2 && !(tool === ToolMode.HAND && event.button === 0))
       )
         return;
+      stage.setPointersPositions(event);
+      if (
+        stage
+          .getIntersection(stage.getPointerPosition()!)
+          ?.findAncestor('.child-stack-toggle', true)
+      )
+        return;
       // Capture before shapes and resize handles can claim the gesture.
       event.preventDefault();
       event.stopPropagation();
       if (event.buttons !== (event.button === 0 ? 1 : 2)) return;
-      stage.setPointersPositions(event);
       stage.startDrag({ evt: event });
     };
     const contextMenu = (event: MouseEvent) => event.preventDefault();

@@ -105,7 +105,8 @@ export function captureRecursiveScene(stage: Konva.Stage) {
       node.visible(true);
       node.setAttr('viewportCulled', false);
     }
-  for (const point of scene.find('.boundary-point')) point.destroy();
+  for (const control of scene.find('.boundary-point, .child-stack-toggle'))
+    control.destroy();
   return scene;
 }
 /** Keep ancestor groups only for their transforms, opacity and clipping. */

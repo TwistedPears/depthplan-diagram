@@ -35,6 +35,9 @@ Shape fills support solid, none, hachure and cross-hatch, with transparent gaps
 for patterns. Corner radius is a numeric style value; quick controls use 0 or 12,
 and Properties accepts custom values. Stroke width/dash, color and opacity remain
 shared across views. Object links are separate from rich-text links.
+New shapes and connectors use the 2px Thin stroke preset, selected in Style on
+creation. Older 1.5px Thin strokes are also recognized without changing their
+stored width.
 
 Geometry is `{x, y, z, width, height, rotation}`. X/Y are centers in canvas units,
 positive Y points down, dimensions are finite and positive, Z is an integer
@@ -42,6 +45,13 @@ stacking order, and rotation is in degrees. Authored rotations normalize to
 [0, 360). Roots use world coordinates; children use parent-local coordinates and
 inherit ancestor translation/rotation. Resizing a parent neither scales children
 nor changes their coordinate origin.
+
+To rotate a selected shape, move just outside any resize handle until the rotation
+cursor appears, then drag around its center. Rotation uses whole degrees. Pull
+40 screen pixels farther from the center to snap to 15° increments; move inward
+again for 1° increments. The angle and snapping mode appear during the gesture.
+Children rotate with their parent, and attached arrows follow their shapes.
+Release to commit one Undo step, or press Escape to cancel.
 
 `layouts[rootId][depth][objectId]` stores depth-specific geometry. D0 and the active
 depth must exist, with geometry for every depth-revealed member. Additional hidden
@@ -63,10 +73,14 @@ adds no dotted child enclosure or substitute frame.
 Ordinary collapse folds only that parent and preserves descendants' disclosure.
 Reopening restores those descendants. Ctrl+click on the stack control folds the
 whole subtree; the next reveal opens only immediate children. Newly reachable
-levels start folded. The control is fixed in screen size, follows the upper-right
-rectangle/frame corner or diamond/ellipse outline, and has a light gray border
-when collapsed. A single leaf child uses two stacked squares; other branches use
-three. Controls never appear in exports.
+levels start folded. The control stays upright inside the visual upper-right
+part of its shape, even when the shape or its ancestors rotate, with space for
+the border and rounded corners. It shrinks with zoom,
+becomes a clickable blue dot below 60%, and returns to the stack icon when
+zooming in, capped at 32 screen pixels. Small shapes also shrink the control to
+fit their interior. Panning does not pin it to the viewport edge.
+The icon has a light gray border when collapsed. A single leaf child uses two
+stacked squares; other branches use three. Controls never appear in exports.
 
 Local child disclosure runs auto-arrange: separate overlapping children, grow
 parents with title/padding space, and push colliding sibling groups through the
@@ -101,8 +115,8 @@ object's world center/rotation and its descendants' local geometry. Drag adoptio
 uses the actual outline, chooses deepest candidate then Z, area and ID, and needs
 400 ms of intentional hover. Current-parent tolerance is eight screen pixels.
 Resizing across another shape does not adopt it. A canceled drag restores its
-starting state. Explicit Add child reveals its branch; dropping into a collapsed
-container keeps it collapsed.
+starting state. Drawing a shape inside a container creates a child and reveals its
+branch; dropping into a collapsed container keeps it collapsed.
 
 When ancestry changes from generation `g` to `h`, source depth `d` maps to
 `d - g + h`. Destination layouts initialize before insertion. Negative translated
@@ -140,31 +154,48 @@ including rounded corners, diamonds and ellipses. Handles and routes share this
 projection at every depth and rotation.
 
 Ordinary new lines have free endpoints. The Arrow tool binds near/inside visible
-shapes; Ctrl/Cmd disables binding and Alt/Option selects a precise attachment.
-`binding: "auto"` follows the adjacent path vertex, while `"fixed"` keeps side/offset;
-both leave an eight-unit outline gap. An absent mode uses the authored attachment
+shapes; Ctrl/Cmd disables binding. Hovering a target shows four anchors: rectangle
+side midpoints, diamond vertices, or ellipse cardinal points, following the shape's
+rotation. Creation and endpoint dragging snap within 12 screen pixels of an anchor
+and release beyond that radius. Between anchors, dragging near the outline follows
+the pointer; dragging into the shape uses an automatic attachment.
+`binding: "auto"` follows the adjacent path vertex. `"fixed"` prefers its authored
+side/offset while the next path segment faces out of the shape (inward for an
+endpoint on its own container), then slides along the visible outline until that
+point faces the connection again. Neither sliding nor moving shapes changes the
+saved preferred point. Both modes leave an eight-unit outline gap, inside the
+border for container endpoints. An absent mode uses the authored attachment
 without an added gap. Straight routes join vertices, curved routes use cubic
 Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
 Creation uses world points; endpoint/point edits use owner-local points.
 
-An inward bridge connects a container boundary to an immediate child or its
-boundary. Deeper nesting uses successive explicit bridges. Many connections may
-share a point; no automatic bundling or destination inference occurs. Owners are
-the nearest valid common scope, with canvas ownership across roots. Crossing
-container boundaries requires explicit boundary chains.
+The Style panel no longer adds or repositions custom boundary points. Existing
+named points remain stored for compatibility and inward bridges, and their canvas
+handles are stationary. Selected connector endpoints take priority over these
+handles, so a normal endpoint drag reattaches or detaches the connector without
+moving its old point. MCP boundary-point commands remain available for stored
+documents and bridge authoring.
 
-A route draws only when its owner and both attached targets are revealed; an
-internal owner must be expanded even for free-ended routes. An outside connection
-to a collapsed parent's boundary remains. A hidden child endpoint is hidden,
-never silently redirected to its ancestor.
+The Arrow tool connects outside objects directly to children inside other
+containers, in either direction and across multiple nesting levels. Endpoint
+dragging supports the same attachments. Routes belong to the nearest common
+container, or the canvas across roots, and paint above containers they enter.
+Parent-border connections and existing named boundary bridges remain supported.
+
+When an attached child is hidden by collapse or a depth change, its endpoint draws
+on the nearest visible ancestor's outline. Expanding restores the exact saved
+child attachment, including its preferred side and offset. This is a display
+projection; collapse never changes the saved target. A route whose endpoints
+project onto the same collapsed container stays hidden. Routes owned by a collapsed
+container also stay hidden, including free-ended routes. Selection, hit testing
+and exports use the displayed path.
 
 Structural changes recompute ownership and transform free endpoints/vertices
-through world space. Invalid cross-boundary routes enter `connectionRepairs`
-instead of being lost. Each entry preserves the original connection, former owner
-geometry, world endpoints and explanation. Users author replacement boundary
-segments and choose which one inherits the original ID, label, kind, style and
-order. Resolving removes only that repair in one transaction. Pending repairs
-persist across save/reopen and never draw or export.
+through world space. Cross-container moves keep their arrows connected. Legacy
+`connectionRepairs` remain supported: users can select a replacement segment to
+inherit the original ID, label, kind, style and order. Resolving removes only that
+repair in one transaction. Pending repairs persist across save/reopen and never
+draw or export.
 
 ## Rich text and code
 

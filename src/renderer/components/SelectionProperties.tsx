@@ -126,6 +126,7 @@ export default function SelectionProperties({
     .filter(Boolean);
   const shapesOnly = selection.every((key) => key.startsWith('object-'));
   const style = items[0]?.style ?? {};
+  const strokeWidth = Number(style.strokeWidth ?? 2);
   const opacity = typeof style.opacity === 'number' ? style.opacity : 1;
   const [opacityDraft, setOpacityDraft] = useState(opacity);
   const selectionKey = selection.join(',');
@@ -215,36 +216,34 @@ export default function SelectionProperties({
               />
             </>
           )}
-          <div className="property-row">
+          <IconChoices
+            label="Stroke width"
+            // Recognize the previous Thin preset without changing saved widths.
+            value={strokeWidth === 1.5 ? 2 : strokeWidth}
+            options={[
+              [0, 'No stroke', 'stroke-width-none'],
+              [2, 'Thin stroke', 'stroke-width-thin'],
+              [3, 'Medium stroke', 'stroke-width-medium'],
+              [5, 'Thick stroke', 'stroke-width-thick'],
+            ]}
+            onChange={(value) => setStyle('strokeWidth', value)}
+          />
+          {items.every(
+            (item) =>
+              'type' in item && ['rectangle', 'frame'].includes(item.type),
+          ) && (
             <IconChoices
-              label="Stroke width"
-              value={Number(style.strokeWidth ?? (shapesOnly ? 1.5 : 2))}
+              label="Corners"
+              value={Number(style.cornerRadius ?? 0) > 0 ? 'rounded' : 'sharp'}
               options={[
-                [1.5, 'Thin stroke', 'stroke-width-thin'],
-                [3, 'Medium stroke', 'stroke-width-medium'],
-                [5, 'Thick stroke', 'stroke-width-thick'],
+                ['sharp', 'Sharp corners', 'corner-sharp'],
+                ['rounded', 'Rounded corners', 'corner-rounded'],
               ]}
-              onChange={(value) => setStyle('strokeWidth', value)}
+              onChange={(value) =>
+                setStyle('cornerRadius', value === 'rounded' ? 12 : 0)
+              }
             />
-            {items.every(
-              (item) =>
-                'type' in item && ['rectangle', 'frame'].includes(item.type),
-            ) && (
-              <IconChoices
-                label="Corners"
-                value={
-                  Number(style.cornerRadius ?? 0) > 0 ? 'rounded' : 'sharp'
-                }
-                options={[
-                  ['sharp', 'Sharp corners', 'corner-sharp'],
-                  ['rounded', 'Rounded corners', 'corner-rounded'],
-                ]}
-                onChange={(value) =>
-                  setStyle('cornerRadius', value === 'rounded' ? 12 : 0)
-                }
-              />
-            )}
-          </div>
+          )}
           <IconChoices
             label="Stroke style"
             value={String(style.strokeStyle ?? 'solid')}

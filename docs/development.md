@@ -88,6 +88,10 @@ The suite covers real native persistence/recovery/MCP plus editor input. It does
 not replace real-dialog, desktop-lifecycle or supported-client acceptance on the
 [installed candidate](release.md#installed-application-checks).
 
+The authoring journey uses direct object connections. Connector input checks cover
+fixed anchors and verify that Style has no **Add boundary point** action. Named-point
+and bridge tests cover saved-document compatibility and the retained MCP commands.
+
 Ordinary and automation builds can share an output path: rebuilding ordinary
 release replaces the instrumented executable. Rebuild automation before running
 native probes against it. To use a release-mode probe:

@@ -87,32 +87,87 @@ export function constrainPoint(
   };
 }
 
-/** Fixed attachments retain their authored side and offset. */
+/** Collapsing only changes the painted target; the authored child attachment stays intact. */
+export function visibleEndpoint(
+  document: RecursiveDocument,
+  endpoint: Endpoint,
+  world: Map<string, Geometry>,
+): Endpoint {
+  if (endpoint.kind === 'free' || world.has(endpoint.objectId)) return endpoint;
+  let id = document.objects[endpoint.objectId]?.parentId;
+  while (id) {
+    if (world.has(id))
+      return {
+        kind: 'object',
+        objectId: id,
+        side: 'right',
+        offset: 0.5,
+        binding: 'auto',
+      };
+    id = document.objects[id]?.parentId;
+  }
+  return endpoint;
+}
+
+/** Attachments face out of a target shape, or into the connection's own container. */
 export function resolveEndpoint(
   document: RecursiveDocument,
   end: Endpoint,
   world: Map<string, Geometry>,
   owner?: Geometry,
   toward?: Point,
+  inward = false,
 ): Point | null {
   if (end.kind === 'free') return { x: end.x, y: end.y };
   const target = world.get(end.objectId);
   if (!target) return null;
+  const object = document.objects[end.objectId];
   const placement =
     end.kind === 'boundary'
-      ? document.objects[end.objectId].boundaryPoints![end.pointId]
+      ? object.boundaryPoints![end.pointId]
       : end.binding === 'auto' && toward
         ? boundaryPlacement(worldPoint(toward, owner), target)
         : end;
-  const at = boundaryPosition(
-    placement,
-    target,
-    document.objects[end.objectId],
-  );
+  let at = boundaryPosition(placement, target, object);
+  if (end.kind === 'object' && end.binding === 'fixed' && toward) {
+    const next = localPoint(worldPoint(toward, owner), target);
+    const a = target.width / 2,
+      b = target.height / 2;
+    const dx = (next.x - at.x) / a,
+      dy = (next.y - at.y) / b;
+    let facing: number;
+    if (object.type === 'diamond')
+      facing =
+        (at.x === 0 ? Math.abs(dx) : Math.sign(at.x) * dx) +
+        (at.y === 0 ? Math.abs(dy) : Math.sign(at.y) * dy);
+    else if (object.type === 'ellipse')
+      facing = (at.x / a) * dx + (at.y / b) * dy;
+    else {
+      const radius =
+        typeof object.style?.cornerRadius === 'number'
+          ? Math.max(0, Math.min(a, b, object.style.cornerRadius))
+          : 0;
+      facing = radius
+        ? Math.sign(at.x) * Math.max(0, Math.abs(at.x) - a + radius) * dx * a +
+          Math.sign(at.y) * Math.max(0, Math.abs(at.y) - b + radius) * dy * b
+        : Math.max(
+            Math.abs(at.x) === a ? Math.sign(at.x) * dx : -Infinity,
+            Math.abs(at.y) === b ? Math.sign(at.y) * dy : -Infinity,
+          );
+    }
+    if (inward ? facing > 1e-9 : facing < -1e-9) {
+      at = boundaryPosition(
+        boundaryPlacement(worldPoint(toward, owner), target),
+        target,
+        object,
+      );
+    }
+  }
   if (end.kind === 'object' && end.binding) {
     const length = Math.hypot(at.x, at.y) || 1;
-    at.x += (at.x / length) * 8;
-    at.y += (at.y / length) * 8;
+    const gap = inward ? -8 : 8;
+    at.x += (at.x / length) * gap;
+    at.y += (at.y / length) * gap;
   }
   return localPoint(worldPoint(at, target), owner);
 }
@@ -279,32 +334,47 @@ export function connectionRoute(
   connection: DiagramConnection,
   world: Map<string, Geometry>,
 ) {
+  if (connection.ownerId !== null && !world.has(connection.ownerId))
+    return null;
+  const startEndpoint = visibleEndpoint(document, connection.start, world);
+  const endEndpoint = visibleEndpoint(document, connection.end, world);
+  if (
+    startEndpoint.kind !== 'free' &&
+    endEndpoint.kind !== 'free' &&
+    startEndpoint.objectId === endEndpoint.objectId &&
+    (startEndpoint !== connection.start || endEndpoint !== connection.end)
+  )
+    return null;
   const owner =
     connection.ownerId === null ? undefined : world.get(connection.ownerId);
-  let start = resolveEndpoint(document, connection.start, world, owner),
-    end = resolveEndpoint(document, connection.end, world, owner);
+  const resolve = (endpoint: Endpoint, toward?: Point) =>
+    resolveEndpoint(
+      document,
+      endpoint,
+      world,
+      owner,
+      toward,
+      endpoint.kind !== 'free' && endpoint.objectId === connection.ownerId,
+    );
+  let start = resolve(startEndpoint),
+    end = resolve(endEndpoint);
   if (!start || !end) return null;
   const authored = connection.points ?? [];
-  start = resolveEndpoint(
-    document,
-    connection.start,
-    world,
-    owner,
-    authored[0] ?? end,
-  )!;
-  end = resolveEndpoint(
-    document,
-    connection.end,
-    world,
-    owner,
-    authored.at(-1) ?? start,
-  )!;
+  // Sliding either endpoint can hide the other's preferred point. Recheck both
+  // against the resolved segment, rather than the original far-side anchor.
+  for (let pass = 0; pass < 2; pass++) {
+    start = resolve(startEndpoint, authored[0] ?? end)!;
+    end = resolve(endEndpoint, authored.at(-1) ?? start)!;
+  }
   const vertices = [start, ...authored, end];
   const bezier = connection.style?.lineType === 'curved';
   let route = vertices;
   if (connection.style?.lineType === 'elbow') {
-    const boxes = [connection.start, connection.end].flatMap((endpoint) => {
-      if (endpoint.kind !== 'object') return [];
+    const targets = [startEndpoint, endEndpoint].filter(
+      (endpoint): endpoint is Extract<Endpoint, { kind: 'object' }> =>
+        endpoint.kind === 'object' && endpoint.objectId !== connection.ownerId,
+    );
+    const boxes = targets.map((endpoint) => {
       const g = world.get(endpoint.objectId)!;
       const local = owner ? toLocalGeometry(g, owner) : g;
       const radians = (local.rotation * Math.PI) / 180;
@@ -314,25 +384,22 @@ export function connectionRoute(
       const h =
         Math.abs(local.width * Math.sin(radians)) +
         Math.abs(local.height * Math.cos(radians));
-      return [
-        {
-          left: local.x - w / 2 - 4,
-          right: local.x + w / 2 + 4,
-          top: local.y - h / 2 - 4,
-          bottom: local.y + h / 2 + 4,
-        },
-      ];
+      return {
+        left: local.x - w / 2 - 4,
+        right: local.x + w / 2 + 4,
+        top: local.y - h / 2 - 4,
+        bottom: local.y + h / 2 + 4,
+      };
     });
     const exit = (point: Point, endpoint: Endpoint): Point => {
-      if (endpoint.kind !== 'object') return point;
+      if (
+        endpoint.kind !== 'object' ||
+        endpoint.objectId === connection.ownerId
+      )
+        return point;
       const g = world.get(endpoint.objectId)!;
       const center = localPoint(g, owner);
-      const box =
-        boxes[
-          [connection.start, connection.end]
-            .filter((e) => e.kind === 'object')
-            .indexOf(endpoint)
-        ];
+      const box = boxes[targets.indexOf(endpoint)];
       const dx = point.x - center.x,
         dy = point.y - center.y;
       return Math.abs(dx) / (box.right - box.left) >=
@@ -353,9 +420,9 @@ export function connectionRoute(
           };
     };
     const pins = [
-      exit(start, connection.start),
+      exit(start, startEndpoint),
       ...authored,
-      exit(end, connection.end),
+      exit(end, endEndpoint),
     ];
     route = simplify([
       start,

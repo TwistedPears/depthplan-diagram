@@ -3,7 +3,6 @@ import {
   boundaryPlacement,
   boundaryPosition,
   editBoundaryPoint,
-  previewBoundaryPoint,
 } from '../shared/recursiveBoundary';
 import { recursiveFixture, geometry } from './recursiveFixtures';
 import { createConnector } from '../shared/recursiveCreation';
@@ -68,7 +67,7 @@ it('uses rounded rectangle corners for both handles and attachments', () => {
   );
   expect(Math.hypot(point.x - 40, point.y - 20)).toBeCloseTo(10);
 });
-it('shares individually identified, unbridged points across layouts without semantic children', () => {
+it('retains MCP named-boundary create/update edits across layouts with Undo/Redo', () => {
   const original = recursiveFixture();
   const layouts = JSON.stringify(original.layouts);
   const state = renderHook(() => useDocumentState(original));
@@ -112,14 +111,14 @@ it('shares individually identified, unbridged points across layouts without sema
     ).status,
   ).toBe('rejected');
 });
-it('keeps shared external attachments in either direction, updates all routes and round-trips', () => {
+it('preserves legacy named-point attachments through shape changes and save/reload', () => {
   let d = recursiveFixture();
+  d.objects.app.boundaryPoints = { port: { side: 'right', offset: 0.5 } };
   const apply = (edit: Parameters<typeof transactDocument>[1]) => {
     const result = transactDocument(d, edit);
     if (result.status === 'rejected') throw new Error(result.error);
     d = result.document;
   };
-  apply(editBoundaryPoint('app', 'port', { side: 'right', offset: 0.5 }, true));
   apply(
     createConnector(
       'out',
@@ -144,16 +143,7 @@ it('keeps shared external attachments in either direction, updates all routes an
   d.connections.in.kind = 'line';
   d.connections.out.label = 'Outside';
   d.connections.in.style = { stroke: '#abcdef' };
-  const layouts = JSON.stringify(d.layouts),
-    before = recursiveScene(d).connections.get(null)!;
-  const preview = previewBoundaryPoint(d, 'app', 'port', {
-    side: 'bottom',
-    offset: 0.1,
-  });
-  expect(recursiveScene(preview).connections.get(null)).not.toEqual(before);
-  expect(d.objects.app.boundaryPoints!.port.side).toBe('right');
-  apply(editBoundaryPoint('app', 'port', { side: 'bottom', offset: 0.1 }));
-  expect(JSON.stringify(d.layouts)).toBe(layouts);
+  const before = recursiveScene(d).connections.get(null)!;
   const points = () => recursiveScene(d).connections.get(null)!;
   expect(points()[0].points.slice(2)).toEqual(points()[1].points.slice(0, 2));
   apply(

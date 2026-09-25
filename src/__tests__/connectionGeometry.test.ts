@@ -138,7 +138,7 @@ it.each(['rectangle', 'ellipse', 'diamond', 'frame'] as const)(
     expect(
       bindingTarget(d, world, g, 1, { ...modifiers, ctrlKey: true }),
     ).toBeNull();
-    const c = replaceEndpoint(d, world, free(), 'end', g, 'payments', false);
+    const c = replaceEndpoint(d, world, free(), 'end', g, 'payments', 1);
     expect(c.end).toMatchObject({
       kind: 'object',
       objectId: 'payments',
@@ -155,7 +155,7 @@ it.each(['rectangle', 'ellipse', 'diamond', 'frame'] as const)(
     });
   },
 );
-it('rejects incompatible nested bindings while accepting explicit owner boundary bridges', () => {
+it('accepts direct cross-container bindings and existing owner boundary bridges', () => {
   const d = recursiveFixture(),
     world = activeWorldGeometry(d);
   const c = replaceEndpoint(
@@ -165,20 +165,13 @@ it('rejects incompatible nested bindings while accepting explicit owner boundary
     'start',
     world.get('api')!,
     'api',
-    false,
+    1,
   );
   expect(c.ownerId).toBe('app');
-  expect(() =>
-    replaceEndpoint(
-      d,
-      world,
-      c,
-      'end',
-      world.get('payments')!,
-      'payments',
-      false,
-    ),
-  ).toThrow('boundary points');
+  expect(
+    replaceEndpoint(d, world, c, 'end', world.get('payments')!, 'payments', 1)
+      .ownerId,
+  ).toBeNull();
   d.objects.app.boundaryPoints = { port: { side: 'left', offset: 0.5 } };
   expect(
     replaceEndpoint(
@@ -188,7 +181,7 @@ it('rejects incompatible nested bindings while accepting explicit owner boundary
       'end',
       world.get('app')!,
       { objectId: 'app', pointId: 'port' },
-      false,
+      1,
     ).end,
   ).toEqual({ kind: 'boundary', objectId: 'app', pointId: 'port' });
 });
@@ -289,7 +282,7 @@ it('rejects new attached ordinary Lines while accepting stored Line documents un
   expect(JSON.stringify(d)).toBe(serialized);
 });
 
-it('applies the same ordinary-Line and explicit-boundary rules to MCP endpoint patches', () => {
+it('allows nested Arrow targets through MCP while keeping ordinary Lines free', () => {
   const d = recursiveFixture();
   d.connections.route = free();
   expect(
@@ -299,7 +292,7 @@ it('applies the same ordinary-Line and explicit-boundary rules to MCP endpoint p
         end: { kind: 'object', objectId: 'api', side: 'left', offset: 0.5 },
       }),
     ).status,
-  ).toBe('rejected');
+  ).toBe('accepted');
   expect(
     transactDocument(
       d,

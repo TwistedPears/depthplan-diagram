@@ -6,6 +6,10 @@ import type {
   RecursiveDocument,
 } from '../../shared/recursiveDocument';
 import type { recursiveScene } from '../../shared/recursiveScene';
+import {
+  visibleEndpoint,
+  type ConnectionRoute,
+} from '../../shared/connectionGeometry';
 import RecursiveRichContent from './RecursiveRichContent';
 import ObjectOutline from './ObjectOutline';
 
@@ -94,6 +98,7 @@ export default memo(function RecursiveScene({
   scale = 1,
   onError,
   renderBoundaryPoints,
+  renderChildrenToggle,
   editingTextId,
   liftedIds,
   editingConnectionLabel,
@@ -103,23 +108,56 @@ export default memo(function RecursiveScene({
   scale?: number;
   onError: (message: string) => void;
   renderBoundaryPoints?: (id: string) => ReactNode;
+  renderChildrenToggle?: (id: string) => ReactNode;
   editingTextId?: string | null;
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
 }) {
+  const liftedConnections = new Map<string, ConnectionRoute>();
+  if (liftedIds?.size)
+    for (const [ownerId, routes] of scene.connections)
+      for (const route of routes) {
+        const connection = document.connections[route.id];
+        if (
+          [connection.start, connection.end].some((endpoint) => {
+            const target = visibleEndpoint(document, endpoint, scene.world);
+            let id = target.kind === 'free' ? null : target.objectId;
+            // Routes owned inside a lifted subtree already travel with its group.
+            while (id !== null && id !== ownerId) {
+              if (liftedIds.has(id)) return true;
+              id = document.objects[id].parentId;
+            }
+            return false;
+          })
+        )
+          liftedConnections.set(route.id, route);
+      }
+  const inheritedOpacity = (id: string | null) => {
+    let opacity = 1;
+    while (id !== null) {
+      const object = document.objects[id];
+      if (typeof object.style?.opacity === 'number')
+        opacity *= object.style.opacity;
+      id = object.parentId;
+    }
+    return opacity;
+  };
+  const renderConnection = (id: string, route: ConnectionRoute) => (
+    <ConnectionPaint
+      key={`connection-${id}`}
+      connection={document.connections[id]}
+      route={route}
+      scale={scale}
+      editingLabel={editingConnectionLabel === id}
+    />
+  );
   const renderScope = (ownerId: string | null): ReactNode =>
     (scene.paintOrder.get(ownerId) ?? []).map((item) =>
-      item.kind === 'object' ? (
-        renderObject(item.id)
-      ) : (
-        <ConnectionPaint
-          key={`connection-${item.id}`}
-          connection={document.connections[item.id]}
-          route={item.route}
-          scale={scale}
-          editingLabel={editingConnectionLabel === item.id}
-        />
-      ),
+      item.kind === 'object'
+        ? renderObject(item.id)
+        : liftedConnections.has(item.id)
+          ? null
+          : renderConnection(item.id, item.route),
     );
   const renderObject = (id: string, lifted = false): ReactNode => {
     if (liftedIds?.has(id) && !lifted) return null;
@@ -128,16 +166,11 @@ export default memo(function RecursiveScene({
     const { x, y, width, height, rotation } = geometry;
     const expanded = scene.expanded.has(id),
       style = object.style;
-    let opacity = typeof style?.opacity === 'number' ? style.opacity : 1;
-    // Lifted drag previews leave their parent groups but retain their appearance.
-    for (
-      let parent = lifted ? object.parentId : null;
-      parent !== null;
-      parent = document.objects[parent].parentId
-    ) {
-      const inherited = document.objects[parent].style?.opacity;
-      if (typeof inherited === 'number') opacity *= inherited;
-    }
+    const opacity = lifted
+      ? inheritedOpacity(id)
+      : typeof style?.opacity === 'number'
+        ? style.opacity
+        : 1;
     const clip = style?.clipToFrame === true;
     return (
       <Group
@@ -159,6 +192,7 @@ export default memo(function RecursiveScene({
           editingText={editingTextId === id}
           onError={onError}
         />
+        {renderChildrenToggle?.(id)}
         <Group
           {...(clip
             ? {
@@ -179,6 +213,21 @@ export default memo(function RecursiveScene({
     <>
       {renderScope(null)}
       {[...(liftedIds ?? [])].map((id) => renderObject(id, true))}
+      {[...liftedConnections].map(([id, route]) => {
+        const ownerId = document.connections[id].ownerId;
+        const owner = ownerId === null ? undefined : scene.world.get(ownerId);
+        return (
+          <Group
+            key={`lifted-${id}`}
+            x={owner?.x}
+            y={owner?.y}
+            rotation={owner?.rotation}
+            opacity={inheritedOpacity(ownerId)}
+          >
+            {renderConnection(id, route)}
+          </Group>
+        );
+      })}
     </>
   );
 });

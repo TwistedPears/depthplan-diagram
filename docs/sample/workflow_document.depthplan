@@ -2,7 +2,7 @@
   "formatVersion": 2,
   "id": "workflow-example",
   "metadata": {
-    "title": "Recovery and boundary workflow",
+    "title": "Recovery and connector workflow",
     "created": "2026-09-18",
     "modified": "2026-09-18"
   },
@@ -36,12 +36,6 @@
       "style": {
         "fill": "#eef6ff",
         "stroke": "#426588"
-      },
-      "boundaryPoints": {
-        "in": {
-          "side": "right",
-          "offset": 0.5
-        }
       }
     },
     "service": {
@@ -149,12 +143,6 @@
       "style": {
         "fill": "#eef6ff",
         "stroke": "#426588"
-      },
-      "boundaryPoints": {
-        "in": {
-          "side": "right",
-          "offset": 0.5
-        }
       }
     },
     "worker": {
@@ -303,9 +291,11 @@
         "offset": 0.5
       },
       "end": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "system",
-        "pointId": "in"
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
       }
     },
     "system-bridge": {
@@ -314,14 +304,18 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "system",
-        "pointId": "in"
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "service",
-        "pointId": "in"
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
       }
     },
     "service-bridge": {
@@ -330,9 +324,11 @@
       "kind": "arrow",
       "z": 0,
       "start": {
-        "kind": "boundary",
+        "kind": "object",
         "objectId": "service",
-        "pointId": "in"
+        "side": "right",
+        "offset": 0.5,
+        "binding": "fixed"
       },
       "end": {
         "kind": "object",

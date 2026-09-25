@@ -1,6 +1,7 @@
 import type { DocumentEdit } from './documentTransactions';
 import { editObject } from './documentTransactions';
 import type { DiagramConnection, DiagramObject } from './recursiveDocument';
+import { connectionOwners } from './recursiveOwnership';
 
 /** Partial styles retain file extensions and untouched fields, for UI and MCP alike. */
 export function patchObject(
@@ -40,10 +41,9 @@ export function patchConnection(
       const target = draft.objects[endpoint.objectId];
       if (
         !target ||
-        (target.parentId !== item.ownerId &&
-          !(endpoint.kind === 'boundary' && endpoint.objectId === item.ownerId))
+        !connectionOwners(draft, endpoint.objectId).includes(item.ownerId)
       )
-        throw new Error('Connect across containers through boundary points.');
+        throw new Error('Endpoint is outside the connection owner.');
     }
     Object.assign(item, {
       ...patch,

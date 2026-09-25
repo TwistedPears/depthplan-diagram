@@ -43,6 +43,17 @@ it('round-trips every maintained current-format sample without changing its data
     const reopened = JSON.parse(JSON.stringify(document));
     validateRecursiveDocument(reopened);
     expect(reopened).toEqual(document);
+    for (const object of Object.values(document.objects))
+      expect(object.boundaryPoints).toBeUndefined();
+    for (const connection of [
+      ...Object.values(document.connections),
+      ...Object.values(document.connectionRepairs ?? {}).map(
+        (repair) => repair.connection,
+      ),
+    ]) {
+      expect(connection.start.kind).not.toBe('boundary');
+      expect(connection.end.kind).not.toBe('boundary');
+    }
   }
 });
 it('preserves the MCP-authored application tour and its complete feature galleries', async () => {
@@ -50,6 +61,9 @@ it('preserves the MCP-authored application tour and its complete feature galleri
   expect(Object.keys(d.objects)).toHaveLength(56);
   expect(Object.keys(d.connections)).toHaveLength(31);
   expect(Object.keys(d.namedViews ?? {})).toHaveLength(12);
+  expect(
+    Object.values(d.namedViews!).map((view) => view.name.slice(0, 2)),
+  ).toEqual(Array.from({ length: 12 }, (_, i) => String(i).padStart(2, '0')));
   expect(Object.keys(d.connectionRepairs ?? {})).toHaveLength(0);
   expect(Object.keys(d.layouts.app)).toEqual(['0', '1', '2', '3']);
   expect(
@@ -81,7 +95,12 @@ it('preserves the MCP-authored application tour and its complete feature galleri
   expect(deep.objects.mcp.parentId).toBe('app');
   expect(recursiveScene(deep).world.has('version-guard')).toBe(true);
   for (const id of ['app-to-mcp', 'mcp-to-dispatch', 'dispatch-to-guard']) {
-    expect(deep.connections[id].start.kind).toBe('boundary');
+    expect(deep.connections[id].start).toMatchObject({
+      kind: 'object',
+      objectId: deep.connections[id].ownerId,
+      offset: 0.5,
+      binding: 'fixed',
+    });
   }
   const selected = resolveExportSelection(deep, ['object-mcp']);
   expect(selected.objects.has('version-guard')).toBe(true);

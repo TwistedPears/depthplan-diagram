@@ -1,12 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
 import { recursiveFixture } from './recursiveFixtures';
-import { editBoundaryPoint } from '../shared/recursiveBoundary';
 import {
   createInwardBridge,
   reattachInwardBridge,
 } from '../shared/recursiveBridges';
 import { createConnector } from '../shared/recursiveCreation';
-import { transactDocument } from '../shared/documentTransactions';
+import {
+  editActiveGeometry,
+  transactDocument,
+} from '../shared/documentTransactions';
 import { selectRootDepth } from '../shared/recursiveLayouts';
 import { recursiveScene } from '../shared/recursiveScene';
 import { validateRecursiveDocument } from '../shared/recursiveDocument';
@@ -15,12 +17,13 @@ const p = { x: 415, y: 40 };
 function fixture() {
   const d = recursiveFixture();
   d.rootDepths.app = 2;
-  editBoundaryPoint('app', 'outer', { side: 'left', offset: 0.3 }, true)(d);
-  editBoundaryPoint('api', 'inner', { side: 'right', offset: 0.5 }, true)(d);
+  // Existing documents may still contain named ports and inward bridges.
+  d.objects.app.boundaryPoints = { outer: { side: 'left', offset: 0.3 } };
+  d.objects.api.boundaryPoints = { inner: { side: 'right', offset: 0.5 } };
   return d;
 }
 const source = { objectId: 'app', pointId: 'outer' };
-it('authors explicit successive bridges, shares points without extra objects, and hides/restores routes by depth', () => {
+it('supports bridges between legacy named points and hides/restores routes by depth', () => {
   const d = fixture();
   createConnector(
     'outside',
@@ -106,7 +109,7 @@ it('requires revealed children, keeps root depth unchanged and rejects missing s
     ).status,
   ).toBe('rejected');
 });
-it('reattaches and edits a bridge independently, with one undo per edit and live shared-point routes', () => {
+it('reattaches a legacy bridge with Undo/Redo and follows its moving parent', () => {
   const d = fixture();
   createConnector(
     'outside',
@@ -146,7 +149,7 @@ it('reattaches and edits a bridge independently, with one undo per edit and live
   });
   act(() => hook.result.current.redo());
   const before = recursiveScene(updated);
-  apply(editBoundaryPoint('app', 'outer', { side: 'bottom', offset: 0.75 }));
+  apply(editActiveGeometry('app', { width: 500, rotation: 30 }));
   const moved = hook.result.current.result!.document,
     after = recursiveScene(moved);
   expect(after.connections.get(null)).not.toEqual(before.connections.get(null));
