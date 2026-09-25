@@ -257,8 +257,7 @@ export default memo(function RecursiveCanvas({
       ]),
     [bounds],
   );
-  const showSelectionRef = useRef<HTMLButtonElement>(null);
-  const hideSelectionRef = useRef<HTMLButtonElement>(null);
+  const selectionControlsRef = useRef<HTMLDivElement>(null);
   const [marquee, setMarquee] = useState<{
     start: { x: number; y: number };
     end: { x: number; y: number };
@@ -1458,6 +1457,7 @@ export default memo(function RecursiveCanvas({
       )}
       <div
         id="selection-controls"
+        ref={selectionControlsRef}
         role="toolbar"
         aria-label="Selection"
         className="recursive-selection-toolbar"
@@ -1469,36 +1469,10 @@ export default memo(function RecursiveCanvas({
             (tool !== ToolMode.POINTER && !properties))
         }
       >
-        <div className="selection-heading">
-          <h2>{textEditing ? 'Text' : properties ? 'Properties' : 'Style'}</h2>
-          <output aria-label="Selected items">
-            {selection.length} selected
-          </output>
-          {!bridge && !properties && (
-            <button
-              ref={hideSelectionRef}
-              type="button"
-              className="selection-collapse"
-              aria-label="Hide selection controls"
-              title="Hide selection controls"
-              aria-expanded="true"
-              aria-controls="selection-controls"
-              onClick={() => {
-                setSelectionCollapsed(true);
-                requestAnimationFrame(() => showSelectionRef.current?.focus());
-              }}
-            >
-              <Icon name="chevron-right" />
-            </button>
-          )}
-        </div>
-        {selection.length === 1 && (
-          <p className="selection-name">
-            {selection[0].startsWith('object-')
-              ? objectLabel(document.objects[selection[0].slice(7)])
-              : document.connections[selection[0].slice(11)]?.label ||
-                'Connector'}
-          </p>
+        {(textEditing || properties) && (
+          <div className="selection-heading">
+            <h2>{textEditing ? 'Text' : 'Properties'}</h2>
+          </div>
         )}
         {selection.length === 1 &&
           selection[0].startsWith('object-') &&
@@ -1752,35 +1726,13 @@ export default memo(function RecursiveCanvas({
             type="button"
             aria-label="Link"
             title="Add or edit link"
+            hidden
             disabled={selection.length !== 1}
             onClick={() => {
               if (!isBusy()) setLinkEditing(selection[0]);
             }}
           >
             <Icon name="link" />
-          </button>
-          <button
-            type="button"
-            aria-label="Select visible"
-            title="Select visible"
-            onClick={() => {
-              setSelected([...boxes.keys()]);
-              setSelectedPoint(null);
-            }}
-          >
-            <Icon name="select-visible" />
-          </button>
-          <button
-            type="button"
-            aria-label="Deselect"
-            title="Deselect"
-            onClick={() => {
-              setSelected([]);
-              setSelectedPoint(null);
-            }}
-            disabled={!selection.length}
-          >
-            <Icon name="deselect" />
           </button>
         </div>
       </div>
@@ -1789,7 +1741,6 @@ export default memo(function RecursiveCanvas({
         selectionCollapsed &&
         !bridge && (
           <button
-            ref={showSelectionRef}
             className="selection-reopen"
             type="button"
             aria-label="Show selection controls"
@@ -1797,7 +1748,11 @@ export default memo(function RecursiveCanvas({
             aria-controls="selection-controls"
             onClick={() => {
               setSelectionCollapsed(false);
-              requestAnimationFrame(() => hideSelectionRef.current?.focus());
+              requestAnimationFrame(() =>
+                selectionControlsRef.current
+                  ?.querySelector<HTMLButtonElement>('button:not([hidden])')
+                  ?.focus(),
+              );
             }}
           >
             <Icon name="sliders" /> {selection.length} selected

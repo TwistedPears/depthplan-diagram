@@ -12,6 +12,7 @@
   border-top: 1px solid var(--line);
 }
 .selection-actions[hidden],
+.selection-actions > button[hidden],
 .text-toolbar-host[hidden] {
   display: none;
 }
@@ -29,9 +30,6 @@
 }
 .selection-actions > label {
   margin-top: 6px;
-}
-.selection-name {
-  margin-bottom: 4px;
 }
 .property-group {
   padding: 0;

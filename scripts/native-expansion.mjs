@@ -299,7 +299,7 @@ export async function expansion(driver, probe) {
     (asset) => asset.summary.match(/Target SVG: (.*?)\.svg/)[1],
   );
   icons.push('square-stack-2', 'square-stack-3');
-  assert.equal(icons.length, 45);
+  assert.equal(icons.length, 43);
   assert.deepEqual(
     await sync(
       `return arguments[0].filter(name => {
@@ -316,7 +316,7 @@ export async function expansion(driver, probe) {
     return b && {icon:b.querySelector('use').getAttribute('href'), expanded:b.getAttribute('aria-expanded'), text:b.textContent.trim()}`,
       [name],
     );
-  await click('Deselect');
+  await command('depthplan_selection', { action: 'clear' });
   assert.deepEqual(await badge('Hide children of a'), {
     icon: '#icon-square-stack-3',
     expanded: 'true',
@@ -422,19 +422,33 @@ export async function expansion(driver, probe) {
 
   await select('b1');
   const actionButtons = await sync(
-    `return [...document.querySelectorAll('.selection-actions > button')].map(b => ({name:b.getAttribute('aria-label'), title:b.title, text:b.textContent.trim(), icon:b.querySelector('use')?.getAttribute('href')}))`,
+    `return [...document.querySelectorAll('.selection-actions > button')].filter(b => b.getClientRects().length).map(b => ({name:b.getAttribute('aria-label'), title:b.title, text:b.textContent.trim(), icon:b.querySelector('use')?.getAttribute('href')}))`,
   );
-  assert(actionButtons.length >= 8);
+  assert.deepEqual(
+    actionButtons.map((button) => button.name),
+    [
+      'Edit text',
+      'Properties',
+      'Add boundary point',
+      'Delete selected',
+      'Duplicate',
+    ],
+  );
   for (const button of actionButtons)
     assert(
       button.name && button.title && button.icon && !button.text,
       JSON.stringify(button),
     );
-  await click('Link');
-  await sync(`const el=document.querySelector('[aria-label="Item link URL"]');
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'https://example.com/diagram');
-    el.dispatchEvent(new Event('input',{bubbles:true}));`);
-  await click('Save link');
+  assert.equal(
+    await sync(`const button=document.querySelector('[aria-label="Link"]');
+      return button.hidden && button.getClientRects().length === 0;`),
+    true,
+  );
+  await edit({
+    type: 'edit_object',
+    id: 'b1',
+    style: { link: 'https://example.com/diagram' },
+  });
   await click('Background: Blue');
   await click('Rounded corners');
   await click('Hachure fill');
@@ -536,7 +550,7 @@ export async function expansion(driver, probe) {
     { open: false, focus: 'End marker' },
   );
   console.log(
-    'PASS Style icons: 45 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, Link, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
+    'PASS Style icons: 43 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, hidden Link with stored links retained, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
   );
   await screenshot('expansion-screen.png');
   assert.deepEqual(await sync('return window.nativeErrors'), []);
