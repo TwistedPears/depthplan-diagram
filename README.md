@@ -81,6 +81,16 @@ descriptor and client configuration. The 26 tools edit the same live document as
 the UI. Access starts Off each launch; disk operations require explicit local
 folder approval. See [MCP setup and tools](docs/mcp.md).
 
+## AI architecture skills
+
+Use the [installable skills](skills/README.md) to
+[audit a codebase](skills/depthplan-audit/SKILL.md),
+[build or refresh a navigable architecture map](skills/depthplan-map/SKILL.md), and
+[find where a code change belongs](skills/depthplan-locate/SKILL.md).
+They cover source evidence, database views and Rails conventions, with separate
+audit review and read-only placement workflows. See the
+[worked examples](skills/examples/README.md) for setup and usage.
+
 ## Documentation
 
 | Guide                                                | Contents                                                    |

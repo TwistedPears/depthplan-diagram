@@ -1,0 +1,77 @@
+{
+  "repository": "fixture:no-db",
+  "revision": null,
+  "framework": "Node.js modules",
+  "sourceRoot": "skills/examples/no-db",
+  "nodes": [
+    {
+      "id": "status-app",
+      "parentId": null,
+      "name": "Status application",
+      "summary": "Entire three-file source fixture inspected. Database not applicable: pure response/label functions, no persistence imports/config/schema. HTTP hosting, deployment and authentication are not supplied, so remain unknown.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "server.mjs",
+          "symbol": "responseFor"
+        },
+        {
+          "path": "view.mjs",
+          "symbol": "statusLabel"
+        },
+        {
+          "path": "server.test.mjs",
+          "symbol": "health response and label"
+        }
+      ],
+      "terms": ["no database"]
+    },
+    {
+      "id": "status-api",
+      "parentId": "status-app",
+      "name": "Health",
+      "summary": "Pure responseFor function handles /health or returns 404; no server process is started.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "server.mjs",
+          "symbol": "responseFor"
+        }
+      ],
+      "terms": ["/health"]
+    },
+    {
+      "id": "status-ui",
+      "parentId": "status-app",
+      "name": "Health",
+      "summary": "Pure statusLabel function maps boolean health to readable text. No actual API fetch is supplied.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "view.mjs",
+          "symbol": "statusLabel"
+        }
+      ],
+      "terms": ["Available", "Unavailable"]
+    }
+  ],
+  "connections": [],
+  "bookmarks": [
+    {
+      "id": "status-overview",
+      "name": "Overview",
+      "depths": {
+        "status-app": 0
+      },
+      "targets": ["status-app"]
+    },
+    {
+      "id": "status-detail",
+      "name": "Implementation and tests",
+      "depths": {
+        "status-app": 1
+      },
+      "targets": ["status-api", "status-ui"]
+    }
+  ]
+}

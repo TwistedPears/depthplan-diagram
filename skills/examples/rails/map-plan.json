@@ -1,0 +1,661 @@
+{
+  "repository": "fixture:rails-crm",
+  "revision": null,
+  "framework": "Rails 8.0.0 (static fixture; not booted)",
+  "sourceRoot": "skills/examples/rails",
+  "nodes": [
+    {
+      "id": "crm",
+      "parentId": null,
+      "name": "Fixture CRM",
+      "summary": "Static Rails 8.0.0 source fixture. Audit scope: all supplied files. No runtime execution, deployed environment, secrets or customer data. Authentication/deployment/CI/metrics are unknown: no evidence in this reduced fixture. No mailer/channel or engine is supplied; namespace coverage is present.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "Gemfile",
+          "symbol": "rails"
+        },
+        {
+          "path": "config/application.rb",
+          "symbol": "FixtureCRM::Application"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "request",
+      "parentId": "crm",
+      "name": "People request flow",
+      "summary": "Routes, controller and implicit templates. No explicit requires needed for Rails autoloaded constants.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "config/routes.rb",
+          "symbol": "resources :people"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "routes",
+      "parentId": "request",
+      "name": "Routes",
+      "summary": "people index/update, cacti index, admin people index; helpers include people_path and admin_people_path by Rails resource conventions.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "config/routes.rb",
+          "symbol": "Rails.application.routes"
+        }
+      ],
+      "terms": ["people_path", "admin_people_path", "/people", "/admin/people"]
+    },
+    {
+      "id": "controller",
+      "parentId": "request",
+      "name": "PeopleController",
+      "summary": "index reads Person.order(:email); update permits email and redirects to people_path.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/controllers/people_controller.rb",
+          "symbol": "PeopleController#index"
+        },
+        {
+          "path": "test/controllers/people_controller_test.rb",
+          "symbol": "PeopleControllerTest"
+        }
+      ],
+      "terms": ["Person", "people", "email"]
+    },
+    {
+      "id": "view",
+      "parentId": "request",
+      "name": "People UI",
+      "summary": "Index renders the Person collection using _person; the partial edits email. Implicit template/partial resolution is convention-resolved from controller, view and Rails 8.0.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "app/views/people/index.html.erb",
+          "symbol": "render @people"
+        },
+        {
+          "path": "app/views/people/_person.html.erb",
+          "symbol": "form_with model: person"
+        }
+      ],
+      "terms": ["people", "email"]
+    },
+    {
+      "id": "domain",
+      "parentId": "crm",
+      "name": "Domain",
+      "summary": "Application models and supported naming. Relationships remain separate from containment.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/application_record.rb",
+          "symbol": "ApplicationRecord"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "person",
+      "parentId": "domain",
+      "name": "Person",
+      "summary": "CRM Person uses crm_members explicitly; email validation and Notifies concern. Memberships use member_id; teams is through memberships; notes are polymorphic.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/person.rb",
+          "symbol": "Person"
+        },
+        {
+          "path": "test/models/person_test.rb",
+          "symbol": "PersonTest"
+        }
+      ],
+      "terms": ["Person", "people", "crm_members", "member_id"]
+    },
+    {
+      "id": "membership",
+      "parentId": "domain",
+      "name": "Membership",
+      "summary": "member resolves to Person with an explicit class/foreign-key override; team association is declared. Membership join supports Person.teams and Team.members.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/membership.rb",
+          "symbol": "Membership"
+        },
+        {
+          "path": "app/models/team.rb",
+          "symbol": "Team"
+        }
+      ],
+      "terms": ["memberships", "Person", "teams"]
+    },
+    {
+      "id": "note",
+      "parentId": "domain",
+      "name": "Note",
+      "summary": "Polymorphic notable is declared. Person.notes demonstrates one caller, not an exhaustive target set. No database foreign key on notable is declared.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/note.rb",
+          "symbol": "Note"
+        },
+        {
+          "path": "app/models/person.rb",
+          "symbol": "Person.notes"
+        }
+      ],
+      "terms": ["notable", "notes"]
+    },
+    {
+      "id": "vip",
+      "parentId": "domain",
+      "name": "VipPerson",
+      "summary": "STI subclass of Person uses its crm_members table and type column under Rails 8.0 conventions. No vip_people table is present.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "app/models/vip_person.rb",
+          "symbol": "VipPerson"
+        },
+        {
+          "path": "app/models/person.rb",
+          "symbol": "Person"
+        },
+        {
+          "path": "db/schema.rb",
+          "symbol": "crm_members"
+        }
+      ],
+      "terms": ["VipPerson", "crm_members", "type"]
+    },
+    {
+      "id": "cactus",
+      "parentId": "domain",
+      "name": "Cactus",
+      "summary": "Custom cactus/cacti inflection is explicit; table and resource resolve from that rule and actual declarations.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "config/initializers/inflections.rb",
+          "symbol": "cactus"
+        },
+        {
+          "path": "app/models/cactus.rb",
+          "symbol": "Cactus"
+        },
+        {
+          "path": "app/controllers/cacti_controller.rb",
+          "symbol": "CactiController"
+        },
+        {
+          "path": "db/schema.rb",
+          "symbol": "cacti"
+        }
+      ],
+      "terms": ["cactus", "cacti"]
+    },
+    {
+      "id": "api-client",
+      "parentId": "domain",
+      "name": "APIClient",
+      "summary": "API acronym configured explicitly. Constructor accepts a base URL; no HTTP request or caller is evidenced, so no external API connection is invented.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "config/initializers/inflections.rb",
+          "symbol": "API"
+        },
+        {
+          "path": "app/services/api_client.rb",
+          "symbol": "APIClient"
+        }
+      ],
+      "terms": ["APIClient", "api_client.rb"]
+    },
+    {
+      "id": "dynamic",
+      "parentId": "domain",
+      "name": "Dynamic target",
+      "summary": "DynamicTarget.resolve calls constantize on a runtime argument. Target model is unresolved; no concrete dependency edge is created.",
+      "status": "unresolved",
+      "sources": [
+        {
+          "path": "app/models/dynamic_target.rb",
+          "symbol": "DynamicTarget.resolve"
+        }
+      ],
+      "terms": ["constantize"]
+    },
+    {
+      "id": "operations",
+      "parentId": "crm",
+      "name": "Jobs and tests",
+      "summary": "Async in-process Active Job adapter is configured; logging is evidenced. Delivery, durable queue infrastructure, deployment, authentication and full test harness are outside this reduced fixture.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "config/application.rb",
+          "symbol": "queue_adapter"
+        },
+        {
+          "path": "app/controllers/application_controller.rb",
+          "symbol": "ApplicationController"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "notifies",
+      "parentId": "operations",
+      "name": "Notifies",
+      "summary": "after_update_commit enqueues only when email changes. It does not send email itself.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/concerns/notifies.rb",
+          "symbol": "Notifies#schedule_digest"
+        }
+      ],
+      "terms": ["after_update_commit", "email", "PersonDigestJob"]
+    },
+    {
+      "id": "job",
+      "parentId": "operations",
+      "name": "PersonDigestJob",
+      "summary": "Default-queue job loads Person and logs its ID; no actual mail delivery is implemented.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/jobs/person_digest_job.rb",
+          "symbol": "PersonDigestJob#perform"
+        },
+        {
+          "path": "app/jobs/application_job.rb",
+          "symbol": "ApplicationJob"
+        },
+        {
+          "path": "test/jobs/person_digest_job_test.rb",
+          "symbol": "PersonDigestJobTest"
+        }
+      ],
+      "terms": ["Person", "perform_later", "digest"]
+    },
+    {
+      "id": "admin",
+      "parentId": null,
+      "name": "Admin namespace",
+      "summary": "Distinct namespace, not an isolated engine. No authorization implementation is evidenced in this fixture.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "config/routes.rb",
+          "symbol": "namespace :admin"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "admin-person",
+      "parentId": "admin",
+      "name": "Person",
+      "summary": "Admin::Person is distinct from top-level Person and uses admin_people, with a required name.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "app/models/admin/person.rb",
+          "symbol": "Admin::Person"
+        }
+      ],
+      "terms": ["Admin::Person", "admin_people"]
+    },
+    {
+      "id": "admin-controller",
+      "parentId": "admin",
+      "name": "Admin::PeopleController",
+      "summary": "Uses Admin::Person.order(:name); implicit admin/people template is evidenced by matching files and Rails naming.",
+      "status": "convention-resolved",
+      "sources": [
+        {
+          "path": "app/controllers/admin/people_controller.rb",
+          "symbol": "Admin::PeopleController#index"
+        },
+        {
+          "path": "app/views/admin/people/index.html.erb",
+          "symbol": "@people"
+        }
+      ],
+      "terms": ["Admin::Person", "admin_people_path"]
+    },
+    {
+      "id": "database",
+      "parentId": null,
+      "name": "Database schema",
+      "summary": "SQLite dependency; schema version 20260101000000 reconciled with CreateCrm. A source schema is not evidence of a deployed database. No sample data is included.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "Gemfile",
+          "symbol": "sqlite3"
+        },
+        {
+          "path": "db/schema.rb",
+          "symbol": "ActiveRecord::Schema"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": []
+    },
+    {
+      "id": "table-crm_members",
+      "parentId": "database",
+      "name": "crm_members",
+      "summary": "Rails implicit id primary key; email string NOT NULL with UNIQUE index; type string nullable; created_at/updated_at datetime NOT NULL. No explicit non-PK defaults or additional check constraints are declared. Person and VipPerson share this table.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "crm_members"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["crm_members"]
+    },
+    {
+      "id": "table-teams",
+      "parentId": "database",
+      "name": "teams",
+      "summary": "Rails implicit id primary key; name string NOT NULL; created_at/updated_at datetime NOT NULL. No additional defaults, constraints or indexes declared.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "teams"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["teams"]
+    },
+    {
+      "id": "table-memberships",
+      "parentId": "database",
+      "name": "memberships",
+      "summary": "Rails implicit id primary key; member_id/team_id integer NOT NULL, individual indexes and composite UNIQUE index. Actual foreign keys member_id -> crm_members.id and team_id -> teams.id. created_at/updated_at datetime NOT NULL.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "memberships"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["memberships"]
+    },
+    {
+      "id": "table-notes",
+      "parentId": "database",
+      "name": "notes",
+      "summary": "Rails implicit id primary key; notable_type string and notable_id integer NOT NULL with composite index; body text nullable; created_at/updated_at datetime NOT NULL. No single polymorphic FK target or extra defaults declared.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "notes"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["notes"]
+    },
+    {
+      "id": "table-admin_people",
+      "parentId": "database",
+      "name": "admin_people",
+      "summary": "Rails implicit id primary key; name string NOT NULL; created_at/updated_at datetime NOT NULL. Separate from crm_members; no extra constraints/indexes/defaults declared.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "admin_people"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["admin_people"]
+    },
+    {
+      "id": "table-cacti",
+      "parentId": "database",
+      "name": "cacti",
+      "summary": "Rails implicit id primary key; name string NOT NULL; created_at/updated_at datetime NOT NULL. Custom inflection maps Cactus to cacti; no extra defaults/indexes/constraints declared.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "cacti"
+        },
+        {
+          "path": "db/migrate/20260101000000_create_crm.rb",
+          "symbol": "CreateCrm"
+        }
+      ],
+      "terms": ["cacti"]
+    },
+    {
+      "id": "member-columns",
+      "parentId": "table-crm_members",
+      "name": "Columns and constraints",
+      "summary": "Rails implicit id primary key; email string NOT NULL with UNIQUE index; type string nullable; created_at/updated_at datetime NOT NULL. No explicit non-PK defaults or additional check constraints are declared. Person and VipPerson share this table.",
+      "status": "declared",
+      "sources": [
+        {
+          "path": "db/schema.rb",
+          "symbol": "crm_members"
+        }
+      ],
+      "terms": ["email", "type", "crm_members"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "route-controller",
+      "source": "routes",
+      "target": "controller",
+      "label": "routes to PeopleController",
+      "status": "convention-resolved",
+      "evidence": ["config/routes.rb", "app/controllers/people_controller.rb"]
+    },
+    {
+      "id": "controller-person",
+      "source": "controller",
+      "target": "person",
+      "label": "reads / updates Person",
+      "status": "declared",
+      "evidence": ["app/controllers/people_controller.rb"]
+    },
+    {
+      "id": "controller-view",
+      "source": "controller",
+      "target": "view",
+      "label": "implicit index template",
+      "status": "convention-resolved",
+      "evidence": [
+        "app/controllers/people_controller.rb",
+        "app/views/people/index.html.erb"
+      ]
+    },
+    {
+      "id": "person-concern",
+      "source": "person",
+      "target": "notifies",
+      "label": "includes Notifies",
+      "status": "declared",
+      "evidence": ["app/models/person.rb"]
+    },
+    {
+      "id": "concern-job",
+      "source": "notifies",
+      "target": "job",
+      "label": "after update: enqueue",
+      "status": "declared",
+      "evidence": ["app/models/concerns/notifies.rb"]
+    },
+    {
+      "id": "person-membership",
+      "source": "person",
+      "target": "membership",
+      "label": "memberships / through teams",
+      "status": "declared",
+      "evidence": [
+        "app/models/person.rb",
+        "app/models/membership.rb",
+        "app/models/team.rb"
+      ]
+    },
+    {
+      "id": "person-note",
+      "source": "person",
+      "target": "note",
+      "label": "notes as notable (one known target)",
+      "status": "declared",
+      "evidence": ["app/models/person.rb", "app/models/note.rb"]
+    },
+    {
+      "id": "vip-person",
+      "source": "vip",
+      "target": "person",
+      "label": "STI inheritance",
+      "status": "convention-resolved",
+      "evidence": [
+        "app/models/vip_person.rb",
+        "app/models/person.rb",
+        "db/schema.rb"
+      ]
+    },
+    {
+      "id": "person-storage",
+      "source": "person",
+      "target": "table-crm_members",
+      "label": "explicit table mapping",
+      "status": "declared",
+      "evidence": ["app/models/person.rb"]
+    },
+    {
+      "id": "admin-storage",
+      "source": "admin-person",
+      "target": "table-admin_people",
+      "label": "explicit table mapping",
+      "status": "declared",
+      "evidence": ["app/models/admin/person.rb"]
+    },
+    {
+      "id": "admin-flow",
+      "source": "admin-controller",
+      "target": "admin-person",
+      "label": "reads Admin::Person",
+      "status": "declared",
+      "evidence": ["app/controllers/admin/people_controller.rb"]
+    },
+    {
+      "id": "member-fk",
+      "source": "table-memberships",
+      "target": "table-crm_members",
+      "label": "FK member_id -> id",
+      "status": "declared",
+      "evidence": ["db/schema.rb"]
+    },
+    {
+      "id": "team-fk",
+      "source": "table-memberships",
+      "target": "table-teams",
+      "label": "FK team_id -> id",
+      "status": "declared",
+      "evidence": ["db/schema.rb"]
+    }
+  ],
+  "bookmarks": [
+    {
+      "id": "overview",
+      "name": "Application overview",
+      "depths": {
+        "crm": 0,
+        "admin": 0,
+        "database": 0
+      },
+      "targets": ["crm", "admin", "database"]
+    },
+    {
+      "id": "people-flow",
+      "name": "People request flow",
+      "depths": {
+        "crm": 2,
+        "admin": 0,
+        "database": 0
+      },
+      "targets": ["routes", "controller", "person", "view"]
+    },
+    {
+      "id": "admin-view",
+      "name": "Admin namespace",
+      "depths": {
+        "crm": 0,
+        "admin": 1,
+        "database": 0
+      },
+      "targets": ["admin-person", "admin-controller"]
+    },
+    {
+      "id": "database-view",
+      "name": "Database overview",
+      "depths": {
+        "crm": 0,
+        "admin": 0,
+        "database": 1
+      },
+      "targets": ["table-crm_members", "table-memberships", "table-notes"]
+    },
+    {
+      "id": "member-detail",
+      "name": "CRM member table detail",
+      "depths": {
+        "crm": 0,
+        "admin": 0,
+        "database": 2
+      },
+      "targets": ["member-columns"]
+    },
+    {
+      "id": "operations-view",
+      "name": "Jobs and tests",
+      "depths": {
+        "crm": 2,
+        "admin": 0,
+        "database": 0
+      },
+      "targets": ["notifies", "job"]
+    }
+  ]
+}
