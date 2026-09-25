@@ -766,6 +766,9 @@ export default memo(function RecursiveCanvas({
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
   const [focusedToggle, setFocusedToggle] = useState<string | null>(null);
+  const toggleScale = Math.min(1, camera.scale);
+  const toggleSize = 32 * toggleScale;
+  const toggleInset = 4 * toggleScale;
   const togglesDisabled =
     !!preview ||
     !!textEditing ||
@@ -798,16 +801,22 @@ export default memo(function RecursiveCanvas({
       top + box.height * camera.scale < 0
     )
       continue;
-    let x = Math.max(4, Math.min(size.width - 36, right - 36));
-    let y = Math.max(4, Math.min(size.height - 36, top + 4));
+    let x = Math.max(
+      toggleInset,
+      Math.min(size.width, right) - toggleSize - toggleInset,
+    );
+    let y = Math.max(
+      toggleInset,
+      Math.min(size.height - toggleSize - toggleInset, top + toggleInset),
+    );
     const object = document.objects[id];
     if (object.type === 'diamond' || object.type === 'ellipse') {
       const anchor = worldPoint(
         boundaryPosition({ side: 'top', offset: 1 }, geometry, object),
         geometry,
       );
-      x = camera.x + anchor.x * camera.scale - 16;
-      y = camera.y + anchor.y * camera.scale - 16;
+      x = camera.x + anchor.x * camera.scale - toggleSize / 2;
+      y = camera.y + anchor.y * camera.scale - toggleSize / 2;
     }
     const expanded = scene.expanded.has(id);
     const icon =
@@ -1083,8 +1092,9 @@ export default memo(function RecursiveCanvas({
                   {...position}
                   id={`child-toggle-${id}`}
                   rotation={-geometry.rotation}
-                  scaleX={1 / camera.scale}
-                  scaleY={1 / camera.scale}
+                  displayScale={toggleScale}
+                  scaleX={toggleScale / camera.scale}
+                  scaleY={toggleScale / camera.scale}
                   disabled={togglesDisabled}
                   focused={focusedToggle === id}
                   onToggle={(event) => toggleChildren(id, event)}
@@ -1279,7 +1289,12 @@ export default memo(function RecursiveCanvas({
           key={id}
           type="button"
           className="child-stack-toggle"
-          style={{ left: toggle.x, top: toggle.y }}
+          style={{
+            left: toggle.x,
+            top: toggle.y,
+            transform: `scale(${toggleScale})`,
+            transformOrigin: 'top left',
+          }}
           aria-expanded={toggle.expanded}
           aria-label={toggle.label}
           title={toggle.title}

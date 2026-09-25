@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Group, Path, Rect } from 'react-konva';
+import { Circle, Group, Path, Rect } from 'react-konva';
 import type { Group as KonvaGroup, GroupConfig } from 'konva/lib/Group';
 import stack2 from '../assets/icons/square-stack-2.svg?raw';
 import stack3 from '../assets/icons/square-stack-3.svg?raw';
@@ -33,6 +33,7 @@ export default function ChildStackToggle({
   expanded,
   disabled,
   focused,
+  displayScale,
   title,
   onToggle,
   ...placement
@@ -41,6 +42,7 @@ export default function ChildStackToggle({
   expanded: boolean;
   disabled: boolean;
   focused: boolean;
+  displayScale: number;
   title: string;
   onToggle: (event: MouseEvent) => void;
 }) {
@@ -77,25 +79,44 @@ export default function ChildStackToggle({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Rect
-        width={32}
-        height={32}
-        cornerRadius={6}
-        fill={expanded ? '#eaf0ff' : '#ffffff'}
-        stroke={
-          focused || hovered ? '#2d62d5' : expanded ? 'transparent' : '#dbe2ec'
-        }
-        strokeWidth={focused ? 2 : 1}
-      />
-      <Group {...icons[icon].transform} listening={false}>
-        {icons[icon].paths.map((data) => (
-          <Path
-            key={data}
-            data={data}
-            fill={expanded ? '#2d62d5' : '#5d6b7e'}
+      {displayScale < 0.6 ? (
+        <Circle
+          x={16}
+          y={16}
+          radius={8}
+          fill="#2d62d5"
+          stroke={focused || hovered ? '#214fac' : '#2d62d5'}
+          strokeWidth={focused ? 2 : 1}
+          // Preserve a 12px pointer target without enlarging the visible dot.
+          hitStrokeWidth={Math.max(1, 12 / displayScale - 16)}
+        />
+      ) : (
+        <>
+          <Rect
+            width={32}
+            height={32}
+            cornerRadius={6}
+            fill={expanded ? '#eaf0ff' : '#ffffff'}
+            stroke={
+              focused || hovered
+                ? '#2d62d5'
+                : expanded
+                  ? 'transparent'
+                  : '#dbe2ec'
+            }
+            strokeWidth={focused ? 2 : 1}
           />
-        ))}
-      </Group>
+          <Group {...icons[icon].transform} listening={false}>
+            {icons[icon].paths.map((data) => (
+              <Path
+                key={data}
+                data={data}
+                fill={expanded ? '#2d62d5' : '#5d6b7e'}
+              />
+            ))}
+          </Group>
+        </>
+      )}
     </Group>
   );
 }

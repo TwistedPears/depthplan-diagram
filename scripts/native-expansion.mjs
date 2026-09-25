@@ -27,6 +27,18 @@ export async function expansion(driver, probe) {
       objects: [id],
       connections: [],
     });
+  const pointer = async (type, point, ctrlKey = true) => {
+    await sync(
+      `const [type,p,ctrlKey]=arguments;
+      document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
+        bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,
+        button:0,buttons:type==='mouseup'?0:1,ctrlKey}));`,
+      [type, point, ctrlKey],
+    );
+    await js(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+    );
+  };
   const document = {
     formatVersion: 2,
     id: 'expansion',
@@ -631,7 +643,7 @@ export async function expansion(driver, probe) {
         const toggle=stage.findOne('#child-toggle-'+arguments[0]);
         const badge=toggle.findOne('Rect').getClientRect({skipStroke:true});
         const control=button.getBoundingClientRect();
-        const center=group.getAbsoluteTransform().copy().invert().point({x:badge.x+16,y:badge.y+16});
+        const center=group.getAbsoluteTransform().copy().invert().point({x:badge.x+badge.width/2,y:badge.y+badge.height/2});
         return {right:box.x+box.width-badge.x-badge.width, top:badge.y-box.y,
           x:center.x/(group.width()/2), y:center.y/(group.height()/2),
           width:badge.width, height:badge.height, shape:shape.getClassName(),
@@ -654,8 +666,9 @@ export async function expansion(driver, probe) {
             `${phase}: ${JSON.stringify(placement)}`,
           );
         }
-        assert(Math.abs(placement.width - 32) < 1e-6);
-        assert(Math.abs(placement.height - 32) < 1e-6);
+        const expectedSize = 32 * (phase === 'transformed' ? 0.85 : 1);
+        assert(Math.abs(placement.width - expectedSize) < 1e-6);
+        assert(Math.abs(placement.height - expectedSize) < 1e-6);
         assert(placement.controlOffset < 1, 'accessible control follows paint');
         assert.equal(placement.owner, `object-${id}`);
         assert.equal(
@@ -676,19 +689,7 @@ export async function expansion(driver, probe) {
         const center=group.getAbsolutePosition();
         const badge=document.querySelector('.child-stack-toggle[aria-label$="children of a"]').getBoundingClientRect();
         return {start:{x:start.x+canvas.left,y:start.y+canvas.top},
-          end:{x:start.x+badge.left+16-center.x,y:start.y+badge.top+16-center.y}};`);
-      const pointer = async (type, point, ctrlKey = true) => {
-        await sync(
-          `const [type,p,ctrlKey]=arguments;
-          document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
-            bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,
-            button:0,buttons:type==='mouseup'?0:1,ctrlKey}));`,
-          [type, point, ctrlKey],
-        );
-        await js(
-          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-        );
-      };
+          end:{x:start.x+badge.left+badge.width/2-center.x,y:start.y+badge.top+badge.height/2-center.y}};`);
       const badgePaint = (id, x = 16, y = 10) =>
         sync(
           `const stage=window.Konva.stages[0], layer=stage.getLayers()[0];
@@ -841,11 +842,90 @@ export async function expansion(driver, probe) {
       }
       await screenshot('expansion-independent-ellipse.png');
     }
+    // Dot clicks change disclosure history; keep the layout fixture independent.
+    await edit(
+      { type: 'children', id: 'a', expanded: false },
+      { type: 'children', id: 'b', expanded: false },
+    );
+    await until(() => sync('return window.Konva.stages[0].listening()'));
+    const toggleSnapshot = (id) =>
+      sync(
+        `const stage=window.Konva.stages[0];
+      const toggle=stage.findOne('#child-toggle-'+arguments[0]);
+      const dot=toggle.findOne('Circle');
+      const shape=dot || toggle.findOne('Rect');
+      const box=shape.getClientRect({skipStroke:true});
+      const p=toggle.getAbsoluteTransform().point({x:16,y:16});
+      const object=toggle.getParent();
+      const local=object.getAbsoluteTransform().copy().invert().point(p);
+      const canvas=stage.container().getBoundingClientRect();
+      const button=document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');
+      return {mode:dot?'dot':'icon', width:box.width, fill:shape.fill(),
+        x:local.x/(object.width()/2),y:local.y/(object.height()/2),
+        controlWidth:button.getBoundingClientRect().width,
+        hit:stage.getIntersection({x:p.x+5,y:p.y})?.findAncestor('.child-stack-toggle',true)?.id(),
+        center:{x:p.x+canvas.left,y:p.y+canvas.top}};`,
+        [id],
+      );
+    for (const scale of [2, 1, 0.6, 0.59, 0.5, 0.25, 0.125, 1]) {
+      await command('depthplan_camera', {
+        action: {
+          type: 'set',
+          camera: { x: 400 - 400 * scale, y: 350 - 350 * scale, scale },
+        },
+      });
+      await js(
+        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      );
+      const toggle = await toggleSnapshot('a');
+      const dot = scale < 0.6;
+      assert.equal(toggle.mode, dot ? 'dot' : 'icon');
+      assert(
+        Math.abs(toggle.width - (dot ? 16 : 32) * Math.min(1, scale)) < 1e-6,
+        'paint shrinks with zoom and caps at 32px',
+      );
+      assert(
+        Math.abs(toggle.controlWidth - 32 * Math.min(1, scale)) < 0.1,
+        'keyboard control follows scaled placement',
+      );
+      assert.equal(
+        toggle.hit,
+        'child-toggle-a',
+        'small dots retain a usable pointer target',
+      );
+      if (dot) assert.equal(toggle.fill, '#2d62d5');
+      if (types[0] === 'diamond')
+        assert(
+          Math.abs(Math.abs(toggle.x) + Math.abs(toggle.y) - 1) < 1e-6,
+          'dot stays on the rotated outline',
+        );
+      if (scale === 0.25) {
+        await screenshot(`stack-dot-${types[0]}.png`);
+        for (const id of ['a', 'b']) {
+          for (const expanded of [true, false]) {
+            const { center } = await toggleSnapshot(id);
+            await pointer('mousedown', center, false);
+            await pointer('mouseup', center, false);
+            await until(() =>
+              sync('return window.Konva.stages[0].listening()'),
+            );
+            assert.equal(
+              await sync(
+                `return document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]')?.getAttribute('aria-expanded');`,
+                [id],
+              ),
+              String(expanded),
+              'blue dot toggles children',
+            );
+          }
+        }
+      }
+    }
     await click('Save document');
     await until(async () => !(await state()).dirty);
   }
   console.log(
-    'PASS stack icons: object-relative layering, partial overlap during drag/drop, Z/Undo, paint and pointer agreement, pointer/hand clicks, keyboard focus, fixed size through expansion/rotation/pan/zoom. Independent ellipse edits survive disclosure changes.',
+    'PASS stack icons: object-relative layering, partial overlap during drag/drop, Z/Undo, pointer/hand clicks, keyboard focus, capped size and clickable shrinking blue dots through zoom/rotation. Independent ellipse edits survive disclosure changes.',
   );
 
   const siblings = structuredClone(document);
