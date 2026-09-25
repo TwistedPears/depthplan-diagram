@@ -124,6 +124,7 @@ try {
           'depthplan_recovery',
           'depthplan_resolve_draft',
           'depthplan_reveal_all',
+          'depthplan_search',
           'depthplan_selection',
           'depthplan_set_depth',
         ]

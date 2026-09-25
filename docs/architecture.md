@@ -22,7 +22,7 @@ Bundled depthplan-mcp: Rust MCP SDK + stdio
 | Editor         | Canonical in-memory document, drafts, undo history, selection, camera and rendering   | [src/renderer](../src/renderer/)                |
 | Desktop bridge | Typed commands/events crossing the native boundary                                    | [desktop.ts](../src/renderer/desktop.ts)        |
 | Native host    | Dialog-selected file sources, atomic writes, fingerprints, recovery and folder grants | [src-tauri/src](../src-tauri/src/)              |
-| MCP registry   | Schemas for all 25 tools, generated for the native SDK adapter                        | [mcpRegistry.ts](../src/shared/mcpRegistry.ts)  |
+| MCP registry   | Schemas for all 26 tools, generated for the native SDK adapter                        | [mcpRegistry.ts](../src/shared/mcpRegistry.ts)  |
 | Packaging      | Embedded renderer, native adapter, icons and license resources                        | [tauri.conf.json](../src-tauri/tauri.conf.json) |
 
 Rust validates callers, arguments and document data before writing; it does not

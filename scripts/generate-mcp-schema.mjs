@@ -20,14 +20,11 @@ console.log(JSON.stringify(Object.entries(mcpTools).map(([name, tool]) => ({
   platform: 'node',
   format: 'cjs',
 });
-const result = spawnSync(
-  process.execPath,
-  ['-e', bundled.outputFiles[0].text],
-  {
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024,
-  },
-);
+const result = spawnSync(process.execPath, ['-'], {
+  input: bundled.outputFiles[0].text,
+  encoding: 'utf8',
+  maxBuffer: 1024 * 1024,
+});
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(result.stderr);
 await mkdir('src-tauri/generated', { recursive: true });
@@ -42,11 +39,10 @@ const fixtures = await build({
   platform: 'node',
   format: 'cjs',
 });
-const generated = spawnSync(
-  process.execPath,
-  ['-e', fixtures.outputFiles[0].text],
-  { stdio: 'inherit' },
-);
+const generated = spawnSync(process.execPath, ['-'], {
+  input: fixtures.outputFiles[0].text,
+  stdio: ['pipe', 'inherit', 'inherit'],
+});
 if (generated.error) throw generated.error;
 if (generated.status !== 0)
   throw new Error('Could not generate document conformance cases');

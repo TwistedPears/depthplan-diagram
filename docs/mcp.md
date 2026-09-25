@@ -1,6 +1,6 @@
 # Local MCP setup and tools
 
-DepthPlan exposes 25 tools for inspecting and editing the live document, navigating,
+DepthPlan exposes 26 tools for inspecting and editing the live document, navigating,
 managing history/bookmarks, approved file operations, recovery and export. The
 bundled Rust `depthplan-mcp` adapter uses stdio and needs no global Node runtime.
 The executable schemas are [mcpRegistry.ts](../src/shared/mcpRegistry.ts),
@@ -82,7 +82,7 @@ All names below have the `depthplan_` prefix.
 
 | Tools                                                     | Purpose                                                                   |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `get_state`, `query`, `read_chunk`                        | Live state and native object, connection, bookmark, layout or repair data |
+| `get_state`, `search`, `query`, `read_chunk`              | Live state, text discovery and native entity data                         |
 | `edit`, `delete_preview`, `history`, `content_transfer`   | Atomic authoring, deletion impact, Undo/Redo and large content transfer   |
 | `camera`, `selection`, `controls`, `bookmarks`            | View navigation, selection, editor controls and saved views               |
 | `get_drafts`, `resolve_draft`                             | Inspect and explicitly apply/discard a versioned UI draft                 |
@@ -97,6 +97,53 @@ visible. Page size is 1–200 with opaque cursors; continue with matching filter
 Document/view changes expire editor-query cursors. Oversized pages fail explicitly.
 `read_chunk` returns revision-bound native JSON text in at most 16,384 UTF-16 code
 units; concatenate at `nextOffset` before parsing.
+
+### Text search
+
+Use `depthplan_search` to discover IDs without fetching every entity:
+
+```json
+{
+  "handle": { "appInstanceId": "from-state", "sessionId": "from-state" },
+  "query": "Admin::Person person.rb",
+  "collection": "objects",
+  "rootId": "admin-engine-root",
+  "pageSize": 50
+}
+```
+
+Search is literal, case-insensitive and requires every whitespace-separated term
+to occur in the same entity. Object names and flattened rich-text/code content
+are searched together; connections use their labels and bookmarks their names.
+Empty/whitespace-only queries return no matches. Punctuation, namespace separators
+and paths are literal. Related names such as `Person`, `people` or a custom table
+alias are found only when recorded in the searchable name/content; search does
+not infer inflections or combine entities. Unfinished UI drafts are not searched.
+
+Omit `collection` to search all three collections. `rootId` must identify a root;
+`subtreeId` may identify any object and includes that object and its descendants,
+even when hidden or collapsed. When both are supplied, the subtree must belong
+to the root. A scoped connection matches when its owner or either bound endpoint
+belongs to the scope, including cross-scope connections. Unowned connections with
+two free endpoints appear only in unscoped searches. Bookmarks have no object
+association: scoped searches omit them; combining `collection: "bookmarks"` with
+an object scope is invalid.
+
+Results sort by collection (objects, connections, bookmarks), then case-sensitive
+ID, without relevance ranking. Each item has `collection`, `id`, `label`,
+`labelTruncated`, `snippet` and `snippetTruncated`. Labels are capped at 512 UTF-16
+units and snippets at 240, positioned near a matching term. Object results add
+`rootId`, root-to-parent `ancestorIds` and `visible`; connection results add
+`ownerId`, `start`, `end` and `visible`. Visibility reflects saved depth/folds,
+not viewport position or clipping. IDs and ancestor paths are never truncated.
+
+Queries allow up to 1,024 UTF-16 units; pages default to 50 and allow 1–200 results.
+Continue with `nextCursor` and identical query, scope, collection and page size.
+Document/view changes invalidate cursors; handles must still match the app/session.
+The most recent 256 query/search cursors are retained. The existing 1 MiB response
+limit applies; reduce page size on `RESPONSE_TOO_LARGE`. Fetch full results with
+`query` or `read_chunk`. Search does not edit the document, change selection/depth,
+move the camera or advance revisions; navigation remains a separate command.
 
 `edit` accepts at most 100 typed actions in one transaction/Undo entry: object and
 connection creation, geometry/content/style, arrangement/stacking, containment,

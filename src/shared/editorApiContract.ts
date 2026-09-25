@@ -63,6 +63,15 @@ export const queryInput = z.strictObject({
   pageSize: z.number().int().min(1).max(200).default(50),
   cursor: z.string().uuid().optional(),
 });
+export const searchInput = z.strictObject({
+  handle: handleSchema,
+  query: z.string().max(1024),
+  collection: z.enum(['objects', 'connections', 'bookmarks']).optional(),
+  rootId: editorId.optional(),
+  subtreeId: editorId.optional(),
+  pageSize: z.number().int().min(1).max(200).default(50),
+  cursor: z.string().uuid().optional(),
+});
 export const chunkInput = z.strictObject({
   handle: handleSchema,
   collection: collectionSchema,
@@ -479,6 +488,13 @@ export const editorTools = {
     readOnly: true,
     description:
       'Read paged objects (including hidden children), connections, bookmarks, layouts or pending repairs. Layout queries require rootId and depth. Cursors expire when document or view changes.',
+  },
+  depthplan_search: {
+    input: searchInput,
+    output: editorResult,
+    readOnly: true,
+    description:
+      'Find objects by name/content, connections by label, or bookmarks by name. Literal case-insensitive all-term matching; whitespace-only queries return no results. Optional collection, rootId (a root) and subtreeId (inclusive descendants) filters include hidden objects. Scoped connections touch an included owner or endpoint; bookmarks are document-wide and excluded from scoped searches. Results sort by objects/connections/bookmarks then ID, with bounded labels/snippets and object ancestor/visibility context. Repeat identical filters and pageSize with nextCursor; document/view/session changes invalidate cursors. Read full entities with query/read_chunk; search never navigates or edits.',
   },
   depthplan_read_chunk: {
     input: chunkInput,
