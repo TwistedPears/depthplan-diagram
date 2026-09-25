@@ -162,31 +162,26 @@ handles, so a normal endpoint drag reattaches or detaches the connector without
 moving its old point. MCP boundary-point commands remain available for stored
 documents and bridge authoring.
 
-The Arrow tool also connects a parent's border or fixed anchor to an immediate
-child, in either direction. Dragging an existing arrow endpoint supports the same
-attachments. A connection inside the parent can snap to its border; empty interior
-space remains available for free endpoints. Internal routes belong to the parent,
-and elbow routing treats its border as an entrance rather than an obstacle.
-Outside and inside arrows may share the same parent anchor without creating a
-custom boundary point. Existing named boundary bridges remain supported.
+The Arrow tool connects outside objects directly to children inside other
+containers, in either direction and across multiple nesting levels. Endpoint
+dragging supports the same attachments. Routes belong to the nearest common
+container, or the canvas across roots, and paint above containers they enter.
+Parent-border connections and existing named boundary bridges remain supported.
 
-Deeper nesting uses successive explicit bridges. Many connections may share a
-point; no automatic bundling or destination inference occurs. Owners are
-the nearest valid common scope, with canvas ownership across roots. Crossing
-container boundaries requires explicit boundary chains.
-
-A route draws only when its owner and both attached targets are revealed; an
-internal owner must be expanded even for free-ended routes. An outside connection
-to a collapsed parent's boundary remains. A hidden child endpoint is hidden,
-never silently redirected to its ancestor.
+When an attached child is hidden by collapse or a depth change, its endpoint draws
+on the nearest visible ancestor's outline. Expanding restores the exact saved
+child attachment, including its preferred side and offset. This is a display
+projection; collapse never changes the saved target. A route whose endpoints
+project onto the same collapsed container stays hidden. Routes owned by a collapsed
+container also stay hidden, including free-ended routes. Selection, hit testing
+and exports use the displayed path.
 
 Structural changes recompute ownership and transform free endpoints/vertices
-through world space. Invalid cross-boundary routes enter `connectionRepairs`
-instead of being lost. Each entry preserves the original connection, former owner
-geometry, world endpoints and explanation. Users author replacement boundary
-segments and choose which one inherits the original ID, label, kind, style and
-order. Resolving removes only that repair in one transaction. Pending repairs
-persist across save/reopen and never draw or export.
+through world space. Cross-container moves keep their arrows connected. Legacy
+`connectionRepairs` remain supported: users can select a replacement segment to
+inherit the original ID, label, kind, style and order. Resolving removes only that
+repair in one transaction. Pending repairs persist across save/reopen and never
+draw or export.
 
 ## Rich text and code
 

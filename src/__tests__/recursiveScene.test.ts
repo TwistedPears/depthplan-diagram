@@ -171,7 +171,7 @@ it('hides every collapsed drawing scope, even owner-boundary and free-end routes
     const scene = recursiveScene(d);
     expect(scene.connections.has('app')).toBe(depth > 0);
     expect(scene.connections.has('api')).toBe(depth > 1);
-    expect(scene.connections.has(null)).toBe(depth > 1);
+    expect(scene.connections.has(null)).toBe(depth > 0);
     expect(scene.world.get('payments')).toMatchObject({ x: 900, y: 20 });
     expect(JSON.stringify(d)).toBe(before);
   }

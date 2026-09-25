@@ -53,9 +53,11 @@ defines exact behavior; [architecture](architecture.md) describes implementation
 
 Connections support free or attached endpoints, boundary points, explicit inward
 bridges, straight/elbow/curved routes, editable bends, labels, styles and independent
-endpoint markers. Collapsing a container hides its internal routes while external
-connections to its boundary remain. Invalid structural connections are retained
-for explicit repair rather than silently redirected.
+endpoint markers. Outside objects can connect directly to nested children.
+Collapsing a container projects external child attachments onto its visible border;
+expanding restores the saved child attachment. Internal routes stay hidden while
+their owner is collapsed. Cross-container moves keep arrows connected, and pending
+repairs from older documents remain available for explicit resolution.
 
 Objects support mixed rich text: paragraphs, headings, nested lists, quotes,
 alignment, links, bold, italic, underline, strikethrough, font, size and color.

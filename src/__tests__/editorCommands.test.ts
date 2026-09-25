@@ -237,7 +237,7 @@ it('keeps omitted patch fields omitted and rejects unknown actions and reserved 
 });
 
 it('shares rich-content, style, movement, arrangement and bridge repair operations with the editor', () => {
-  const { request, call, doc } = setup();
+  const { result, request, call, doc } = setup();
   call(
     'edit',
     request({
@@ -343,7 +343,26 @@ it('shares rich-content, style, movement, arrangement and bridge repair operatio
       ],
     }),
   );
-  expect(doc().connectionRepairs?.route).toBeDefined();
+  expect(doc().connectionRepairs?.route).toBeUndefined();
+  expect(doc().connections.route).toMatchObject({
+    ownerId: null,
+    end: { objectId: 'b' },
+  });
+  // Documents from older versions may still contain pending repairs.
+  act(() =>
+    result.current.transact((draft) => {
+      draft.connectionRepairs = {
+        route: {
+          connection: draft.connections.route,
+          ownerGeometry: null,
+          start: { x: 300, y: 300 },
+          end: { x: 400, y: 400 },
+          reason: 'Legacy crossing',
+        },
+      };
+      delete draft.connections.route;
+    }),
+  );
   call(
     'edit',
     request({

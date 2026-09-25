@@ -5,7 +5,11 @@ import type {
   DiagramObject,
 } from './recursiveDocument';
 import { activeWorldGeometry, indexHierarchy } from './recursiveHierarchy';
-import { connectionRoute, type ConnectionRoute } from './connectionGeometry';
+import {
+  connectionRoute,
+  visibleEndpoint,
+  type ConnectionRoute,
+} from './connectionGeometry';
 import { recursiveVisibility } from './recursiveVisibility';
 
 export type SceneItem = { id: string; z: number } & (
@@ -56,6 +60,7 @@ export function recursiveScene(document: RecursiveDocument) {
     string | null,
     Array<{ id: string } & ConnectionRoute>
   >();
+  const crossings = new Set<string>();
   for (const connection of Object.values(document.connections).sort(
     (a, b) => a.z - b.z || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   )) {
@@ -66,21 +71,37 @@ export function recursiveScene(document: RecursiveDocument) {
     if (!connections.has(connection.ownerId))
       connections.set(connection.ownerId, []);
     connections.get(connection.ownerId)!.push({ id: connection.id, ...route });
+    // A route to a nested target must paint above the containers it enters.
+    let z = connection.z;
+    for (const endpoint of [connection.start, connection.end]) {
+      const target = visibleEndpoint(document, endpoint, world);
+      if (target.kind === 'free') continue;
+      let parent = document.objects[target.objectId].parentId;
+      while (parent !== null && parent !== connection.ownerId) {
+        if (document.objects[parent].parentId === connection.ownerId) {
+          z = Math.max(z, local.get(parent)!.z);
+          crossings.add(connection.id);
+        }
+        parent = document.objects[parent].parentId;
+      }
+    }
     const items = paintOrder.get(connection.ownerId) ?? [];
     items.push({
       kind: 'connection',
       id: connection.id,
-      z: connection.z,
+      z,
       route,
     });
     paintOrder.set(connection.ownerId, items);
   }
-  // Equal-Z connections stay behind shapes; IDs break ties within each kind.
+  // At equal Z, crossing routes clear their containers; other routes stay behind shapes.
+  const rank = (item: SceneItem) =>
+    item.kind === 'object' ? 1 : crossings.has(item.id) ? 2 : 0;
   for (const items of paintOrder.values())
     items.sort(
       (a, b) =>
         a.z - b.z ||
-        (a.kind === b.kind ? 0 : a.kind === 'connection' ? -1 : 1) ||
+        rank(a) - rank(b) ||
         (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
   return {

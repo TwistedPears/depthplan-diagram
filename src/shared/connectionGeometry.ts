@@ -87,6 +87,28 @@ export function constrainPoint(
   };
 }
 
+/** Collapsing only changes the painted target; the authored child attachment stays intact. */
+export function visibleEndpoint(
+  document: RecursiveDocument,
+  endpoint: Endpoint,
+  world: Map<string, Geometry>,
+): Endpoint {
+  if (endpoint.kind === 'free' || world.has(endpoint.objectId)) return endpoint;
+  let id = document.objects[endpoint.objectId]?.parentId;
+  while (id) {
+    if (world.has(id))
+      return {
+        kind: 'object',
+        objectId: id,
+        side: 'right',
+        offset: 0.5,
+        binding: 'auto',
+      };
+    id = document.objects[id]?.parentId;
+  }
+  return endpoint;
+}
+
 /** Attachments face out of a target shape, or into the connection's own container. */
 export function resolveEndpoint(
   document: RecursiveDocument,
@@ -312,6 +334,17 @@ export function connectionRoute(
   connection: DiagramConnection,
   world: Map<string, Geometry>,
 ) {
+  if (connection.ownerId !== null && !world.has(connection.ownerId))
+    return null;
+  const startEndpoint = visibleEndpoint(document, connection.start, world);
+  const endEndpoint = visibleEndpoint(document, connection.end, world);
+  if (
+    startEndpoint.kind !== 'free' &&
+    endEndpoint.kind !== 'free' &&
+    startEndpoint.objectId === endEndpoint.objectId &&
+    (startEndpoint !== connection.start || endEndpoint !== connection.end)
+  )
+    return null;
   const owner =
     connection.ownerId === null ? undefined : world.get(connection.ownerId);
   const resolve = (endpoint: Endpoint, toward?: Point) =>
@@ -323,21 +356,21 @@ export function connectionRoute(
       toward,
       endpoint.kind !== 'free' && endpoint.objectId === connection.ownerId,
     );
-  let start = resolve(connection.start),
-    end = resolve(connection.end);
+  let start = resolve(startEndpoint),
+    end = resolve(endEndpoint);
   if (!start || !end) return null;
   const authored = connection.points ?? [];
   // Sliding either endpoint can hide the other's preferred point. Recheck both
   // against the resolved segment, rather than the original far-side anchor.
   for (let pass = 0; pass < 2; pass++) {
-    start = resolve(connection.start, authored[0] ?? end)!;
-    end = resolve(connection.end, authored.at(-1) ?? start)!;
+    start = resolve(startEndpoint, authored[0] ?? end)!;
+    end = resolve(endEndpoint, authored.at(-1) ?? start)!;
   }
   const vertices = [start, ...authored, end];
   const bezier = connection.style?.lineType === 'curved';
   let route = vertices;
   if (connection.style?.lineType === 'elbow') {
-    const targets = [connection.start, connection.end].filter(
+    const targets = [startEndpoint, endEndpoint].filter(
       (endpoint): endpoint is Extract<Endpoint, { kind: 'object' }> =>
         endpoint.kind === 'object' && endpoint.objectId !== connection.ownerId,
     );
@@ -387,9 +420,9 @@ export function connectionRoute(
           };
     };
     const pins = [
-      exit(start, connection.start),
+      exit(start, startEndpoint),
       ...authored,
-      exit(end, connection.end),
+      exit(end, endEndpoint),
     ];
     route = simplify([
       start,

@@ -12,7 +12,7 @@ import {
 } from './recursiveCreation';
 import { boundaryPlacement, boundaryPosition } from './recursiveBoundary';
 import { distance, localPoint, worldPoint } from './connectionGeometry';
-import { containsShape, connectionOwners } from './recursiveOwnership';
+import { containsShape, connectionOwner } from './recursiveOwnership';
 
 export type BindingModifiers = {
   ctrlKey: boolean;
@@ -113,17 +113,12 @@ export function replaceEndpoint(
   const targetId = typeof target === 'string' ? target : target?.objectId;
   let ownerId = connection.ownerId;
   if (targetId) {
-    const targetOwners = connectionOwners(document, targetId);
-    if (!targetOwners.includes(ownerId)) {
-      const otherOwners =
-        other.kind === 'free'
-          ? targetOwners
-          : connectionOwners(document, other.objectId);
-      const legal = targetOwners.filter((id) => otherOwners.includes(id));
-      if (!legal.length)
-        throw new Error('Connect across containers through boundary points.');
-      ownerId = legal[0];
-    }
+    ownerId = connectionOwner(
+      document,
+      targetId,
+      other.kind === 'free' ? null : other.objectId,
+      ownerId,
+    );
   }
   const result = {
     ...connection,

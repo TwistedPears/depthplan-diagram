@@ -11,12 +11,33 @@ import {
 } from './recursiveHierarchy';
 import { recursiveVisibility } from './recursiveVisibility';
 
-/** A shape's border can connect outside in its parent or inside to its children. */
+/** A connection can live in its target or any ancestor, including the canvas. */
 export function connectionOwners(
   document: RecursiveDocument,
   objectId: string,
 ) {
-  return [document.objects[objectId].parentId, objectId];
+  let parent: string | null = objectId;
+  const owners: Array<string | null> = [objectId];
+  while (parent !== null) {
+    parent = document.objects[parent].parentId;
+    owners.push(parent);
+  }
+  return owners;
+}
+
+export function connectionOwner(
+  document: RecursiveDocument,
+  start: string | null,
+  end: string | null,
+  current: string | null,
+): string | null {
+  if (start === null && end === null) return current;
+  if (start === null || end === null || start === end) {
+    const target = (start ?? end)!;
+    return current === target ? current : document.objects[target].parentId;
+  }
+  const owners = new Set(connectionOwners(document, start));
+  return connectionOwners(document, end).find((id) => owners.has(id))!;
 }
 
 /** Hit the visible silhouette, including rotation, rather than its bounding box. */

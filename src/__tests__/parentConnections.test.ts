@@ -237,7 +237,7 @@ it('converts external routes to internal ones during reattachment and keeps bend
   expect(preserved.y).toBeCloseTo(260);
 });
 
-it('accepts parent endpoint property edits but still rejects crossings through other containers', () => {
+it('accepts parent property edits and changes owner when dragging across containers', () => {
   const document = fixture();
   const connection = connect(document, 'app', 'api');
   const world = activeWorldGeometry(document);
@@ -254,7 +254,7 @@ it('accepts parent endpoint property edits but still rejects crossings through o
   expect(
     transactDocument(document, patchConnection('inside', { end })).status,
   ).toBe('rejected');
-  expect(() =>
+  expect(
     replaceEndpoint(
       document,
       world,
@@ -263,8 +263,8 @@ it('accepts parent endpoint property edits but still rejects crossings through o
       world.get('payments')!,
       'payments',
       1,
-    ),
-  ).toThrow('boundary points');
+    ).ownerId,
+  ).toBeNull();
   expect(() =>
     createConnector(
       'invalid',
@@ -274,7 +274,7 @@ it('accepts parent endpoint property edits but still rejects crossings through o
       'api',
       'payments',
     )(document),
-  ).toThrow('boundary points');
+  ).not.toThrow();
 });
 
 it('keeps outside arrows when collapsed and restores internal arrows on expansion', () => {
@@ -290,7 +290,7 @@ it('keeps outside arrows when collapsed and restores internal arrows on expansio
   expect(recursiveScene(document).connections.get('app')).toHaveLength(1);
 });
 
-it('retains parent attachments when a connected subtree moves and repairs incompatible moves', () => {
+it('retains attachments when connected subtrees move across containers', () => {
   const document = fixture();
   const original = connect(document, 'app', 'api');
   const moved = transactDocument(
@@ -311,8 +311,9 @@ it('retains parent attachments when a connected subtree moves and repairs incomp
     moveSubtree('api', 'payments', { x: 880, y: 20 }),
   );
   expect(crossed.status).toBe('accepted');
-  expect(crossed.document.connections.inside).toBeUndefined();
-  expect(crossed.document.connectionRepairs!.inside.connection).toEqual(
-    original,
-  );
+  expect(crossed.document.connections.inside).toEqual({
+    ...original,
+    ownerId: null,
+  });
+  expect(crossed.document.connectionRepairs).toBeUndefined();
 });

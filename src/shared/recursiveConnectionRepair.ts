@@ -5,10 +5,15 @@ import type {
   RecursiveDocument,
 } from './recursiveDocument';
 import type { DocumentEdit } from './documentTransactions';
-import { indexHierarchy, toLocalGeometry } from './recursiveHierarchy';
+import {
+  activeWorldGeometry,
+  indexHierarchy,
+  toLocalGeometry,
+} from './recursiveHierarchy';
 import { worldAt } from './recursiveReparent';
 import { connectionRoute, worldPoint, localPoint } from './connectionGeometry';
-import { connectionOwners } from './recursiveOwnership';
+import { connectionOwner } from './recursiveOwnership';
+import { recursiveVisibility } from './recursiveVisibility';
 
 /** Resolve retained hidden geometry using the same deterministic policy as reparenting. */
 export function savedWorldGeometry(
@@ -23,15 +28,24 @@ export function endpointWorld(
   connection: DiagramConnection,
   end: Endpoint,
 ) {
-  const world = new Map<string, Geometry>();
-  for (const id of [
-    connection.ownerId,
-    ...[connection.start, connection.end].map((e) =>
-      e.kind === 'free' ? null : e.objectId,
-    ),
-  ])
-    if (id !== null) world.set(id, savedWorldGeometry(document, id));
-  const route = connectionRoute(document, connection, world)!;
+  const world = activeWorldGeometry(document);
+  const { visible, expanded } = recursiveVisibility(document);
+  for (const id of world.keys()) if (!visible.has(id)) world.delete(id);
+  let route =
+    connection.ownerId === null || expanded.has(connection.ownerId)
+      ? connectionRoute(document, connection, world)
+      : null;
+  if (!route) {
+    world.clear();
+    for (const id of [
+      connection.ownerId,
+      ...[connection.start, connection.end].map((e) =>
+        e.kind === 'free' ? null : e.objectId,
+      ),
+    ])
+      if (id !== null) world.set(id, savedWorldGeometry(document, id));
+    route = connectionRoute(document, connection, world)!;
+  }
   return worldPoint(
     end === connection.start ? route.vertices[0] : route.vertices.at(-1)!,
     connection.ownerId === null ? undefined : world.get(connection.ownerId),
@@ -48,10 +62,6 @@ function freeAt(
     ? toLocalGeometry({ ...owner, ...point, rotation: 0 }, owner)
     : point;
   return { kind: 'free', x: local.x, y: local.y };
-}
-function scopes(document: RecursiveDocument, end: Endpoint) {
-  if (end.kind === 'free') return null;
-  return connectionOwners(document, end.objectId);
 }
 function ancestry(document: RecursiveDocument, id: string | null): string {
   const ids: string[] = [];
@@ -100,30 +110,12 @@ export function repairConnections(
         changed = true;
     }
     if (!changed) continue;
-    const a = scopes(draft, connection.start),
-      b = scopes(draft, connection.end);
-    const legal = a && b ? a.filter((owner) => b.includes(owner)) : (a ?? b);
-    if (legal && !legal.length) {
-      draft.connectionRepairs ??= {};
-      const start = endpointWorld(before, old, old.start),
-        end = endpointWorld(before, old, old.end);
-      draft.connectionRepairs[old.id] = {
-        connection: JSON.parse(JSON.stringify(old)),
-        ownerGeometry:
-          old.ownerId === null ? null : savedWorldGeometry(before, old.ownerId),
-        start: { x: start.x, y: start.y },
-        end: { x: end.x, y: end.y },
-        reason:
-          'The move crosses a container boundary. Reconnect these targets using boundary bridge segments.',
-      };
-      delete draft.connections[old.id];
-      continue;
-    }
-    const ownerId = legal?.includes(old.ownerId)
-      ? old.ownerId
-      : legal
-        ? legal[0]
-        : old.ownerId;
+    const ownerId = connectionOwner(
+      draft,
+      connection.start.kind === 'free' ? null : connection.start.objectId,
+      connection.end.kind === 'free' ? null : connection.end.objectId,
+      old.ownerId,
+    );
     if (ownerId !== old.ownerId) {
       for (const key of ['start', 'end'] as const)
         if (connection[key].kind === 'free')

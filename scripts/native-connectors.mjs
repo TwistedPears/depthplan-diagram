@@ -92,6 +92,14 @@ export async function connectors(driver, probe) {
     );
   const select = (id) =>
     command('depthplan_selection', { action: 'set', connections: [id] });
+  const capture = async (name) => {
+    const bytes = await driver.request(
+      `/session/${driver.session}/screenshot`,
+      undefined,
+      'GET',
+    );
+    await writeFile(path.join(profile, name), Buffer.from(bytes, 'base64'));
+  };
   await click('Arrow');
   for (const [x, y] of [
     [400, 300],
@@ -247,15 +255,7 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   await click('Arrow');
   await pointer('mousemove', 400, 300);
-  const screenshot = await driver.request(
-    `/session/${driver.session}/screenshot`,
-    undefined,
-    'GET',
-  );
-  await writeFile(
-    path.join(profile, 'connector-snapping.png'),
-    Buffer.from(screenshot, 'base64'),
-  );
+  await capture('connector-snapping.png');
   await click('Pointer (Select/Edit)');
   console.log(
     'PASS connector snapping: four shape anchors, creation, snap/release in one drag, boundary endpoint priority, reattachment/detachment, visible-side fallback, Undo and reopen.',
@@ -391,17 +391,127 @@ export async function connectors(driver, probe) {
   );
   assert.deepEqual(await startHandle(), { x: 792, y: 420 });
   assert.deepEqual(await endHandle(), { x: 658, y: 420 });
-  const parentScreenshot = await driver.request(
-    `/session/${driver.session}/screenshot`,
-    undefined,
-    'GET',
-  );
-  await writeFile(
-    path.join(profile, 'parent-connectors.png'),
-    Buffer.from(parentScreenshot, 'base64'),
-  );
+  await capture('parent-connectors.png');
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
     'PASS parent connections: shared inside/outside anchor, both drawing directions, inward routing, reattachment/detachment, Undo/Redo, collapse and reopen.',
+  );
+
+  nested.id = 'nested-connectors';
+  nested.metadata.title = 'Direct child connections';
+  nested.objects.child.type = 'diamond';
+  nested.layouts.a[1].a.z = 5;
+  file = path.join(profile, 'nested-connectors.depthplan');
+  await writeFile(file, JSON.stringify(nested));
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open');
+  await until(async () => (await state()).source?.path === file);
+  await click('Reset view');
+  saved = await draw([860, 420], [650, 420]);
+  const direct = Object.keys(saved.connections)[0];
+  const attachment = saved.connections[direct];
+  assert.equal(attachment.ownerId, null);
+  assert.equal(attachment.end.objectId, 'child');
+  assert.deepEqual(await endHandle(), { x: 658, y: 420 });
+  await command('depthplan_selection', { action: 'clear' });
+  // The committed line must clear the parent's fill, for paint and hit testing.
+  const ink =
+    await sync(`const layer=window.Konva.stages[0].getLayers()[0];layer.draw();
+    const hit=layer.getIntersection({x:730,y:420})?.findAncestor('.recursive-connection',true)?.id();
+    const tile=layer.toCanvas({x:729,y:419,width:3,height:3,pixelRatio:1});
+    const pixel=Array.from(tile.getContext('2d').getImageData(1,1,1,1).data);tile.width=0;return {hit,pixel};`);
+  assert.equal(ink.hit, `connection-${direct}`);
+  assert.deepEqual(ink.pixel, [71, 85, 105, 255]);
+  await capture('direct-child-expanded.png');
+  for (const format of ['svg', 'png']) {
+    const exported = path.join(profile, `direct-child.${format}`);
+    await click('Export current diagram');
+    await sync(
+      `const s=document.querySelector('select[aria-label="Format"]');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}));`,
+      [format],
+    );
+    await dialogs('save', exported);
+    await click('Export');
+    let bytes;
+    await until(async () => {
+      try {
+        bytes = await readFile(exported);
+        return bytes.length > 100;
+      } catch {
+        return false;
+      }
+    });
+    const hasArrowInside = await js(
+      `(async()=>{
+      const image=new Image();image.src=arguments[0];await image.decode();
+      const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+      const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+      // Parent ink begins near (399,269), plus 16px export padding.
+      const pixels=ctx.getImageData(340,164,14,7).data;
+      return Array.from({length:pixels.length/4},(_,i)=>i*4).some(i=>pixels[i]===71&&pixels[i+1]===85&&pixels[i+2]===105);
+    })()`,
+      [
+        `data:image/${format === 'svg' ? 'svg+xml' : 'png'};base64,${bytes.toString('base64')}`,
+      ],
+    );
+    assert(hasArrowInside, `${format} retains the arrow inside its parent`);
+  }
+  await click('Hide children of a');
+  saved = await save();
+  assert.deepEqual(saved.connections[direct], attachment);
+  await select(direct);
+  await js(
+    'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+  );
+  assert.deepEqual(await endHandle(), { x: 808, y: 420 });
+  await capture('direct-child-collapsed.png');
+  await click('Undo');
+  await select(direct);
+  await until(async () => (await endHandle()).x === 658);
+  assert.deepEqual(await endHandle(), { x: 658, y: 420 });
+  await click('Redo');
+  await save();
+
+  // Save/reopen the collapsed state, then restore the original child's anchor.
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open');
+  await until(async () => !(await state()).canUndo);
+  await select(direct);
+  await js(
+    'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+  );
+  assert.deepEqual(await endHandle(), { x: 808, y: 420 });
+  handle = await endHandle();
+  await pointer('mousedown', handle.x, handle.y);
+  await pointer('mousemove', 1120, 650);
+  await pointer('mouseup', 1120, 650);
+  assert.deepEqual((await save()).connections[direct].end, {
+    kind: 'free',
+    x: 1120,
+    y: 650,
+  });
+  await click('Undo');
+  assert.deepEqual((await save()).connections[direct], attachment);
+  await click('Reveal children of a');
+  await select(direct);
+  await until(async () => (await endHandle()).x === 658);
+  assert.deepEqual(await endHandle(), { x: 658, y: 420 });
+  handle = await endHandle();
+  await pointer('mousedown', handle.x, handle.y);
+  await pointer('mousemove', 600, 380);
+  await pointer('mouseup', 600, 380);
+  assert.equal((await save()).connections[direct].end.side, 'top');
+  await click('Undo');
+  await save();
+  saved = await draw([600, 380], [860, 420]);
+  const outgoing = Object.keys(saved.connections).find((key) => key !== direct);
+  assert.equal(saved.connections[outgoing].ownerId, null);
+  assert.equal(saved.connections[outgoing].start.objectId, 'child');
+  assert.equal(saved.connections[outgoing].end.objectId, 'b');
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS direct child connections: cross-container drawing in both directions, visible paint/hits, SVG/PNG, collapse projection, exact expansion restoration, endpoint edits, Undo/Redo and collapsed save/reopen.',
   );
 }

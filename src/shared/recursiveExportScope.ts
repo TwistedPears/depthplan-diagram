@@ -1,5 +1,6 @@
 import type { RecursiveDocument } from './recursiveDocument';
 import { recursiveScene } from './recursiveScene';
+import { visibleEndpoint } from './connectionGeometry';
 export interface ExportSelection {
   objects: Set<string>;
   connections: Set<string>;
@@ -24,9 +25,10 @@ export function resolveExportSelection(
       const connection = document.connections[id];
       if (
         selected.has(`connection-${id}`) ||
-        [connection.start, connection.end].every(
-          (end) => end.kind !== 'free' && objects.has(end.objectId),
-        )
+        [connection.start, connection.end].every((end) => {
+          const target = visibleEndpoint(document, end, scene.world);
+          return target.kind !== 'free' && objects.has(target.objectId);
+        })
       )
         connections.add(id);
     }
