@@ -49,13 +49,7 @@ import {
   setChildrenExpanded,
 } from '../../shared/recursiveLayouts';
 import RootDepthControls from './RootDepthControls';
-import BoundaryPointProperties from './BoundaryPointProperties';
-import {
-  boundaryPosition,
-  boundaryPlacement,
-  editBoundaryPoint,
-  previewBoundaryPoint,
-} from '../../shared/recursiveBoundary';
+import { boundaryPosition } from '../../shared/recursiveBoundary';
 import { ToolMode } from '../types/CanvasTools';
 import {
   createShape,
@@ -92,7 +86,6 @@ import {
 } from '../../shared/recursiveCamera';
 import type {
   Geometry,
-  BoundaryPoint,
   RecursiveDocument,
 } from '../../shared/recursiveDocument';
 import {
@@ -185,15 +178,6 @@ export default memo(function RecursiveCanvas({
     bridge?: { source: BoundaryReference; connectionId?: string };
   } | null>(null);
   const bridge = draw?.bridge;
-  const [pointProperties, setPointProperties] = useState(false);
-  const pointGesture = useRef<{
-    document: RecursiveDocument;
-    objectId: string;
-    pointId: string;
-    start: Point;
-    point: BoundaryPoint;
-    moved: boolean;
-  } | null>(null);
   const suppressClick = useRef(false);
   const drawing = tool !== ToolMode.POINTER && tool !== ToolMode.HAND;
   const [size, setSize] = useState({
@@ -282,7 +266,7 @@ export default memo(function RecursiveCanvas({
     tool,
     selected: selection,
     stageRef,
-    disabled: !!(properties || textEditing || bridge || pointProperties),
+    disabled: !!(properties || textEditing || bridge),
     onEdit,
     onBusyChange,
     onStatus,
@@ -323,24 +307,9 @@ export default memo(function RecursiveCanvas({
   useLayoutEffect(() => {
     onBusyChange(
       'canvas-draft',
-      !!(
-        properties ||
-        textEditing ||
-        pointProperties ||
-        linkEditing ||
-        draw ||
-        marquee
-      ),
+      !!(properties || textEditing || linkEditing || draw || marquee),
     );
-  }, [
-    properties,
-    textEditing,
-    pointProperties,
-    linkEditing,
-    draw,
-    marquee,
-    onBusyChange,
-  ]);
+  }, [properties, textEditing, linkEditing, draw, marquee, onBusyChange]);
   useLayoutEffect(
     () => () => {
       onBusyChange('canvas-draft', false);
@@ -375,7 +344,6 @@ export default memo(function RecursiveCanvas({
         ])
     ) {
       setSelectedPoint(null);
-      setPointProperties(false);
     }
   }, [document, scene.world, selectedPoint, setSelectedPoint]);
   const gesture = useRef<{
@@ -418,7 +386,6 @@ export default memo(function RecursiveCanvas({
     for (const change of gesture.current?.parentChanges.values() ?? [])
       clearTimeout(change.timer);
     gesture.current = null;
-    pointGesture.current = null;
     setPreview(null);
     setDropTargets([]);
     setDraw(null);
@@ -426,8 +393,7 @@ export default memo(function RecursiveCanvas({
   }, [onBusyChange, cancelConnector]);
   useDocumentDraft({
     label: 'canvas gesture or connector',
-    active: () =>
-      !!(gesture.current || pointGesture.current || draw || marquee || bridge),
+    active: () => !!(gesture.current || draw || marquee || bridge),
     discard: () => {
       cancelDrag();
       setTool(ToolMode.POINTER);
@@ -435,16 +401,12 @@ export default memo(function RecursiveCanvas({
   });
 
   useEffect(() => {
-    if (
-      (gesture.current && gesture.current.document !== document) ||
-      (pointGesture.current && pointGesture.current.document !== document)
-    )
-      cancelDrag();
+    if (gesture.current && gesture.current.document !== document) cancelDrag();
   }, [document, cancelDrag]);
   const cancelOutside = useEffectEvent((event: MouseEvent) => {
     if (
       !(event.target instanceof HTMLCanvasElement) &&
-      (gesture.current || pointGesture.current || draw || marquee)
+      (gesture.current || draw || marquee)
     )
       cancelDrag();
   });
@@ -464,28 +426,6 @@ export default memo(function RecursiveCanvas({
       window.removeEventListener('mouseup', cancelOutside);
     };
   }, [cancelDrag]);
-  const updatePoint = () => {
-    const active = pointGesture.current;
-    if (!active) return;
-    const at = pointer();
-    if (
-      !active.moved &&
-      Math.hypot(at.x - active.start.x, at.y - active.start.y) * camera.scale <
-        3
-    )
-      return;
-    active.moved = true;
-    active.point = boundaryPlacement(at, scene.world.get(active.objectId)!);
-    setPreview({
-      base: document,
-      value: previewBoundaryPoint(
-        document,
-        active.objectId,
-        active.pointId,
-        active.point,
-      ),
-    });
-  };
   const beginGeometry = (ids: string[], resize?: { x: number; y: number }) => {
     const movers = topmostObjects(
       document,
@@ -771,7 +711,6 @@ export default memo(function RecursiveCanvas({
     );
   };
   useCanvasKeyboardShortcuts({ zoomToFit: fit, setViewBox: setCamera });
-  const { boundaryIndex } = connector;
   const renderBoundaryPoints = useCallback(
     (id: string) => {
       const object = displayed.objects[id],
@@ -798,23 +737,9 @@ export default memo(function RecursiveCanvas({
               }
               onMouseDown={(event) => {
                 if (tool !== ToolMode.POINTER || event.evt.button !== 0) return;
-                if (
-                  (event.evt.ctrlKey || event.evt.metaKey) &&
-                  boundaryIndex(id, pointId) !== null
-                )
-                  return;
                 event.cancelBubble = true;
-                onBusyChange('canvas-gesture', true);
                 setSelected([`object-${id}`]);
                 setSelectedPoint({ objectId: id, pointId });
-                pointGesture.current = {
-                  document,
-                  objectId: id,
-                  pointId,
-                  start: stageRef.current!.getRelativePointerPosition()!,
-                  point,
-                  moved: false,
-                };
               }}
               onClick={(event) => {
                 if (tool === ToolMode.POINTER) event.cancelBubble = true;
@@ -830,11 +755,8 @@ export default memo(function RecursiveCanvas({
       camera.scale,
       selectedPoint,
       tool,
-      boundaryIndex,
-      onBusyChange,
       setSelected,
       setSelectedPoint,
-      document,
     ],
   );
   const lifted =
@@ -944,10 +866,6 @@ export default memo(function RecursiveCanvas({
         }}
         onMouseMove={(event) => {
           if (connector.mouseMove(event)) return;
-          if (pointGesture.current) {
-            updatePoint();
-            return;
-          }
           if (gesture.current) {
             updateGeometry(event.evt.ctrlKey);
             return;
@@ -962,21 +880,6 @@ export default memo(function RecursiveCanvas({
           if (connector.mouseUp(event)) return;
           if (event.evt.button !== 0) return;
           onBusyChange('canvas-gesture', false);
-          if (pointGesture.current) {
-            const active = pointGesture.current;
-            updatePoint();
-            cancelDrag();
-            if (active.moved)
-              onEdit(
-                editBoundaryPoint(
-                  active.objectId,
-                  active.pointId,
-                  active.point,
-                ),
-              );
-            suppressClick.current = true;
-            return;
-          }
           if (gesture.current) {
             finishGeometry(event.evt.ctrlKey);
             return;
@@ -1330,7 +1233,6 @@ export default memo(function RecursiveCanvas({
               !!textEditing ||
               !!properties ||
               !!draw ||
-              !!pointProperties ||
               !!linkEditing ||
               drawing
             }
@@ -1404,31 +1306,6 @@ export default memo(function RecursiveCanvas({
           }}
         />
       )}
-      {pointProperties &&
-        selectedPoint &&
-        document.objects[selectedPoint.objectId]?.boundaryPoints?.[
-          selectedPoint.pointId
-        ] && (
-          <BoundaryPointProperties
-            key={selectedPoint.pointId}
-            id={selectedPoint.pointId}
-            point={
-              document.objects[selectedPoint.objectId].boundaryPoints![
-                selectedPoint.pointId
-              ]
-            }
-            onApply={(point) =>
-              onEdit(
-                editBoundaryPoint(
-                  selectedPoint.objectId,
-                  selectedPoint.pointId,
-                  point,
-                ),
-              )
-            }
-            onClose={() => setPointProperties(false)}
-          />
-        )}
       {textEditing && scene.world.has(textEditing) && (
         <InlineObjectText
           key={textEditing}
@@ -1590,80 +1467,45 @@ export default memo(function RecursiveCanvas({
                 points = document.objects[objectId].boundaryPoints ?? {},
                 pointIds = Object.keys(points);
               return (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Add boundary point"
-                    title="Add boundary point"
-                    onClick={() => {
-                      const pointId = crypto.randomUUID();
-                      onEdit(
-                        editBoundaryPoint(
-                          objectId,
-                          pointId,
-                          {
-                            side: 'right',
-                            offset:
-                              (pointIds.length + 1) / (pointIds.length + 2),
-                          },
-                          true,
-                        ),
-                      );
-                      setSelectedPoint({ objectId, pointId });
-                    }}
-                  >
-                    <Icon name="add-boundary-point" />
-                  </button>
-                  {pointIds.length > 0 && (
-                    <label>
-                      Boundary point
-                      <select
-                        aria-label="Boundary point"
-                        style={{ maxWidth: 160 }}
-                        value={
-                          selectedPoint?.objectId === objectId
-                            ? selectedPoint.pointId
-                            : ''
-                        }
-                        onChange={(event) =>
-                          setSelectedPoint(
-                            event.target.value
-                              ? { objectId, pointId: event.target.value }
-                              : null,
-                          )
-                        }
-                      >
-                        <option value="">Select a point</option>
-                        {pointIds.map((pointId, index) => (
-                          <option key={pointId} value={pointId}>
-                            {index + 1}: {pointId}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </>
+                pointIds.length > 0 && (
+                  <label>
+                    Boundary point
+                    <select
+                      aria-label="Boundary point"
+                      style={{ maxWidth: 160 }}
+                      value={
+                        selectedPoint?.objectId === objectId
+                          ? selectedPoint.pointId
+                          : ''
+                      }
+                      onChange={(event) =>
+                        setSelectedPoint(
+                          event.target.value
+                            ? { objectId, pointId: event.target.value }
+                            : null,
+                        )
+                      }
+                    >
+                      <option value="">Select a point</option>
+                      {pointIds.map((pointId, index) => (
+                        <option key={pointId} value={pointId}>
+                          {index + 1}: {pointId}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
               );
             })()}
           {selectedPoint && (
-            <>
-              <button
-                type="button"
-                aria-label="Point properties"
-                title="Point properties"
-                onClick={() => setPointProperties(true)}
-              >
-                <Icon name="sliders" />
-              </button>
-              <button
-                type="button"
-                aria-label="Connect inside"
-                title="Connect inside"
-                onClick={() => startInside(selectedPoint)}
-              >
-                <Icon name="connect-inside" />
-              </button>
-            </>
+            <button
+              type="button"
+              aria-label="Connect inside"
+              title="Connect inside"
+              onClick={() => startInside(selectedPoint)}
+            >
+              <Icon name="connect-inside" />
+            </button>
           )}
           {selection.length === 1 &&
             selection[0].startsWith('connection-') &&
@@ -1696,12 +1538,10 @@ export default memo(function RecursiveCanvas({
             blocked={() =>
               !!(
                 gesture.current ||
-                pointGesture.current ||
                 draw ||
                 marquee ||
                 properties ||
-                textEditing ||
-                pointProperties
+                textEditing
               )
             }
             onEdit={onEdit}

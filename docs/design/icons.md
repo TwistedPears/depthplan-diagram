@@ -16,7 +16,7 @@ files together. No image service or runtime download is used.
 ## Interface icons
 
 The [interface asset directory](../../src/renderer/assets/icons/) currently contains
-81 SVGs, including Style controls and the two/three-square child indicators.
+80 SVGs, including Style controls and the two/three-square child indicators.
 The shipped files are the inventory; the prompt collections describe overlapping
 generation sets, not a count of all integrated icons:
 
@@ -26,7 +26,7 @@ generation sets, not a count of all integrated icons:
 The five stroke width/pattern assets are integrated; there is no outstanding
 placeholder-icon backlog. Keep the Style bible's path and `assets[].summary`
 `Target SVG:` entries stable: [native-expansion.mjs](../../scripts/native-expansion.mjs)
-uses them to validate its 41-icon set plus `square-stack-2` and `square-stack-3`.
+uses them to validate its 40-icon set plus `square-stack-2` and `square-stack-3`.
 Corner previews show only the top-left corner. The Link asset and implementation
 are retained while its Style action is hidden.
 

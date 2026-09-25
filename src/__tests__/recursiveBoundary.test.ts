@@ -3,7 +3,6 @@ import {
   boundaryPlacement,
   boundaryPosition,
   editBoundaryPoint,
-  previewBoundaryPoint,
 } from '../shared/recursiveBoundary';
 import { recursiveFixture, geometry } from './recursiveFixtures';
 import { createConnector } from '../shared/recursiveCreation';
@@ -146,13 +145,8 @@ it('keeps shared external attachments in either direction, updates all routes an
   d.connections.in.style = { stroke: '#abcdef' };
   const layouts = JSON.stringify(d.layouts),
     before = recursiveScene(d).connections.get(null)!;
-  const preview = previewBoundaryPoint(d, 'app', 'port', {
-    side: 'bottom',
-    offset: 0.1,
-  });
-  expect(recursiveScene(preview).connections.get(null)).not.toEqual(before);
-  expect(d.objects.app.boundaryPoints!.port.side).toBe('right');
   apply(editBoundaryPoint('app', 'port', { side: 'bottom', offset: 0.1 }));
+  expect(recursiveScene(d).connections.get(null)).not.toEqual(before);
   expect(JSON.stringify(d.layouts)).toBe(layouts);
   const points = () => recursiveScene(d).connections.get(null)!;
   expect(points()[0].points.slice(2)).toEqual(points()[1].points.slice(0, 2));

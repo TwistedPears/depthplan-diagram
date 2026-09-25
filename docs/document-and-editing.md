@@ -140,12 +140,26 @@ including rounded corners, diamonds and ellipses. Handles and routes share this
 projection at every depth and rotation.
 
 Ordinary new lines have free endpoints. The Arrow tool binds near/inside visible
-shapes; Ctrl/Cmd disables binding and Alt/Option selects a precise attachment.
-`binding: "auto"` follows the adjacent path vertex, while `"fixed"` keeps side/offset;
-both leave an eight-unit outline gap. An absent mode uses the authored attachment
+shapes; Ctrl/Cmd disables binding. Hovering a target shows four anchors: rectangle
+side midpoints, diamond vertices, or ellipse cardinal points, following the shape's
+rotation. Creation and endpoint dragging snap within 12 screen pixels of an anchor
+and release beyond that radius. Between anchors, dragging near the outline follows
+the pointer; dragging into the shape uses an automatic attachment.
+`binding: "auto"` follows the adjacent path vertex. `"fixed"` prefers its authored
+side/offset while the next path segment faces out of the shape, then slides along
+the visible outline until that point faces outward again. Neither sliding nor
+moving shapes changes the saved preferred point. Both modes leave an eight-unit
+outline gap. An absent mode uses the authored attachment
 without an added gap. Straight routes join vertices, curved routes use cubic
 Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
 Creation uses world points; endpoint/point edits use owner-local points.
+
+The Style panel no longer adds or repositions custom boundary points. Existing
+named points remain stored for compatibility and inward bridges, and their canvas
+handles are stationary. Selected connector endpoints take priority over these
+handles, so a normal endpoint drag reattaches or detaches the connector without
+moving its old point. MCP boundary-point commands remain available for stored
+documents and bridge authoring.
 
 An inward bridge connects a container boundary to an immediate child or its
 boundary. Deeper nesting uses successive explicit bridges. Many connections may

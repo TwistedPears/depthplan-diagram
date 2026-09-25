@@ -2,7 +2,6 @@ import type {
   BoundaryPoint,
   DiagramObject,
   Geometry,
-  RecursiveDocument,
 } from './recursiveDocument';
 import type { DocumentEdit } from './documentTransactions';
 import { toLocalGeometry } from './recursiveHierarchy';
@@ -84,23 +83,5 @@ export function editBoundaryPoint(
     if (create ? exists : !exists)
       throw new Error('The boundary point no longer matches this edit.');
     object.boundaryPoints = { ...object.boundaryPoints, [pointId]: point };
-  };
-}
-export function previewBoundaryPoint(
-  document: RecursiveDocument,
-  objectId: string,
-  pointId: string,
-  point: BoundaryPoint,
-): RecursiveDocument {
-  const object = document.objects[objectId];
-  return {
-    ...document,
-    objects: {
-      ...document.objects,
-      [objectId]: {
-        ...object,
-        boundaryPoints: { ...object.boundaryPoints, [pointId]: point },
-      },
-    },
   };
 }

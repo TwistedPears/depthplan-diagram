@@ -138,7 +138,7 @@ it.each(['rectangle', 'ellipse', 'diamond', 'frame'] as const)(
     expect(
       bindingTarget(d, world, g, 1, { ...modifiers, ctrlKey: true }),
     ).toBeNull();
-    const c = replaceEndpoint(d, world, free(), 'end', g, 'payments', false);
+    const c = replaceEndpoint(d, world, free(), 'end', g, 'payments', 1);
     expect(c.end).toMatchObject({
       kind: 'object',
       objectId: 'payments',
@@ -165,19 +165,11 @@ it('rejects incompatible nested bindings while accepting explicit owner boundary
     'start',
     world.get('api')!,
     'api',
-    false,
+    1,
   );
   expect(c.ownerId).toBe('app');
   expect(() =>
-    replaceEndpoint(
-      d,
-      world,
-      c,
-      'end',
-      world.get('payments')!,
-      'payments',
-      false,
-    ),
+    replaceEndpoint(d, world, c, 'end', world.get('payments')!, 'payments', 1),
   ).toThrow('boundary points');
   d.objects.app.boundaryPoints = { port: { side: 'left', offset: 0.5 } };
   expect(
@@ -188,7 +180,7 @@ it('rejects incompatible nested bindings while accepting explicit owner boundary
       'end',
       world.get('app')!,
       { objectId: 'app', pointId: 'port' },
-      false,
+      1,
     ).end,
   ).toEqual({ kind: 'boundary', objectId: 'app', pointId: 'port' });
 });

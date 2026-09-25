@@ -24,6 +24,7 @@ import {
 import {
   boundEndpoint,
   bindingTarget,
+  connectionAnchors,
   replaceEndpoint,
   type BindingModifiers,
 } from '../../shared/connectionEditing';
@@ -58,7 +59,6 @@ type Drawing = {
   cursor: Point;
   multi: boolean;
   startTarget: ConnectionTarget;
-  startPrecise: boolean;
   modifiers: BindingModifiers;
 };
 type Gesture = {
@@ -193,18 +193,8 @@ export default function useConnectionEditing({
     point: Point,
     modifiers: BindingModifiers,
     ownerId?: string | null,
-  ): ConnectionTarget => {
-    if (modifiers.metaKey || modifiers.ctrlKey) return null;
-    const hit = stageRef.current?.getIntersection(
-      stageRef.current.getPointerPosition()!,
-    );
-    const boundary = hit?.findAncestor('.boundary-point', true);
-    if (boundary)
-      return {
-        objectId: boundary.getAttr('boundaryObjectId'),
-        pointId: boundary.getAttr('boundaryPointId'),
-      };
-    return bindingTarget(
+  ): ConnectionTarget =>
+    bindingTarget(
       document,
       scene.world,
       point,
@@ -212,7 +202,6 @@ export default function useConnectionEditing({
       modifiers,
       ownerId,
     );
-  };
   const highlight = (value: ConnectionTarget) =>
     setTarget(typeof value === 'string' ? value : (value?.objectId ?? null));
   const buildDrawing = (active: Drawing, finish = false) => {
@@ -240,18 +229,20 @@ export default function useConnectionEditing({
     )(draft);
     const c = draft.connections[active.id];
     c.start = boundEndpoint(
+      active.base,
       scene.world,
       c.ownerId,
       startTarget,
       pins[0],
-      active.startPrecise,
+      camera.scale,
     );
     c.end = boundEndpoint(
+      active.base,
       scene.world,
       c.ownerId,
       endTarget,
       pins.at(-1)!,
-      active.modifiers.altKey,
+      camera.scale,
     );
     return c;
   };
@@ -332,7 +323,7 @@ export default function useConnectionEditing({
           index === 0 ? 'start' : 'end',
           worldAt,
           nextTarget,
-          modifiers.altKey,
+          camera.scale,
         );
       } else if (type === 'point' || type === 'midpoint') {
         at = constrainPoint(
@@ -414,22 +405,6 @@ export default function useConnectionEditing({
       );
     } else setPointsSelected([]);
   };
-  const boundaryIndex = useCallback(
-    (objectId: string, pointId: string) => {
-      if (!connection || !route) return null;
-      for (const key of ['start', 'end'] as const) {
-        const endpoint = connection[key];
-        if (
-          endpoint.kind === 'boundary' &&
-          endpoint.objectId === objectId &&
-          endpoint.pointId === pointId
-        )
-          return key === 'start' ? 0 : route.vertices.length - 1;
-      }
-      return null;
-    },
-    [connection, route],
-  );
   const mouseDown = (event: PointerEvent): boolean => {
     if (event.evt.button !== 0) return false;
     if (label) return true;
@@ -448,7 +423,6 @@ export default function useConnectionEditing({
         multi: false,
         startTarget:
           tool === ToolMode.ARROW ? targetAt(point, event.evt) : null,
-        startPrecise: event.evt.altKey,
         modifiers: copyModifiers(event.evt),
       };
       onBusyChange('connection-gesture', true);
@@ -456,17 +430,6 @@ export default function useConnectionEditing({
       return true;
     }
     if (tool !== ToolMode.POINTER) return false;
-    const boundary = event.target.findAncestor('.boundary-point', true);
-    if (boundary && connection && (event.evt.ctrlKey || event.evt.metaKey)) {
-      const index = boundaryIndex(
-        boundary.getAttr('boundaryObjectId'),
-        boundary.getAttr('boundaryPointId'),
-      );
-      if (index !== null) {
-        startGesture(connection, { type: 'point', index }, event);
-        return true;
-      }
-    }
     const handle = (event.target as Konva.Node).getAttr('connectorHandle') as
       Handle | undefined;
     if (handle && connection) {
@@ -508,7 +471,11 @@ export default function useConnectionEditing({
       return true;
     }
     const active = drawing.current;
-    if (!active) return false;
+    if (!active) {
+      if (!disabled && tool === ToolMode.ARROW)
+        highlight(targetAt(pointer(), event.evt));
+      return false;
+    }
     active.cursor = constrainPoint(
       active.pins.at(-1)!,
       pointer(),
@@ -760,7 +727,6 @@ export default function useConnectionEditing({
     );
   return {
     mouseDown,
-    boundaryIndex,
     mouseMove,
     mouseUp,
     doubleClick,
@@ -791,22 +757,39 @@ export default function useConnectionEditing({
             />
           </Group>
         )}
-        {target && scene.world.has(target) && (
-          <Group
-            listening={false}
-            x={scene.world.get(target)!.x}
-            y={scene.world.get(target)!.y}
-            rotation={scene.world.get(target)!.rotation}
-          >
-            <ObjectOutline
-              object={document.objects[target]}
-              geometry={scene.world.get(target)!}
-              stroke="#06b6d4"
-              strokeWidth={3 / camera.scale}
-              fill="rgba(6,182,212,0.08)"
-            />
-          </Group>
-        )}
+        {!disabled &&
+          (tool === ToolMode.ARROW ||
+            gesture.current?.handle.type === 'point') &&
+          target &&
+          scene.world.has(target) && (
+            <Group listening={false}>
+              <Group
+                x={scene.world.get(target)!.x}
+                y={scene.world.get(target)!.y}
+                rotation={scene.world.get(target)!.rotation}
+              >
+                <ObjectOutline
+                  object={document.objects[target]}
+                  geometry={scene.world.get(target)!}
+                  stroke="#06b6d4"
+                  strokeWidth={3 / camera.scale}
+                  fill="rgba(6,182,212,0.08)"
+                />
+              </Group>
+              {connectionAnchors(scene.world.get(target)!).map((anchor) => (
+                <Circle
+                  key={anchor.side}
+                  name="connection-anchor"
+                  x={anchor.x}
+                  y={anchor.y}
+                  radius={4 / camera.scale}
+                  stroke="#06b6d4"
+                  strokeWidth={1.5 / camera.scale}
+                  fill="white"
+                />
+              ))}
+            </Group>
+          )}
         {drawing.current && paint && paintedRoute && (
           <Group
             name="creation-preview"
@@ -841,11 +824,7 @@ export default function useConnectionEditing({
                 dash={[4 / camera.scale, 4 / camera.scale]}
               />
               {route.vertices.map((point, index) =>
-                (index === 0 && connection.start.kind === 'boundary') ||
-                (index === route.vertices.length - 1 &&
-                  connection.end.kind === 'boundary')
-                  ? null
-                  : handle(point, 'point', index),
+                handle(point, 'point', index),
               )}
               {connection.style?.lineType === 'elbow'
                 ? route.route
@@ -901,7 +880,7 @@ export default function useConnectionEditing({
       : pointMode
         ? 'Drag points or midpoints · Alt-click a segment to add a point · Delete selected points · Escape to finish'
         : connection
-          ? 'Drag an endpoint or midpoint · Enter to edit · Shift locks angles · Ctrl/⌘ disables binding · Alt/⌥ binds precisely'
+          ? 'Drag endpoints to snap to side points or slide along the outline · Shift locks angles · Ctrl/⌘ disables binding'
           : null,
   };
 }

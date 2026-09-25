@@ -114,7 +114,7 @@ export function repairConnections(
         start: { x: start.x, y: start.y },
         end: { x: end.x, y: end.y },
         reason:
-          'The move crosses a container boundary. Add boundary points and bridge segments to reconnect these targets.',
+          'The move crosses a container boundary. Reconnect these targets using boundary bridge segments.',
       };
       delete draft.connections[old.id];
       continue;

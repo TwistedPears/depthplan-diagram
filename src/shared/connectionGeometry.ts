@@ -87,7 +87,7 @@ export function constrainPoint(
   };
 }
 
-/** Fixed attachments retain their authored side and offset. */
+/** A preferred attachment slides along the outline when its next segment would enter the shape. */
 export function resolveEndpoint(
   document: RecursiveDocument,
   end: Endpoint,
@@ -98,17 +98,48 @@ export function resolveEndpoint(
   if (end.kind === 'free') return { x: end.x, y: end.y };
   const target = world.get(end.objectId);
   if (!target) return null;
+  const object = document.objects[end.objectId];
   const placement =
     end.kind === 'boundary'
-      ? document.objects[end.objectId].boundaryPoints![end.pointId]
+      ? object.boundaryPoints![end.pointId]
       : end.binding === 'auto' && toward
         ? boundaryPlacement(worldPoint(toward, owner), target)
         : end;
-  const at = boundaryPosition(
-    placement,
-    target,
-    document.objects[end.objectId],
-  );
+  let at = boundaryPosition(placement, target, object);
+  if (end.kind === 'object' && end.binding === 'fixed' && toward) {
+    const next = localPoint(worldPoint(toward, owner), target);
+    const a = target.width / 2,
+      b = target.height / 2;
+    const dx = (next.x - at.x) / a,
+      dy = (next.y - at.y) / b;
+    let facing: number;
+    if (object.type === 'diamond')
+      facing =
+        (at.x === 0 ? Math.abs(dx) : Math.sign(at.x) * dx) +
+        (at.y === 0 ? Math.abs(dy) : Math.sign(at.y) * dy);
+    else if (object.type === 'ellipse')
+      facing = (at.x / a) * dx + (at.y / b) * dy;
+    else {
+      const radius =
+        typeof object.style?.cornerRadius === 'number'
+          ? Math.max(0, Math.min(a, b, object.style.cornerRadius))
+          : 0;
+      facing = radius
+        ? Math.sign(at.x) * Math.max(0, Math.abs(at.x) - a + radius) * dx * a +
+          Math.sign(at.y) * Math.max(0, Math.abs(at.y) - b + radius) * dy * b
+        : Math.max(
+            Math.abs(at.x) === a ? Math.sign(at.x) * dx : -Infinity,
+            Math.abs(at.y) === b ? Math.sign(at.y) * dy : -Infinity,
+          );
+    }
+    if (facing < -1e-9) {
+      at = boundaryPosition(
+        boundaryPlacement(worldPoint(toward, owner), target),
+        target,
+        object,
+      );
+    }
+  }
   if (end.kind === 'object' && end.binding) {
     const length = Math.hypot(at.x, at.y) || 1;
     at.x += (at.x / length) * 8;
@@ -285,20 +316,24 @@ export function connectionRoute(
     end = resolveEndpoint(document, connection.end, world, owner);
   if (!start || !end) return null;
   const authored = connection.points ?? [];
-  start = resolveEndpoint(
-    document,
-    connection.start,
-    world,
-    owner,
-    authored[0] ?? end,
-  )!;
-  end = resolveEndpoint(
-    document,
-    connection.end,
-    world,
-    owner,
-    authored.at(-1) ?? start,
-  )!;
+  // Sliding either endpoint can hide the other's preferred point. Recheck both
+  // against the resolved segment, rather than the original far-side anchor.
+  for (let pass = 0; pass < 2; pass++) {
+    start = resolveEndpoint(
+      document,
+      connection.start,
+      world,
+      owner,
+      authored[0] ?? end,
+    )!;
+    end = resolveEndpoint(
+      document,
+      connection.end,
+      world,
+      owner,
+      authored.at(-1) ?? start,
+    )!;
+  }
   const vertices = [start, ...authored, end];
   const bezier = connection.style?.lineType === 'curved';
   let route = vertices;

@@ -8,6 +8,7 @@ import { authoring } from './native-authoring.mjs';
 import { searchProbe } from './native-search.mjs';
 import { layering } from './native-layering.mjs';
 import { expansion } from './native-expansion.mjs';
+import { connectors } from './native-connectors.mjs';
 const {
   adapter,
   profile,
@@ -480,6 +481,7 @@ try {
   assert.deepEqual(await resumed.sync('return window.nativeErrors'), []);
   await layering(resumed, probe);
   await expansion(resumed, probe);
+  await connectors(resumed, probe);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',

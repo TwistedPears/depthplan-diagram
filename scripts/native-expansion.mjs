@@ -299,7 +299,7 @@ export async function expansion(driver, probe) {
     (asset) => asset.summary.match(/Target SVG: (.*?)\.svg/)[1],
   );
   icons.push('square-stack-2', 'square-stack-3');
-  assert.equal(icons.length, 43);
+  assert.equal(icons.length, 42);
   assert.deepEqual(
     await sync(
       `return arguments[0].filter(name => {
@@ -426,13 +426,7 @@ export async function expansion(driver, probe) {
   );
   assert.deepEqual(
     actionButtons.map((button) => button.name),
-    [
-      'Edit text',
-      'Properties',
-      'Add boundary point',
-      'Delete selected',
-      'Duplicate',
-    ],
+    ['Edit text', 'Properties', 'Delete selected', 'Duplicate'],
   );
   for (const button of actionButtons)
     assert(
@@ -550,7 +544,7 @@ export async function expansion(driver, probe) {
     { open: false, focus: 'End marker' },
   );
   console.log(
-    'PASS Style icons: 43 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, hidden Link with stored links retained, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
+    'PASS Style icons: 42 themed assets, persistent 2/3-stack toggles including nested/unselected parents, icon-only actions, subtree Duplicate/Undo, hidden Link with stored links retained, fill/corner controls, hatch SVG/PNG, reopen, path/marker choices.',
   );
   await screenshot('expansion-screen.png');
   assert.deepEqual(await sync('return window.nativeErrors'), []);

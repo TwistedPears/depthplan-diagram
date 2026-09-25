@@ -20,6 +20,17 @@ export type BindingModifiers = {
   altKey: boolean;
   shiftKey: boolean;
 };
+export function connectionAnchors(geometry: Geometry) {
+  return (
+    [
+      ['top', 0, -geometry.height / 2],
+      ['right', geometry.width / 2, 0],
+      ['bottom', 0, geometry.height / 2],
+      ['left', -geometry.width / 2, 0],
+    ] as const
+  ).map(([side, x, y]) => ({ side, ...worldPoint({ x, y }, geometry) }));
+}
+
 export function bindingTarget(
   document: RecursiveDocument,
   world: Map<string, Geometry>,
@@ -41,6 +52,9 @@ export function bindingTarget(
     );
     return (
       containsShape(document.objects[id], geometry, point) ||
+      connectionAnchors(geometry).some(
+        (anchor) => distance(point, anchor) <= 12 / scale,
+      ) ||
       distance(point, outline) <= 14 / scale
     );
   });
@@ -57,17 +71,30 @@ export function bindingTarget(
   return candidates[0]?.[0] ?? null;
 }
 export function boundEndpoint(
+  document: RecursiveDocument,
   world: Map<string, Geometry>,
   ownerId: string | null,
   target: ConnectionTarget,
   point: Point,
-  precise: boolean,
+  scale: number,
 ): Endpoint {
   const endpoint = connectorEndpoint(world, ownerId, target, point);
   if (endpoint.kind === 'object') {
-    endpoint.binding = precise ? 'fixed' : 'auto';
-    if (!precise && Math.abs(endpoint.offset - 0.5) < 0.12)
+    const geometry = world.get(endpoint.objectId)!;
+    const anchor = connectionAnchors(geometry).sort(
+      (a, b) => distance(point, a) - distance(point, b),
+    )[0];
+    const outline = worldPoint(
+      boundaryPosition(endpoint, geometry, document.objects[endpoint.objectId]),
+      geometry,
+    );
+    endpoint.binding =
+      distance(point, outline) <= 14 / scale ? 'fixed' : 'auto';
+    if (distance(point, anchor) <= 12 / scale) {
+      endpoint.binding = 'fixed';
+      endpoint.side = anchor.side;
       endpoint.offset = 0.5;
+    }
   }
   return endpoint;
 }
@@ -79,7 +106,7 @@ export function replaceEndpoint(
   key: 'start' | 'end',
   point: Point,
   target: ConnectionTarget,
-  precise: boolean,
+  scale: number,
 ): DiagramConnection {
   const otherKey = key === 'start' ? 'end' : 'start';
   const other = connection[otherKey];
@@ -106,7 +133,7 @@ export function replaceEndpoint(
   const result = {
     ...connection,
     ownerId,
-    [key]: boundEndpoint(world, ownerId, target, point, precise),
+    [key]: boundEndpoint(document, world, ownerId, target, point, scale),
   };
   if (ownerId !== connection.ownerId) {
     const oldOwner =

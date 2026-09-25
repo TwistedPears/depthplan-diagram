@@ -22,20 +22,14 @@
     {
       "id": "Sliders",
       "name": "Selection Properties",
-      "summary": "Category: StyleActions | Target SVG: sliders.svg | Control: Properties; Point properties | Status: Reuse existing master.",
-      "prompt": "Create the Selection Properties icon for DepthPlan. Its interface role is: Selection properties.\n\nThree horizontal adjustment tracks with offset rounded slider knobs.\n\nStyle popup use: Properties; Point properties. Share this master across object, connector and selected-boundary-point properties. Context and the tooltip distinguish the targets; do not generate nearly identical variants. Reuse the accepted original master when available; this prompt is for regeneration only."
+      "summary": "Category: StyleActions | Target SVG: sliders.svg | Control: Properties | Status: Reuse existing master.",
+      "prompt": "Create the Selection Properties icon for DepthPlan. Its interface role is: Selection properties.\n\nThree horizontal adjustment tracks with offset rounded slider knobs.\n\nStyle popup use: Properties. Share this master across object and connector properties. Context and the tooltip distinguish the targets; do not generate nearly identical variants. Reuse the accepted original master when available; this prompt is for regeneration only."
     },
     {
       "id": "EditText",
       "name": "Edit Text",
       "summary": "Category: StyleActions | Target SVG: edit-text.svg | Control: Edit text / Edit connector label | Status: New asset for existing control.",
       "prompt": "Create the Edit Text icon for DepthPlan. Its interface role is: Edit text / Edit connector label.\n\nOne upright capital T with a broad top stroke and centered vertical stem, paired with a slim I-beam text cursor immediately to its right. Keep a clear gap between the T and the cursor. The cursor has short top and bottom caps and the same visual weight as the family.\n\nOnly the single capital T is lettering. No word, paragraph, page outline, pencil or button tile. This edits the selected object text or connector label; it is not a text-alignment control."
-    },
-    {
-      "id": "AddBoundaryPoint",
-      "name": "Add Boundary Point",
-      "summary": "Category: StyleActions | Target SVG: add-boundary-point.svg | Control: Add boundary point to selected object | Status: New asset for existing control.",
-      "prompt": "Create the Add Boundary Point icon for DepthPlan. Its interface role is: Add boundary point to selected object.\n\nAn unfilled object rectangle with a small outlined circular port centered on its right edge. Interrupt the rectangle edge beneath the port so the port stays legible. Put a small plus just beyond the upper-right side with clear separation from the port.\n\nThe circular port sits on the boundary, not inside the rectangle. No child rectangle and no line extending from the port. Keep the circle and plus visible at small sizes."
     },
     {
       "id": "ConnectInside",
