@@ -22,10 +22,6 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v7
-      - name: Windows private endpoint permissions
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: ./scripts/test-windows-acl.ps1
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -33,6 +29,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.94.1
         with:
           components: rustfmt, clippy
+      - name: Windows private endpoint permissions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-acl.ps1
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -52,7 +52,7 @@ jobs:
           if-no-files-found: warn
       - name: Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus-daemon
       - run: npm ci
       - run: npm audit
       - run: npm run format:check
@@ -72,7 +72,8 @@ jobs:
           TMPDIR: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
           TEMP: ${{ runner.temp }}
-        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum' || '' }} npm run smoke:ci
+        # Start the session bus after Xvfb so activated desktop services inherit DISPLAY.
+        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} npm run smoke:ci
       - name: Build uninstrumented native application
         run: npm run build
       - name: Verify release excludes automation

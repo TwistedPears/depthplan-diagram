@@ -6,7 +6,8 @@ Three portable skills live in the top-level `skills/` directory:
 `depthplan-audit`, `depthplan-map` and `depthplan-locate`. The README calls out each
 skill and links installation, invocation and worked examples. Install the three
 folders together; mapping and placement share the audit's source-reference format.
-No application runtime, MCP contract or dependency is changed.
+The skills do not change the MCP contract or dependencies. The requested CI
+follow-up also fixes Windows subprocess setup and the native test harness below.
 
 Auditing is a separate read-only phase with evidence/coverage and a mapping plan.
 Mapping authors ordinary objects/content, explicit boundary chains and bookmarks
@@ -62,9 +63,30 @@ The skills add no application startup/render/memory hot path. Retrieval has expl
 request/page/content budgets and reports partial coverage; the fixture exercise is
 an optional developer validation command. Existing full local checks remain the
 pre-submission gate; PR-triggered Test and CodeQL remain separate hosted evidence.
-Known platform CI driver/ACL failures from the preceding MCP search PR are outside
-this change; no checks or security rules are relaxed here.
+The CI follow-up addresses platform failures also present on the preceding MCP
+search PR; no checks or security rules are relaxed.
+
+## CI follow-up
+
+Windows failed before native UI testing because a Rust process launched from
+PowerShell 7 passed its `PSModulePath` to Windows PowerShell 5.1. `Get-Acl` then
+failed to load `Microsoft.PowerShell.Security`. The helper now removes that
+variable from its child environment, following Microsoft's
+[intermediate-process guidance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6#starting-windows-powershell-from-powershell-7).
+An early Windows probe compiles the production Rust helper and tests both files
+and directories, including rejection and repair of a foreign allow entry.
+
+Ubuntu stalled before WebDriver started. CI now creates a D-Bus session after
+Xvfb starts so activated desktop services inherit its display. This setup passes
+the complete native smoke suite in an Ubuntu 24.04 container; hosted matrix
+results provide the final runner-specific validation.
+
+Native startup failures retain bounded subprocess output and report spawn errors,
+exit codes and signals. Regression tests cover those diagnostics. UI actions wait
+for React to render the current selection, and save-dependent clipboard tests wait
+for file-operation cleanup as well as the saved revision. These changes preserve
+the existing assertions and timeout limits.
 
 Rollback removes the skill folders, README callout and optional validation script.
-Existing documents and application source are unaffected. No automatic installation,
-source editing, continuous synchronization or production access is introduced.
+The CI follow-up can be reverted independently. No automatic installation, source
+editing, continuous synchronization or production access is introduced by the skills.

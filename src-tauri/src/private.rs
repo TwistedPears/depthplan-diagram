@@ -36,6 +36,9 @@ pub fn powershell(mode: &str, path: &std::ffi::OsStr) -> std::process::Command {
             "-Command",
             include_str!("windows.ps1"),
         ])
+        // A Rust process launched by PowerShell 7 otherwise passes its
+        // incompatible module paths to Windows PowerShell 5.1.
+        .env_remove("PSModulePath")
         .env("DEPTHPLAN_ACL_MODE", mode)
         .env("DEPTHPLAN_ACL_PATH", path);
     command

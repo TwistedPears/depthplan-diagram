@@ -1,17 +1,12 @@
 $ErrorActionPreference = 'Stop'
-$helper = Join-Path $PSScriptRoot '../src-tauri/src/windows.ps1'
-$powershell = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('depthplan-acl-' + [guid]::NewGuid())
-$previousMode = $env:DEPTHPLAN_ACL_MODE
-$previousPath = $env:DEPTHPLAN_ACL_PATH
+$probe = Join-Path $root 'private-path-probe.exe'
 
 function Test-PrivatePath($mode, $target, $expectedSuccess) {
-  $env:DEPTHPLAN_ACL_MODE = $mode
-  $env:DEPTHPLAN_ACL_PATH = $target
   # Windows PowerShell turns redirected native stderr into ErrorRecords. Keep
   # the child's exit code authoritative, including expected verification failures.
   $ErrorActionPreference = 'Continue'
-  $output = & $powershell -NoLogo -NoProfile -NonInteractive -File $helper 2>&1
+  $output = & $probe $mode $target 2>&1
   $code = $LASTEXITCODE
   $ErrorActionPreference = 'Stop'
   if (($code -eq 0) -ne $expectedSuccess) {
@@ -21,6 +16,11 @@ function Test-PrivatePath($mode, $target, $expectedSuccess) {
 
 try {
   New-Item -ItemType Directory -Path $root | Out-Null
+  $source = Join-Path $PSScriptRoot 'windows-private-probe.rs'
+  & rustfmt --check $source
+  if ($LASTEXITCODE -ne 0) { throw 'Windows permission probe formatting failed' }
+  & rustc --edition=2021 $source -o $probe
+  if ($LASTEXITCODE -ne 0) { throw 'Windows permission probe compilation failed' }
   $directory = New-Item -ItemType Directory -Path (Join-Path $root 'directory')
   $file = New-Item -ItemType File -Path (Join-Path $root 'file.json')
   foreach ($target in @($directory.FullName, $file.FullName)) {
@@ -39,7 +39,5 @@ try {
   }
   Write-Output 'PASS Windows private paths: files/directories, protected current-user ACLs, foreign access rejection and repair.'
 } finally {
-  $env:DEPTHPLAN_ACL_MODE = $previousMode
-  $env:DEPTHPLAN_ACL_PATH = $previousPath
   if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
 }
