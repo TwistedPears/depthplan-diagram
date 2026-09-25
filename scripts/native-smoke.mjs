@@ -133,11 +133,15 @@ try {
   );
   await click('Menu');
   await sync(
-    'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+    `const enable = window.desktop.automation.enable;
+     window.desktop.automation.enable = (...args) => enable(...args).catch(error => {
+       window.nativeErrors.push(String(error)); throw error;
+     });
+     document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
   );
   await until(() =>
     sync(
-      'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+      'if(window.nativeErrors.length)throw new Error(window.nativeErrors.join("; "));return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
     ),
   );
   const status = await native('automation:status');

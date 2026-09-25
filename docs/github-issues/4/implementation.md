@@ -77,6 +77,11 @@ An early Windows probe compiles the production Rust helper and tests both files
 and directories, including rejection and repair of a foreign allow entry.
 The subsequent Windows Clippy gate exposed an unused Unix socket helper; its
 function and read-trait import now use the same Unix guard as its call site.
+The standalone pipe helper starts within its existing deadline. In the app,
+enabling it waited synchronously for an async task from an async command, blocking
+the task that reports readiness. Enable/disable now runs on Tauri's blocking pool,
+leaving the async runtime available. The early Windows probe covers pipe startup,
+and the native UI test surfaces enable errors instead of a generic toggle timeout.
 
 Ubuntu stalled before WebDriver started. CI now creates a D-Bus session after
 Xvfb starts so activated desktop services inherit its display. This setup passes
