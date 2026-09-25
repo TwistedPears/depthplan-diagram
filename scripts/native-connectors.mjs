@@ -416,14 +416,48 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await endHandle(), { x: 658, y: 420 });
   await command('depthplan_selection', { action: 'clear' });
   // The committed line must clear the parent's fill, for paint and hit testing.
-  const ink =
-    await sync(`const layer=window.Konva.stages[0].getLayers()[0];layer.draw();
+  const painted = () =>
+    sync(`const layer=window.Konva.stages[0].getLayers()[0];layer.draw();
     const hit=layer.getIntersection({x:730,y:420})?.findAncestor('.recursive-connection',true)?.id();
     const tile=layer.toCanvas({x:729,y:419,width:3,height:3,pixelRatio:1});
     const pixel=Array.from(tile.getContext('2d').getImageData(1,1,1,1).data);tile.width=0;return {hit,pixel};`);
-  assert.equal(ink.hit, `connection-${direct}`);
-  assert.deepEqual(ink.pixel, [71, 85, 105, 255]);
+  const expectedInk = {
+    hit: `connection-${direct}`,
+    pixel: [71, 85, 105, 255],
+  };
+  assert.deepEqual(await painted(), expectedInk);
   await capture('direct-child-expanded.png');
+  await command('depthplan_selection', { action: 'set', objects: ['a'] });
+  await pointer('mousedown', 500, 500);
+  await pointer('mousemove', 520, 500, { ctrlKey: true });
+  assert.deepEqual(
+    await painted(),
+    expectedInk,
+    'arrow remains above the parent during drag',
+  );
+  await capture('direct-child-drag.png');
+  await pointer('mouseup', 520, 500, { ctrlKey: true });
+  assert.deepEqual(
+    await painted(),
+    expectedInk,
+    'arrow stays visible after drop',
+  );
+  assert.deepEqual((await save()).connections[direct], attachment);
+  await click('Undo');
+  await save();
+  await pointer('mousedown', 500, 500);
+  await pointer('mousemove', 480, 500, { ctrlKey: true });
+  assert.deepEqual(
+    await painted(),
+    expectedInk,
+    'arrow remains above the parent before cancel',
+  );
+  await sync(
+    `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`,
+  );
+  await pointer('mouseup', 480, 500);
+  assert.deepEqual((await save()).layouts, saved.layouts);
+  await command('depthplan_selection', { action: 'clear' });
   for (const format of ['svg', 'png']) {
     const exported = path.join(profile, `direct-child.${format}`);
     await click('Export current diagram');
@@ -513,5 +547,121 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
     'PASS direct child connections: cross-container drawing in both directions, visible paint/hits, SVG/PNG, collapse projection, exact expansion restoration, endpoint edits, Undo/Redo and collapsed save/reopen.',
+  );
+
+  // A lifted nested container must carry outside routes in their owner's axes,
+  // while its own internal routes continue to render exactly once in its group.
+  const outer = {
+    x: 650,
+    y: 420,
+    width: 1000,
+    height: 650,
+    rotation: 20,
+    z: 0,
+  };
+  const inner = { x: -180, y: 0, width: 280, height: 240, rotation: 15, z: 5 };
+  const sibling = { x: 220, y: 0, width: 100, height: 80, rotation: 0, z: 0 };
+  nested.id = 'nested-drag';
+  nested.objects.outer = {
+    ...nested.objects.a,
+    id: 'outer',
+    parentId: null,
+    name: 'outer',
+    type: 'frame',
+    geometry: outer,
+    style: { fill: '#ffffff', opacity: 0.6, clipToFrame: true },
+  };
+  nested.objects.a.parentId = 'outer';
+  nested.objects.a.geometry = inner;
+  nested.objects.a.style.opacity = 0.5;
+  nested.objects.b.parentId = 'outer';
+  nested.objects.b.geometry = sibling;
+  nested.rootDepths = { outer: 2 };
+  nested.layouts = {
+    outer: {
+      0: { outer },
+      1: { outer, a: inner, b: sibling },
+      2: { outer, a: inner, b: sibling, child },
+    },
+  };
+  const endpoint = (objectId, side) => ({
+    kind: 'object',
+    objectId,
+    side,
+    offset: 0.5,
+    binding: 'fixed',
+  });
+  nested.connections = {
+    cross: {
+      id: 'cross',
+      ownerId: 'outer',
+      kind: 'arrow',
+      z: 0,
+      start: endpoint('b', 'left'),
+      end: endpoint('child', 'right'),
+      style: { stroke: '#475569', opacity: 0.8 },
+    },
+    internal: {
+      id: 'internal',
+      ownerId: 'a',
+      kind: 'arrow',
+      z: 0,
+      start: endpoint('a', 'left'),
+      end: endpoint('child', 'left'),
+    },
+  };
+  file = path.join(profile, 'nested-drag.depthplan');
+  await writeFile(file, JSON.stringify(nested));
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open');
+  await until(async () => (await state()).source?.path === file);
+  await click('Reset view');
+  const routes = () =>
+    sync(`const stage=window.Konva.stages[0];
+    return ['cross','internal'].map(id=>{
+      const matches=stage.find('#connection-'+id), group=matches[0], line=group.findOne('.connection-path'), points=line.points();
+      const transform=line.getAbsoluteTransform();
+      const start=transform.point({x:points[0],y:points[1]}),end=transform.point({x:points.at(-2),y:points.at(-1)});
+      const at={x:end.x+(start.x-end.x)*0.2,y:end.y+(start.y-end.y)*0.2};
+      stage.getLayers()[0].draw();
+      return {count:matches.length,start,end,opacity:group.getAbsoluteOpacity(),hit:stage.getLayers()[0].getIntersection(at)?.findAncestor('.recursive-connection',true)?.id()};
+    });`);
+  const beforeDrag = await routes();
+  await command('depthplan_selection', { action: 'set', objects: ['a'] });
+  const grab = await sync(
+    `return window.Konva.stages[0].findOne('#object-a').getAbsoluteTransform().point({x:-90,y:-60});`,
+  );
+  await pointer('mousedown', grab.x, grab.y);
+  await pointer('mousemove', grab.x + 20, grab.y, { ctrlKey: true });
+  const duringDrag = await routes();
+  for (let i = 0; i < duringDrag.length; i++) {
+    const before = beforeDrag[i],
+      during = duringDrag[i];
+    assert.equal(during.count, 1, 'each route paints once');
+    assert.equal(
+      during.opacity,
+      before.opacity,
+      'drag retains inherited opacity',
+    );
+    assert(Math.abs(during.end.x - before.end.x - 20) < 0.001);
+    assert(Math.abs(during.end.y - before.end.y) < 0.001);
+    assert(
+      Math.abs(during.start.x - before.start.x - (i === 0 ? 0 : 20)) < 0.001,
+    );
+    assert.equal(
+      during.hit,
+      i === 0 ? 'connection-cross' : 'connection-internal',
+    );
+  }
+  await capture('nested-connector-drag.png');
+  await pointer('mouseup', grab.x + 20, grab.y, { ctrlKey: true });
+  saved = await save();
+  assert.deepEqual(saved.connections, nested.connections);
+  await click('Undo');
+  assert.deepEqual((await save()).layouts, nested.layouts);
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS connected-object dragging: arrows stay visible during drag/drop/cancel, nested owner transforms and opacity are preserved, internal routes paint once, saved bindings and Z survive Undo.',
   );
 }
