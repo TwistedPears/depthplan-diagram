@@ -38,6 +38,9 @@ try {
     Test-PrivatePath 'verify' $target $true
   }
   Write-Output 'PASS Windows private paths: files/directories, protected current-user ACLs, foreign access rejection and repair.'
+  & $probe serve ('depthplan-probe-' + [guid]::NewGuid())
+  if ($LASTEXITCODE -ne 0) { throw 'Windows pipe startup failed' }
+  Write-Output 'PASS Windows pipe helper startup.'
 } finally {
   if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
 }
