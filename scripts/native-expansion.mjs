@@ -635,7 +635,10 @@ export async function expansion(driver, probe) {
       const badge=(toggle.findOne('Rect') || toggle.findOne('Circle')).getClientRect();
       const padding=shape.strokeWidth()*owner.getAbsoluteScale().x/2 + 3*toggle.getAbsoluteScale().x;
       const inverse=owner.getAbsoluteTransform().copy().invert();
+      const center=owner.getAbsolutePosition();
       return {type:shape.getClassName(), a:owner.width()/2, b:owner.height()/2,
+        screenOffset:{x:badge.x+badge.width/2-center.x,y:badge.y+badge.height/2-center.y},
+        rotation:toggle.getAbsoluteRotation(),
         radius:Math.min(owner.width()/2, owner.height()/2, shape.cornerRadius?.() || 0),
         corners:[[-1,-1],[-1,1],[1,-1],[1,1]].map(([x,y])=>inverse.point({
           x:badge.x+badge.width/2+x*(badge.width/2+padding),
@@ -643,6 +646,11 @@ export async function expansion(driver, probe) {
       [id],
     );
     const { type, a, b, radius, corners } = placement;
+    assert(
+      placement.screenOffset.x >= -1e-6 && placement.screenOffset.y <= 1e-6,
+      'toggle stays in the visual upper-right: ' + JSON.stringify(placement),
+    );
+    assert(Math.abs(placement.rotation) < 1e-6, 'toggle stays upright');
     for (const { x, y } of corners) {
       const nx = Math.abs(x) / a,
         ny = Math.abs(y) / b;
@@ -1123,5 +1131,103 @@ export async function expansion(driver, probe) {
   await until(async () => !(await state()).dirty);
   console.log(
     'PASS collapse containment: live sibling edits stay inside the resized parent.',
+  );
+
+  const rotated = JSON.parse(await readFile(siblingFile, 'utf8'));
+  rotated.objects.a.type = 'frame';
+  rotated.objects.a1.style = {
+    fill: '#ffffff',
+    strokeWidth: 6,
+    cornerRadius: 32,
+  };
+  for (const objectType of ['rectangle', 'ellipse', 'diamond', 'frame']) {
+    rotated.objects.a1.type = objectType;
+    const file = path.join(
+      profile,
+      `stack-rotated-${objectType}.depthplan.json`,
+    );
+    await writeFile(file, JSON.stringify(rotated));
+    await dialogs('open', file);
+    await click('Menu');
+    await click('Open');
+    await until(async () => (await state()).source?.path === file);
+    for (const scale of [1, 0.25]) {
+      await command('depthplan_camera', {
+        action: {
+          type: 'set',
+          camera: { x: 650 - 650 * scale, y: 400 - 400 * scale, scale },
+        },
+      });
+      for (const [parentRotation, childRotation] of [
+        [0, 0],
+        [90, 0],
+        [180, 0],
+        [270, 0],
+        [35, 100],
+        [135, 90],
+        [225, 90],
+        [315, 45],
+      ]) {
+        await edit(
+          {
+            type: 'geometry',
+            id: 'a',
+            patch: {
+              x: 650,
+              y: 400,
+              width: 700,
+              height: 520,
+              rotation: parentRotation,
+            },
+          },
+          {
+            type: 'geometry',
+            id: 'a1',
+            patch: {
+              x: 30,
+              y: -20,
+              width: 220,
+              height: 160,
+              rotation: childRotation,
+            },
+          },
+        );
+        await js(
+          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+        );
+        await assertToggleInside('a');
+        await assertToggleInside('a1');
+        if (scale === 1 && parentRotation === 180) {
+          await screenshot(`stack-rotated-${objectType}.png`);
+          for (const expanded of [true, false]) {
+            const center = await sync(`const stage=window.Konva.stages[0];
+              const p=stage.findOne('#child-toggle-a1').getAbsoluteTransform().point({x:16,y:16});
+              const box=stage.container().getBoundingClientRect();
+              return {x:p.x+box.left,y:p.y+box.top};`);
+            await pointer('mousedown', center, false);
+            await pointer('mouseup', center, false);
+            await until(() =>
+              sync('return window.Konva.stages[0].listening()'),
+            );
+            await js(
+              'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+            );
+            assert.equal(
+              await sync(
+                `return document.querySelector('.child-stack-toggle[aria-label$="children of a1"]').getAttribute('aria-expanded')`,
+              ),
+              String(expanded),
+              'rotated toggle stays clickable',
+            );
+            await assertToggleInside('a1');
+          }
+        }
+      }
+    }
+    await click('Save document');
+    await until(async () => !(await state()).dirty);
+  }
+  console.log(
+    'PASS rotated toggles: all shapes stay upright in the visual upper-right, with interior clearance, nested rotations, icon/dot zoom and pointer clicks.',
   );
 }

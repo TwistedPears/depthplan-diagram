@@ -866,8 +866,26 @@ export default memo(function RecursiveCanvas({
     );
     if (!scale) continue; // The stroke occupies the entire interior.
     const inset = ((21 * scale) / camera.scale + stroke) * extent;
+    halfWidth = Math.max(0, halfWidth - inset);
+    halfHeight = Math.max(0, halfHeight - inset);
+    // Aim toward the screen's upper-right corner, then stop at the safe
+    // interior. A local upper-right corner would rotate below the object.
+    const interior = geometryBounds({
+      ...geometry,
+      width: 2 * halfWidth,
+      height: 2 * halfHeight,
+    });
+    const target = localPoint(
+      { x: interior.x + interior.width, y: interior.y },
+      geometry,
+    );
+    const fraction = Math.min(
+      1,
+      target.x ? halfWidth / Math.abs(target.x) : 1,
+      target.y ? halfHeight / Math.abs(target.y) : 1,
+    );
     const center = worldPoint(
-      { x: halfWidth - inset, y: -halfHeight + inset },
+      { x: target.x * fraction, y: target.y * fraction },
       geometry,
     );
     const expanded = scene.expanded.has(id);
