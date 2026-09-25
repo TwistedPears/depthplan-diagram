@@ -298,34 +298,14 @@
   }
 }
 
+/* Accessible counterparts of the controls painted in each canvas object group. */
 .child-stack-toggle {
   position: absolute;
-  z-index: 2;
-  display: grid;
-  place-items: center;
   width: 32px;
   height: 32px;
   min-height: 32px;
-  padding: 4px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
-  transition: none;
-}
-.child-stack-toggle svg {
-  width: 24px;
-  height: 24px;
-}
-.child-stack-toggle[aria-expanded='false'] {
-  border-color: var(--line);
-}
-.child-stack-toggle[aria-expanded='true'] {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.child-stack-toggle:hover {
-  border-color: var(--accent);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .parent-drop-hint {

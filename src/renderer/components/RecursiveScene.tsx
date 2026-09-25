@@ -98,6 +98,7 @@ export default memo(function RecursiveScene({
   scale = 1,
   onError,
   renderBoundaryPoints,
+  renderChildrenToggle,
   editingTextId,
   liftedIds,
   editingConnectionLabel,
@@ -107,6 +108,7 @@ export default memo(function RecursiveScene({
   scale?: number;
   onError: (message: string) => void;
   renderBoundaryPoints?: (id: string) => ReactNode;
+  renderChildrenToggle?: (id: string) => ReactNode;
   editingTextId?: string | null;
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
@@ -190,6 +192,7 @@ export default memo(function RecursiveScene({
           editingText={editingTextId === id}
           onError={onError}
         />
+        {renderChildrenToggle?.(id)}
         <Group
           {...(clip
             ? {

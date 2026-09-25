@@ -1,6 +1,7 @@
 import useConnectionEditing from '../hooks/useConnectionEditing';
 import type { CanvasState } from '../../shared/editorApiContract';
 import Icon from './Icon';
+import ChildStackToggle from './ChildStackToggle';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import useCanvasPan from '../hooks/useCanvasPan';
 import useExpansionAnimation from '../hooks/useExpansionAnimation';
@@ -80,7 +81,6 @@ import {
   type Bounds,
   type Camera,
   geometryBounds,
-  intersectsBounds,
   sceneBounds,
   fitCamera,
   zoomCamera,
@@ -95,7 +95,7 @@ import {
   transactDocument,
 } from '../../shared/documentTransactions';
 import { toWorldGeometry } from '../../shared/recursiveHierarchy';
-import { worldPoint } from '../../shared/connectionGeometry';
+import { localPoint, worldPoint } from '../../shared/connectionGeometry';
 import {
   createInwardBridge,
   reattachInwardBridge,
@@ -218,7 +218,7 @@ export default memo(function RecursiveCanvas({
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
   const toggleChildren = (
     id: string,
-    event: ReactMouseEvent<HTMLButtonElement>,
+    event: ReactMouseEvent<HTMLButtonElement> | MouseEvent,
   ) => {
     // macOS dispatches Ctrl-click as a context menu instead of a normal click.
     if (event.type === 'contextmenu' && !event.ctrlKey) return;
@@ -765,11 +765,64 @@ export default memo(function RecursiveCanvas({
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
-  const draggedBounds: Bounds[] = [];
-  const draggedIds = new Set(lifted);
-  for (const id of draggedIds) {
-    draggedBounds.push(geometryBounds(scene.world.get(id)!));
-    for (const child of scene.children.get(id) ?? []) draggedIds.add(child);
+  const [focusedToggle, setFocusedToggle] = useState<string | null>(null);
+  const togglesDisabled =
+    !!preview ||
+    !!textEditing ||
+    !!properties ||
+    !!draw ||
+    !!linkEditing ||
+    drawing;
+  const childToggles = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      icon: string;
+      expanded: boolean;
+      label: string;
+      title: string;
+    }
+  >();
+  for (const [id, geometry] of scene.world) {
+    const children = scene.hierarchy.children.get(id) ?? [];
+    const box = bounds.objects.get(id);
+    if (!children.length || !box) continue;
+    const left = camera.x + box.x * camera.scale;
+    const top = camera.y + box.y * camera.scale;
+    const right = left + box.width * camera.scale;
+    if (
+      right < 0 ||
+      left > size.width ||
+      top > size.height ||
+      top + box.height * camera.scale < 0
+    )
+      continue;
+    let x = Math.max(4, Math.min(size.width - 36, right - 36));
+    let y = Math.max(4, Math.min(size.height - 36, top + 4));
+    const object = document.objects[id];
+    if (object.type === 'diamond' || object.type === 'ellipse') {
+      const anchor = worldPoint(
+        boundaryPosition({ side: 'top', offset: 1 }, geometry, object),
+        geometry,
+      );
+      x = camera.x + anchor.x * camera.scale - 16;
+      y = camera.y + anchor.y * camera.scale - 16;
+    }
+    const expanded = scene.expanded.has(id);
+    const icon =
+      children.length > 1 || scene.hierarchy.children.has(children[0])
+        ? 'square-stack-3'
+        : 'square-stack-2';
+    const label = `${expanded ? 'Hide' : 'Reveal'} children of ${objectLabel(object)}`;
+    childToggles.set(id, {
+      x,
+      y,
+      icon,
+      expanded,
+      label,
+      title: `${label} (${children.length} direct ${children.length === 1 ? 'child' : 'children'}). Ctrl-click to collapse all descendants.`,
+    });
   }
   // Recheck native paint bounds after scene or viewport changes. UI-only renders
   // leave both the geometry and the previous culling result intact.
@@ -1013,6 +1066,31 @@ export default memo(function RecursiveCanvas({
             scale={camera.scale}
             onError={setMoveError}
             renderBoundaryPoints={renderBoundaryPoints}
+            renderChildrenToggle={(id) => {
+              const toggle = childToggles.get(id);
+              if (!toggle) return null;
+              const geometry = scene.world.get(id)!;
+              const position = localPoint(
+                {
+                  x: (toggle.x - camera.x) / camera.scale,
+                  y: (toggle.y - camera.y) / camera.scale,
+                },
+                geometry,
+              );
+              return (
+                <ChildStackToggle
+                  {...toggle}
+                  {...position}
+                  id={`child-toggle-${id}`}
+                  rotation={-geometry.rotation}
+                  scaleX={1 / camera.scale}
+                  scaleY={1 / camera.scale}
+                  disabled={togglesDisabled}
+                  focused={focusedToggle === id}
+                  onToggle={(event) => toggleChildren(id, event)}
+                />
+              );
+            }}
           />
         </Layer>
         <Layer listening={false}>
@@ -1195,75 +1273,23 @@ export default memo(function RecursiveCanvas({
           ].join(' · ')}
         </div>
       )}
-      {[...scene.world.entries()].map(([id, geometry]) => {
-        const children = scene.hierarchy.children.get(id) ?? [];
-        const box = bounds.objects.get(id);
-        if (!children.length || !box) return null;
-        const left = camera.x + box.x * camera.scale;
-        const top = camera.y + box.y * camera.scale;
-        const right = left + box.width * camera.scale;
-        if (
-          right < 0 ||
-          left > size.width ||
-          top > size.height ||
-          top + box.height * camera.scale < 0
-        )
-          return null;
-        let x = Math.max(4, Math.min(size.width - 36, right - 36));
-        let y = Math.max(4, Math.min(size.height - 36, top + 4));
-        const object = document.objects[id];
-        if (object.type === 'diamond' || object.type === 'ellipse') {
-          const anchor = worldPoint(
-            boundaryPosition({ side: 'top', offset: 1 }, geometry, object),
-            geometry,
-          );
-          x = camera.x + anchor.x * camera.scale - 16;
-          y = camera.y + anchor.y * camera.scale - 16;
-        }
-        // DOM controls sit above the canvas. Clear a dragged subtree's footprint,
-        // while keeping the controls that travel with that subtree visible.
-        if (
-          !draggedIds.has(id) &&
-          draggedBounds.some((box) =>
-            intersectsBounds(box, {
-              x: (x - camera.x) / camera.scale,
-              y: (y - camera.y) / camera.scale,
-              width: 32 / camera.scale,
-              height: 32 / camera.scale,
-            }),
-          )
-        )
-          return null;
-        const expanded = scene.expanded.has(id);
-        const icon =
-          children.length > 1 || scene.hierarchy.children.has(children[0])
-            ? 'square-stack-3'
-            : 'square-stack-2';
-        const label = `${expanded ? 'Hide' : 'Reveal'} children of ${objectLabel(object)}`;
-        return (
-          <button
-            key={id}
-            type="button"
-            className="child-stack-toggle"
-            style={{ left: x, top: y }}
-            aria-expanded={expanded}
-            aria-label={label}
-            title={`${label} (${children.length} direct ${children.length === 1 ? 'child' : 'children'}). Ctrl-click to collapse all descendants.`}
-            disabled={
-              !!preview ||
-              !!textEditing ||
-              !!properties ||
-              !!draw ||
-              !!linkEditing ||
-              drawing
-            }
-            onClick={(event) => toggleChildren(id, event)}
-            onContextMenu={(event) => toggleChildren(id, event)}
-          >
-            <Icon name={icon} />
-          </button>
-        );
-      })}
+      {/* Keyboard and screen-reader controls; the visible buttons paint in the scene. */}
+      {[...childToggles].map(([id, toggle]) => (
+        <button
+          key={id}
+          type="button"
+          className="child-stack-toggle"
+          style={{ left: toggle.x, top: toggle.y }}
+          aria-expanded={toggle.expanded}
+          aria-label={toggle.label}
+          title={toggle.title}
+          disabled={togglesDisabled}
+          onFocus={() => setFocusedToggle(id)}
+          onBlur={() => setFocusedToggle(null)}
+          onClick={(event) => toggleChildren(id, event)}
+          onContextMenu={(event) => toggleChildren(id, event)}
+        />
+      ))}
       {linkEditing && (
         <SelectionLink
           key={linkEditing}

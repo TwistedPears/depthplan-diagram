@@ -279,13 +279,23 @@ export async function expansion(driver, probe) {
     const file = path.join(profile, `expansion.${format}`);
     const bytes = await exportImage(file, format);
     const dimensions = await js(
-      `(async()=>{const image=new Image();image.src=arguments[0];await image.decode();return [image.width,image.height]})()`,
+      `(async()=>{const image=new Image();image.src=arguments[0];await image.decode();
+        const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+        const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+        const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+        const toggleInk=pixels.some((v,i)=>i%4===0 && v===45 && pixels[i+1]===98 && pixels[i+2]===213);
+        return [image.width,image.height,toggleInk]})()`,
       [
         `data:image/${format === 'svg' ? 'svg+xml' : 'png'};base64,${bytes.toString('base64')}`,
       ],
     );
     assert(dimensions[0] >= rootGeometry(restored, 'a').width);
     assert(dimensions[1] >= rootGeometry(restored, 'a').height);
+    assert.equal(
+      dimensions[2],
+      false,
+      `${format} excludes canvas toggle controls`,
+    );
   }
 
   // All imported assets are usable themed symbols, including the two stack badges.
@@ -313,7 +323,11 @@ export async function expansion(driver, probe) {
   const badge = (name) =>
     sync(
       `const b=document.querySelector('.child-stack-toggle[aria-label="'+arguments[0]+'"]');
-    return b && {icon:b.querySelector('use').getAttribute('href'), expanded:b.getAttribute('aria-expanded'), text:b.textContent.trim()}`,
+    if (!b) return null;
+    const toggle=window.Konva.stages[0].findOne('#child-toggle-'+arguments[0].split('children of ')[1]);
+    const icon=['square-stack-2','square-stack-3'].find(name=>
+      [...document.querySelectorAll('#icon-'+name+' path')].map(p=>p.getAttribute('d')).join(' ')===toggle.find('Path').map(p=>p.data()).join(' '));
+    return {icon:'#icon-'+icon, expanded:b.getAttribute('aria-expanded'), text:b.textContent.trim()}`,
       [name],
     );
   await command('depthplan_selection', { action: 'clear' });
@@ -614,12 +628,15 @@ export async function expansion(driver, probe) {
         const box=shape.getClientRect();
         const canvas=stage.container().getBoundingClientRect();
         const button=document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');
-        const badge=button.getBoundingClientRect();
-        const center=group.getAbsoluteTransform().copy().invert().point({x:badge.left+16-canvas.left,y:badge.top+16-canvas.top});
-        return {right:canvas.left+box.x+box.width-badge.right, top:badge.top-canvas.top-box.y,
+        const toggle=stage.findOne('#child-toggle-'+arguments[0]);
+        const badge=toggle.findOne('Rect').getClientRect({skipStroke:true});
+        const control=button.getBoundingClientRect();
+        const center=group.getAbsoluteTransform().copy().invert().point({x:badge.x+16,y:badge.y+16});
+        return {right:box.x+box.width-badge.x-badge.width, top:badge.y-box.y,
           x:center.x/(group.width()/2), y:center.y/(group.height()/2),
           width:badge.width, height:badge.height, shape:shape.getClassName(),
-          border:getComputedStyle(button).borderTopColor};`,
+          border:toggle.findOne('Rect').stroke(), owner:toggle.getParent().id(),
+          controlOffset:Math.hypot(control.left-canvas.left-badge.x,control.top-canvas.top-badge.y)};`,
           [id],
         );
         const type = fixture.objects[id].type;
@@ -637,11 +654,13 @@ export async function expansion(driver, probe) {
             `${phase}: ${JSON.stringify(placement)}`,
           );
         }
-        assert.equal(placement.width, 32);
-        assert.equal(placement.height, 32);
+        assert(Math.abs(placement.width - 32) < 1e-6);
+        assert(Math.abs(placement.height - 32) < 1e-6);
+        assert(placement.controlOffset < 1, 'accessible control follows paint');
+        assert.equal(placement.owner, `object-${id}`);
         assert.equal(
           placement.border,
-          phase === 'expanded' ? 'rgba(0, 0, 0, 0)' : 'rgb(219, 226, 236)',
+          phase === 'expanded' ? 'transparent' : '#dbe2ec',
         );
         assert.equal(
           placement.shape,
@@ -649,7 +668,7 @@ export async function expansion(driver, probe) {
         );
       }
       await screenshot(`stack-corners-${types[0]}-${phase}.png`);
-      // DOM badges must clear the lifted object, including at rotated/zoomed views.
+      // Badges stay in the drawing, below the lifted object, in every view.
       const drag = await sync(`const stage=window.Konva.stages[0];
         const canvas=stage.container().getBoundingClientRect();
         const group=stage.findOne('#object-b');
@@ -658,37 +677,151 @@ export async function expansion(driver, probe) {
         const badge=document.querySelector('.child-stack-toggle[aria-label$="children of a"]').getBoundingClientRect();
         return {start:{x:start.x+canvas.left,y:start.y+canvas.top},
           end:{x:start.x+badge.left+16-center.x,y:start.y+badge.top+16-center.y}};`);
-      const pointer = async (type, point) => {
+      const pointer = async (type, point, ctrlKey = true) => {
         await sync(
-          `const [type,p]=arguments;
+          `const [type,p,ctrlKey]=arguments;
           document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
             bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,
-            button:0,buttons:type==='mouseup'?0:1,ctrlKey:true}));`,
-          [type, point],
+            button:0,buttons:type==='mouseup'?0:1,ctrlKey}));`,
+          [type, point, ctrlKey],
         );
         await js(
           'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
         );
       };
-      const visibleBadge = (id) =>
+      const badgePaint = (id, x = 16, y = 10) =>
         sync(
-          `return !!document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');`,
-          [id],
+          `const stage=window.Konva.stages[0], layer=stage.getLayers()[0];
+          const toggle=stage.findOne('#child-toggle-'+arguments[0]);
+          const p=toggle.getAbsoluteTransform().point({x:arguments[1],y:arguments[2]});
+          const canvas=layer.getCanvas();
+          layer.draw();
+          return {visible:toggle.isVisible(), pixel:[...canvas.getContext().getImageData(
+            Math.round(p.x*canvas.getPixelRatio()),Math.round(p.y*canvas.getPixelRatio()),1,1).data]};`,
+          [id, x, y],
         );
+      const uncovered = await badgePaint('a');
+      assert.notDeepEqual(
+        uncovered.pixel,
+        [255, 255, 255, 255],
+        'visible icon ink',
+      );
       await pointer('mousedown', drag.start);
       await pointer('mousemove', drag.end);
-      assert.equal(await visibleBadge('a'), false, 'covered badge clears drag');
-      assert.equal(await visibleBadge('b'), true, 'moving badge stays visible');
+      assert.deepEqual(
+        await badgePaint('a'),
+        {
+          visible: true,
+          pixel:
+            phase === 'expanded' ? [219, 234, 254, 255] : [255, 255, 255, 255],
+        },
+        'moving object paints over the icon',
+      );
+      assert.notDeepEqual(
+        (await badgePaint('b')).pixel,
+        [255, 255, 255, 255],
+        'moving badge stays visible',
+      );
       await screenshot(`stack-drag-${types[0]}-${phase}.png`);
       await pointer('mousemove', drag.start);
-      assert.equal(await visibleBadge('a'), true, 'uncovered badge returns');
+      assert.deepEqual(
+        await badgePaint('a'),
+        uncovered,
+        'uncovered icon ink returns',
+      );
       await pointer('mousemove', drag.end);
-      assert.equal(await visibleBadge('a'), false);
+      assert.equal(
+        (await badgePaint('a')).visible,
+        true,
+        'covered toggle remains mounted',
+      );
       await sync(
         `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`,
       );
-      await until(() => visibleBadge('a'));
       await pointer('mouseup', drag.start);
+      assert.deepEqual(
+        await badgePaint('a'),
+        uncovered,
+        'cancel restores paint',
+      );
+      if (types[0] === 'rectangle') {
+        const left = await badgePaint('a', 10, 12);
+        const right = await badgePaint('a', 22, 12);
+        assert.deepEqual(left.pixel, [93, 107, 126, 255]);
+        assert.deepEqual(right.pixel, left.pixel);
+        // B's left edge bisects A's icon: only its covered half may disappear.
+        const partial = { x: drag.end.x + 120, y: drag.end.y };
+        await pointer('mousedown', drag.start);
+        await pointer('mousemove', partial);
+        assert.deepEqual(await badgePaint('a', 10, 12), left);
+        assert.deepEqual(
+          (await badgePaint('a', 22, 12)).pixel,
+          [255, 255, 255, 255],
+        );
+        await screenshot('stack-partially-covered.png');
+        await pointer('mouseup', partial);
+        assert.deepEqual(await badgePaint('a', 10, 12), left);
+        assert.deepEqual(
+          (await badgePaint('a', 22, 12)).pixel,
+          [255, 255, 255, 255],
+          'drop keeps object-relative paint order',
+        );
+        assert.deepEqual(
+          await sync(`const stage=window.Konva.stages[0];
+          const toggle=stage.findOne('#child-toggle-a');
+          return [10,22].map(x=>{
+            const p=toggle.getAbsoluteTransform().point({x,y:12});
+            const hit=stage.getIntersection(p);
+            return hit.findAncestor('.child-stack-toggle',true)?.id() || hit.findAncestor('.recursive-object',true)?.id();
+          });`),
+          ['child-toggle-a', 'object-b'],
+          'covered icon cannot steal pointer input',
+        );
+        await edit({ type: 'geometry', id: 'b', patch: { z: -1 } });
+        assert.deepEqual(
+          await badgePaint('a', 22, 12),
+          right,
+          'lower object paints below the entire icon',
+        );
+        await click('Undo');
+        assert.deepEqual(
+          (await badgePaint('a', 22, 12)).pixel,
+          [255, 255, 255, 255],
+        );
+        await click('Undo');
+        assert.deepEqual(await badgePaint('a', 22, 12), right);
+
+        // Canvas hit testing handles clicks in both pointer and hand modes.
+        for (const tool of ['Pointer (Select/Edit)', 'Hand (Pan)']) {
+          await click(tool);
+          for (const expanded of [true, false]) {
+            const point =
+              await sync(`const stage=window.Konva.stages[0], box=stage.container().getBoundingClientRect();
+              const p=stage.findOne('#child-toggle-b').getAbsoluteTransform().point({x:16,y:16});
+              return {x:p.x+box.left,y:p.y+box.top};`);
+            await pointer('mousedown', point, false);
+            await pointer('mouseup', point, false);
+            await until(() =>
+              sync('return window.Konva.stages[0].listening()'),
+            );
+            assert.equal(
+              (await badge(`${expanded ? 'Hide' : 'Reveal'} children of b`))
+                ?.expanded,
+              String(expanded),
+            );
+          }
+        }
+        await click('Pointer (Select/Edit)');
+        await sync(
+          `document.querySelector('.child-stack-toggle[aria-label="Reveal children of a"]').focus();`,
+        );
+        await until(() =>
+          sync(
+            `return window.Konva.stages[0].findOne('#child-toggle-a').findOne('Rect').strokeWidth()===2;`,
+          ),
+        );
+        await sync('document.activeElement.blur()');
+      }
     }
     if (types[0] === 'diamond') {
       await edit({
@@ -712,7 +845,7 @@ export async function expansion(driver, probe) {
     await until(async () => !(await state()).dirty);
   }
   console.log(
-    'PASS stack icons: rectangle corners, diamond/circle outline attachments after expansion, resize, rotation, pan and zoom, fixed screen size, collapsed gray borders, drag occlusion and restoration. Independent ellipse edits survive disclosure changes.',
+    'PASS stack icons: object-relative layering, partial overlap during drag/drop, Z/Undo, paint and pointer agreement, pointer/hand clicks, keyboard focus, fixed size through expansion/rotation/pan/zoom. Independent ellipse edits survive disclosure changes.',
   );
 
   const siblings = structuredClone(document);
