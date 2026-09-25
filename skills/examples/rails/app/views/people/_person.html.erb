@@ -1,0 +1,5 @@
+<%= form_with model: person do |form| %>
+  <%= form.label :email %>
+  <%= form.email_field :email %>
+  <%= form.submit 'Update' %>
+<% end %>

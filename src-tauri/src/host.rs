@@ -591,14 +591,20 @@ async fn desktop(
         "automation:status" => Ok(status(&app)),
         "automation:enable" => {
             let enabled = a.as_bool().ok_or("Invalid automation state")?;
-            {
+            let task_app = app.clone();
+            // Windows waits for a pipe task on the async runtime to report ready.
+            // Keep that runtime free while startup and ACL commands block.
+            tauri::async_runtime::spawn_blocking(move || {
+                let host = task_app.state::<Host>();
                 let mut service = host.service.lock().unwrap();
                 if enabled {
-                    service.enable(app.clone())?;
+                    service.enable(task_app.clone())
                 } else {
-                    service.disable()?;
+                    service.disable()
                 }
-            }
+            })
+            .await
+            .map_err(|e| e.to_string())??;
             announce(&app);
             Ok(status(&app))
         }

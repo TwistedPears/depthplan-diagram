@@ -1,0 +1,2 @@
+class VipPerson < Person
+end

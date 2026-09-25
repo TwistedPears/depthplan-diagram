@@ -36,6 +36,9 @@ pub fn powershell(mode: &str, path: &std::ffi::OsStr) -> std::process::Command {
             "-Command",
             include_str!("windows.ps1"),
         ])
+        // A Rust process launched by PowerShell 7 otherwise passes its
+        // incompatible module paths to Windows PowerShell 5.1.
+        .env_remove("PSModulePath")
         .env("DEPTHPLAN_ACL_MODE", mode)
         .env("DEPTHPLAN_ACL_PATH", path);
     command
@@ -53,13 +56,14 @@ pub fn path(path: &Path, secure: bool, directory: bool) -> Result<()> {
     {
         return Err("Unsafe local endpoint".into());
     }
-    if !powershell(if secure { "secure" } else { "verify" }, path.as_os_str())
+    let output = powershell(if secure { "secure" } else { "verify" }, path.as_os_str())
         .output()
-        .map_err(|e| e.to_string())?
-        .status
-        .success()
-    {
-        return Err("Unsafe local endpoint ACL".into());
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(format!(
+            "Unsafe local endpoint ACL: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
     }
     Ok(())
 }

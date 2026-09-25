@@ -25,6 +25,22 @@ for (const script of [
   npm('run', script);
 }
 npm('test', '--', '--runInBand');
+run(process.execPath, ['--test', 'scripts/native-driver.test.mjs']);
+if (process.platform === 'win32') {
+  run(
+    path.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32/WindowsPowerShell/v1.0/powershell.exe',
+    ),
+    [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-File',
+      'scripts/test-windows-acl.ps1',
+    ],
+  );
+}
 npm('run', 'test:native');
 npm('run', 'build:automation');
 run(
