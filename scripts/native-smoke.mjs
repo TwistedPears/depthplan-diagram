@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import client from './mcp/native-client.cjs';
 import { launchNative } from './native-driver.mjs';
 import { authoring } from './native-authoring.mjs';
+import { searchProbe } from './native-search.mjs';
 import { layering } from './native-layering.mjs';
 import { expansion } from './native-expansion.mjs';
 const {
@@ -151,6 +152,7 @@ try {
     for (const key of ['inputSchema', 'outputSchema', 'annotations'])
       assert.deepEqual(actual[key], expected[key], `${expected.name} ${key}`);
   }
+  await searchProbe(probe);
   let context = await probe.call('depthplan_get_context');
   assert.equal(context.ok, true, JSON.stringify(context));
   const root = context.data.roots.find((r) => r.maximumDepth > 0);
@@ -479,7 +481,7 @@ try {
     code: 'ENOENT',
   });
   console.log(
-    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 25-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
+    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 26-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );
 } catch (error) {
   const active = resumed ?? { app, request, session, sync };

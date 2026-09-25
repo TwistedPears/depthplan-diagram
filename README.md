@@ -77,7 +77,7 @@ containment, connections, rich content, bookmarks, persistence and export detail
 ## Local automation
 
 Enable **Menu → MCP Server**, then open **MCP Details** for the executable,
-descriptor and client configuration. The 25 tools edit the same live document as
+descriptor and client configuration. The 26 tools edit the same live document as
 the UI. Access starts Off each launch; disk operations require explicit local
 folder approval. See [MCP setup and tools](docs/mcp.md).
 

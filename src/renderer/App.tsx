@@ -263,6 +263,7 @@ function Workspace() {
     depthplan_history: (input) => editorCommand('history', input),
     depthplan_get_state: owner.editorQueries.getState,
     depthplan_query: owner.editorQueries.query,
+    depthplan_search: owner.editorQueries.search,
     depthplan_read_chunk: owner.editorQueries.readChunk,
     depthplan_get_context: getContext,
     depthplan_get_hierarchy: getHierarchy,

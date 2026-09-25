@@ -177,7 +177,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": "Discovers 25 tools through a stdio adapter."
+              "text": "Discovers 26 tools through a stdio adapter."
             }
           ]
         },
@@ -667,7 +667,7 @@
           "type": "paragraph",
           "runs": [
             {
-              "text": "25 tools are registered by the depth, editor and file contracts."
+              "text": "26 tools are registered by the depth, editor and file contracts."
             }
           ]
         },

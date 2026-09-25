@@ -9,6 +9,7 @@ import { activeWorldGeometry, indexHierarchy } from './recursiveHierarchy';
 import { recursiveVisibility } from './recursiveVisibility';
 import {
   queryInput,
+  searchInput,
   chunkInput,
   deletionPreviewInput,
   type CanvasState,
@@ -17,6 +18,9 @@ import { deletionTargets } from './recursiveDeletion';
 import { mcpTools } from './mcpRegistry';
 import type { Camera } from './recursiveCamera';
 import type { SourceFile } from './fileContract';
+import type { RecursiveDocument } from './recursiveDocument';
+import { contentText, objectLabel } from './recursiveScene';
+import { matchesSearch, searchTerms } from './objectSearch';
 
 export type EditorSnapshot = QuerySnapshot & {
   camera: Camera;
@@ -120,6 +124,138 @@ export function entityCollection(
       if (!layout)
         throw new EditorError('NOT_FOUND', 'Saved depth layout does not exist');
       return layout;
+    }
+  }
+}
+
+/** Yield compact matches without retaining document content or a search index. */
+function* searchItems(
+  doc: RecursiveDocument,
+  args: z.infer<typeof searchInput>,
+  offset: number,
+) {
+  const hierarchy = indexHierarchy(doc.objects);
+  const { visible, expanded } = recursiveVisibility(doc, hierarchy);
+  for (const id of [args.rootId, args.subtreeId])
+    if (id !== undefined && !hierarchy.entries.has(id))
+      throw new EditorError('NOT_FOUND', 'Search scope does not exist');
+  if (args.rootId !== undefined && doc.objects[args.rootId].parentId !== null)
+    throw new EditorError('NOT_ROOT', 'rootId must identify a root');
+  if (
+    args.rootId !== undefined &&
+    args.subtreeId !== undefined &&
+    hierarchy.entries.get(args.subtreeId)!.root !== args.rootId
+  )
+    throw new EditorError('INVALID_REQUEST', 'subtreeId must belong to rootId');
+  const scopeId = args.subtreeId ?? args.rootId;
+  const scope = new Set<string>();
+  if (scopeId !== undefined) {
+    if (args.collection === 'bookmarks')
+      throw new EditorError(
+        'INVALID_REQUEST',
+        'Bookmarks have no object scope',
+      );
+    scope.add(scopeId);
+    for (const id of scope)
+      for (const child of hierarchy.children.get(id) ?? []) scope.add(child);
+  }
+  const included = (id: string | null) =>
+    id !== null && (scopeId === undefined || scope.has(id));
+  const terms = searchTerms(args.query);
+  if (!terms.length) return;
+  const collections = args.collection
+    ? [args.collection]
+    : (['objects', 'connections', 'bookmarks'] as const);
+  let position = 0;
+  for (const collection of collections) {
+    if (collection === 'bookmarks' && scopeId !== undefined) continue;
+    const entities =
+      collection === 'bookmarks' ? (doc.namedViews ?? {}) : doc[collection];
+    for (const id of Object.keys(entities).sort()) {
+      if (position++ < offset) continue;
+      const object = collection === 'objects' ? doc.objects[id] : undefined;
+      const connection =
+        collection === 'connections' ? doc.connections[id] : undefined;
+      const endpoints = connection ? [connection.start, connection.end] : [];
+      if (object && !included(id)) continue;
+      if (
+        connection &&
+        scopeId !== undefined &&
+        !included(connection.ownerId) &&
+        !endpoints.some((end) => end.kind !== 'free' && included(end.objectId))
+      )
+        continue;
+      const label = object
+        ? objectLabel(object)
+        : connection
+          ? (connection.label ?? '')
+          : doc.namedViews![id].name;
+      const text = object
+        ? contentText(object.content).replace(/\s+/g, ' ').trim()
+        : '';
+      if (!matchesSearch(`${object ? object.name : label} ${text}`, terms))
+        continue;
+      const lowerText = text.toLowerCase();
+      const snippetText =
+        text && terms.some((term) => lowerText.includes(term)) ? text : label;
+      const normalized = snippetText.replace(/\s+/g, ' ').trim();
+      const lower = normalized.toLowerCase();
+      let firstMatch = Math.min(
+        ...terms.map((term) => lower.indexOf(term)).filter((at) => at >= 0),
+      );
+      // Lowercasing can expand characters (for example İ); map back to source offsets.
+      if (Number.isFinite(firstMatch) && lower.length !== normalized.length) {
+        let folded = 0,
+          source = 0;
+        while (folded < firstMatch)
+          folded += normalized[source++].toLowerCase().length;
+        firstMatch = source;
+      }
+      const start = Math.max(
+        0,
+        (Number.isFinite(firstMatch) ? firstMatch : 0) - 60,
+      );
+      const snippet = normalized.slice(start, start + 240);
+      const ancestorIds: string[] = [];
+      if (object)
+        for (
+          let parent = object.parentId;
+          parent !== null;
+          parent = doc.objects[parent].parentId
+        )
+          ancestorIds.push(parent);
+      yield {
+        position,
+        item: {
+          collection,
+          id,
+          label: label.slice(0, 512),
+          labelTruncated: label.length > 512,
+          snippet,
+          snippetTruncated:
+            start > 0 || start + snippet.length < normalized.length,
+          ...(object
+            ? {
+                rootId: hierarchy.entries.get(id)!.root,
+                ancestorIds: ancestorIds.reverse(),
+                visible: visible.has(id),
+              }
+            : {}),
+          ...(connection
+            ? {
+                ownerId: connection.ownerId,
+                start: connection.start,
+                end: connection.end,
+                visible:
+                  (connection.ownerId === null ||
+                    expanded.has(connection.ownerId)) &&
+                  endpoints.every(
+                    (end) => end.kind === 'free' || visible.has(end.objectId),
+                  ),
+              }
+            : {}),
+        },
+      };
     }
   }
 }
@@ -255,6 +391,48 @@ export function createEditorQueries(owner: {
         });
         if (nextCursor) {
           cursors.set(nextCursor, { scope, offset: next });
+          if (cursors.size > 256) cursors.delete(cursors.keys().next().value!);
+        }
+        return result;
+      } catch (error) {
+        return editorFailure(s, error);
+      }
+    },
+    search: (input: unknown) => {
+      const s = owner.snapshot();
+      try {
+        const args = searchInput.parse(input);
+        checkHandle(s, args.handle);
+        const doc = recursiveDocument(s);
+        const { cursor, ...filter } = args;
+        const scope = JSON.stringify({ search: filter, stamp: editorStamp(s) });
+        const previous = cursor ? cursors.get(cursor) : undefined;
+        if (cursor && previous?.scope !== scope)
+          throw new EditorError(
+            'STALE_CURSOR',
+            'Restart this search without a cursor',
+          );
+        const offset = previous?.offset ?? 0;
+        const items = [];
+        let nextOffset = offset,
+          hasMore = false;
+        for (const { item, position } of searchItems(doc, args, offset)) {
+          if (items.length === args.pageSize) {
+            nextOffset = position - 1;
+            hasMore = true;
+            break;
+          }
+          items.push(item);
+        }
+        const nextCursor = hasMore ? crypto.randomUUID() : null;
+        const result = boundedResult(s, {
+          viewRevision: s.viewRevision,
+          items,
+          nextCursor,
+          hasMore,
+        });
+        if (nextCursor) {
+          cursors.set(nextCursor, { scope, offset: nextOffset });
           if (cursors.size > 256) cursors.delete(cursors.keys().next().value!);
         }
         return result;
