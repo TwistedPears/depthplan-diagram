@@ -44,6 +44,11 @@ stdio adapter against a live document, verifies typed/scoped hidden results and
 pagination, checks state equality across reads, then verifies Undo removes the
 new content and invalidates its cursor. The ordinary smoke suite runs afterward.
 
+The first PR CI run exposed an existing generator portability issue: the bundled
+schema code exceeded Linux's per-argument process limit (`E2BIG`). Both generator
+subprocesses now read code from standard input instead of a command-line argument.
+Generated schemas and document conformance cases remain byte-for-byte identical.
+
 Reproduce with:
 
 ```sh
