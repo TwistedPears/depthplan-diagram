@@ -12,7 +12,7 @@ import {
 } from './recursiveCreation';
 import { boundaryPlacement, boundaryPosition } from './recursiveBoundary';
 import { distance, localPoint, worldPoint } from './connectionGeometry';
-import { containsShape } from './recursiveOwnership';
+import { containsShape, connectionOwners } from './recursiveOwnership';
 
 export type BindingModifiers = {
   ctrlKey: boolean;
@@ -41,7 +41,6 @@ export function bindingTarget(
 ): ConnectionTarget {
   if (modifiers.ctrlKey || modifiers.metaKey) return null;
   const candidates = [...world].filter(([id, geometry]) => {
-    if (id === ownerId) return false;
     const outline = worldPoint(
       boundaryPosition(
         boundaryPlacement(point, geometry),
@@ -51,7 +50,8 @@ export function bindingTarget(
       geometry,
     );
     return (
-      containsShape(document.objects[id], geometry, point) ||
+      (id !== ownerId &&
+        containsShape(document.objects[id], geometry, point)) ||
       connectionAnchors(geometry).some(
         (anchor) => distance(point, anchor) <= 12 / scale,
       ) ||
@@ -113,17 +113,12 @@ export function replaceEndpoint(
   const targetId = typeof target === 'string' ? target : target?.objectId;
   let ownerId = connection.ownerId;
   if (targetId) {
-    const targetOwners =
-      typeof target === 'string'
-        ? [document.objects[targetId].parentId]
-        : [document.objects[targetId].parentId, targetId];
+    const targetOwners = connectionOwners(document, targetId);
     if (!targetOwners.includes(ownerId)) {
       const otherOwners =
         other.kind === 'free'
           ? targetOwners
-          : other.kind === 'boundary'
-            ? [document.objects[other.objectId].parentId, other.objectId]
-            : [document.objects[other.objectId].parentId];
+          : connectionOwners(document, other.objectId);
       const legal = targetOwners.filter((id) => otherOwners.includes(id));
       if (!legal.length)
         throw new Error('Connect across containers through boundary points.');

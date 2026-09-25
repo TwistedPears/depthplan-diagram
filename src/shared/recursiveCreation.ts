@@ -1,7 +1,11 @@
 import { recursiveVisibility } from './recursiveVisibility';
 import type { DiagramObject, Endpoint, Geometry } from './recursiveDocument';
 import type { DocumentEdit } from './documentTransactions';
-import { insertSubtree, eligibleParent } from './recursiveOwnership';
+import {
+  insertSubtree,
+  eligibleParent,
+  connectionOwners,
+} from './recursiveOwnership';
 import { setChildrenExpanded } from './recursiveLayouts';
 import { activeWorldGeometry, toLocalGeometry } from './recursiveHierarchy';
 import { localPoint } from './connectionGeometry';
@@ -101,10 +105,14 @@ export function createConnector(
     for (const target of [startId, endId])
       if (target !== null && !world.has(target))
         throw new Error('Connector target is hidden or missing');
-    const owners = [startId, endId]
+    const scopes = [startId, endId]
       .filter((target): target is string => target !== null)
-      .map((target) => draft.objects[target].parentId);
-    if (owners.length === 2 && owners[0] !== owners[1])
+      .map((target) => connectionOwners(draft, target));
+    const owners = scopes.reduce(
+      (common, scope) => common.filter((id) => scope.includes(id)),
+      scopes[0] ?? [],
+    );
+    if (scopes.length && !owners.length)
       throw new Error('Connect across containers through boundary points.');
     const { expanded } = recursiveVisibility(draft);
     const closed = new Set([...world.keys()].filter((id) => !expanded.has(id)));

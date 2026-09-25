@@ -11,6 +11,14 @@ import {
 } from './recursiveHierarchy';
 import { recursiveVisibility } from './recursiveVisibility';
 
+/** A shape's border can connect outside in its parent or inside to its children. */
+export function connectionOwners(
+  document: RecursiveDocument,
+  objectId: string,
+) {
+  return [document.objects[objectId].parentId, objectId];
+}
+
 /** Hit the visible silhouette, including rotation, rather than its bounding box. */
 export function containsShape(
   object: DiagramObject,

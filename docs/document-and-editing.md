@@ -146,10 +146,11 @@ rotation. Creation and endpoint dragging snap within 12 screen pixels of an anch
 and release beyond that radius. Between anchors, dragging near the outline follows
 the pointer; dragging into the shape uses an automatic attachment.
 `binding: "auto"` follows the adjacent path vertex. `"fixed"` prefers its authored
-side/offset while the next path segment faces out of the shape, then slides along
-the visible outline until that point faces outward again. Neither sliding nor
-moving shapes changes the saved preferred point. Both modes leave an eight-unit
-outline gap. An absent mode uses the authored attachment
+side/offset while the next path segment faces out of the shape (inward for an
+endpoint on its own container), then slides along the visible outline until that
+point faces the connection again. Neither sliding nor moving shapes changes the
+saved preferred point. Both modes leave an eight-unit outline gap, inside the
+border for container endpoints. An absent mode uses the authored attachment
 without an added gap. Straight routes join vertices, curved routes use cubic
 Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
 Creation uses world points; endpoint/point edits use owner-local points.
@@ -161,9 +162,16 @@ handles, so a normal endpoint drag reattaches or detaches the connector without
 moving its old point. MCP boundary-point commands remain available for stored
 documents and bridge authoring.
 
-An inward bridge connects a container boundary to an immediate child or its
-boundary. Deeper nesting uses successive explicit bridges. Many connections may
-share a point; no automatic bundling or destination inference occurs. Owners are
+The Arrow tool also connects a parent's border or fixed anchor to an immediate
+child, in either direction. Dragging an existing arrow endpoint supports the same
+attachments. A connection inside the parent can snap to its border; empty interior
+space remains available for free endpoints. Internal routes belong to the parent,
+and elbow routing treats its border as an entrance rather than an obstacle.
+Outside and inside arrows may share the same parent anchor without creating a
+custom boundary point. Existing named boundary bridges remain supported.
+
+Deeper nesting uses successive explicit bridges. Many connections may share a
+point; no automatic bundling or destination inference occurs. Owners are
 the nearest valid common scope, with canvas ownership across roots. Crossing
 container boundaries requires explicit boundary chains.
 

@@ -40,8 +40,7 @@ export function patchConnection(
       const target = draft.objects[endpoint.objectId];
       if (
         !target ||
-        (target.parentId !== item.ownerId &&
-          !(endpoint.kind === 'boundary' && endpoint.objectId === item.ownerId))
+        (target.parentId !== item.ownerId && endpoint.objectId !== item.ownerId)
       )
         throw new Error('Connect across containers through boundary points.');
     }

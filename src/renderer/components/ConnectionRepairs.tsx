@@ -27,10 +27,10 @@ export default function ConnectionRepairs({
       {open && (
         <>
           <p>
-            Create the boundary points and bridge segments with the canvas
-            tools. Select the replacement segment, then use it below to retain
-            the original route’s ID, label and style. Closing this list keeps
-            every pending route.
+            Connect through parent borders with the Arrow tool. Select the
+            replacement segment, then use it below to retain the original
+            route’s ID, label and style. Closing this list keeps every pending
+            route.
           </p>
           {repairs.map(([id, repair]) => (
             <section key={id} aria-label={`Repair ${id}`}>

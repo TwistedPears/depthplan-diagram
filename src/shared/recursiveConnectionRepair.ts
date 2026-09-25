@@ -8,6 +8,7 @@ import type { DocumentEdit } from './documentTransactions';
 import { indexHierarchy, toLocalGeometry } from './recursiveHierarchy';
 import { worldAt } from './recursiveReparent';
 import { connectionRoute, worldPoint, localPoint } from './connectionGeometry';
+import { connectionOwners } from './recursiveOwnership';
 
 /** Resolve retained hidden geometry using the same deterministic policy as reparenting. */
 export function savedWorldGeometry(
@@ -50,8 +51,7 @@ function freeAt(
 }
 function scopes(document: RecursiveDocument, end: Endpoint) {
   if (end.kind === 'free') return null;
-  const parent = document.objects[end.objectId].parentId;
-  return end.kind === 'boundary' ? [parent, end.objectId] : [parent];
+  return connectionOwners(document, end.objectId);
 }
 function ancestry(document: RecursiveDocument, id: string | null): string {
   const ids: string[] = [];

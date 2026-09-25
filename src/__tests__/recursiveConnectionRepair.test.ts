@@ -105,7 +105,7 @@ it('archives an invalid crossing, round trips, explicitly repairs it and restore
   const d = recursiveFixture();
   d.connections.route = route({
     ownerId: null,
-    end: { kind: 'object', objectId: 'payments', side: 'left', offset: 0.5 },
+    end: { kind: 'object', objectId: 'app', side: 'left', offset: 0.5 },
   });
   const original = JSON.stringify(d);
   const { result } = renderHook(() => useDocumentState(d));

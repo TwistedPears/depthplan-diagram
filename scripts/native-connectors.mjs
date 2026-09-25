@@ -61,7 +61,7 @@ export async function connectors(driver, probe) {
     start: { kind: 'free', x: 550, y: 220 },
     end: { kind: 'boundary', objectId: 'b', pointId: 'port' },
   };
-  const file = path.join(profile, 'connector-snapping.depthplan');
+  let file = path.join(profile, 'connector-snapping.depthplan');
   await writeFile(file, JSON.stringify(document));
   await dialogs('open', file);
   await click('Menu');
@@ -259,5 +259,149 @@ export async function connectors(driver, probe) {
   await click('Pointer (Select/Edit)');
   console.log(
     'PASS connector snapping: four shape anchors, creation, snap/release in one drag, boundary endpoint priority, reattachment/detachment, visible-side fallback, Undo and reopen.',
+  );
+
+  const nested = structuredClone(document);
+  nested.id = 'parent-connectors';
+  nested.metadata.title = 'Parent connections';
+  nested.connections = {};
+  for (const id of ['c', 'd']) {
+    delete nested.objects[id];
+    delete nested.layouts[id];
+    delete nested.rootDepths[id];
+  }
+  const parent = { x: 600, y: 420, width: 400, height: 300, rotation: 0, z: 0 };
+  const child = { x: 0, y: 0, width: 100, height: 80, rotation: 0, z: 0 };
+  nested.objects.a.geometry = parent;
+  nested.objects.a.style.fill = '#ffffff';
+  nested.objects.child = {
+    ...nested.objects.a,
+    id: 'child',
+    parentId: 'a',
+    name: 'child',
+    geometry: child,
+  };
+  nested.layouts.a = { 0: { a: parent }, 1: { a: parent, child } };
+  nested.rootDepths.a = 1;
+  nested.layouts.b[0].b = { ...nested.layouts.b[0].b, x: 950, y: 420 };
+  delete nested.objects.b.boundaryPoints;
+  file = path.join(profile, 'parent-connectors.depthplan');
+  await writeFile(file, JSON.stringify(nested));
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open');
+  await until(async () => (await state()).source?.path === file);
+  await click('Reset view');
+  const draw = async (from, to) => {
+    await click('Arrow');
+    await pointer('mousedown', ...from);
+    await pointer('mousemove', ...to);
+    assert.equal(
+      await sync(
+        `return window.Konva.stages[0].find('.connection-path').some(n=>n.stroke()==='#dc2626')`,
+      ),
+      false,
+      'parent-child preview is valid',
+    );
+    await pointer('mouseup', ...to);
+    return save();
+  };
+  saved = await draw([860, 420], [800, 420]);
+  const outside = Object.keys(saved.connections)[0];
+  assert.equal(saved.connections[outside].ownerId, null);
+  saved = await draw([800, 420], [650, 420]);
+  const inside = Object.keys(saved.connections).find((key) => key !== outside);
+  assert.equal(saved.connections[inside].ownerId, 'a');
+  assert.deepEqual(
+    saved.connections[inside].start,
+    saved.connections[outside].end,
+  );
+  assert.deepEqual(await endHandle(), { x: 658, y: 420 });
+  const startHandle = () =>
+    sync(
+      `return window.Konva.stages[0].find('.connector-point-handle').find(n=>n.getAttr('connectorHandle').index===0).getAbsolutePosition();`,
+    );
+  assert.deepEqual(await startHandle(), { x: 792, y: 420 });
+
+  handle = await startHandle();
+  await pointer('mousedown', handle.x, handle.y);
+  await pointer('mousemove', 606, 273);
+  assert.deepEqual(await startHandle(), { x: 600, y: 278 });
+  await pointer('mouseup', 606, 273);
+  assert.equal((await save()).connections[inside].start.side, 'top');
+  await click('Undo');
+  assert.deepEqual(
+    (await save()).connections[inside].start,
+    saved.connections[inside].start,
+  );
+  await click('Redo');
+  assert.equal((await save()).connections[inside].start.side, 'top');
+  await click('Undo');
+  await save();
+
+  // An internal arrow can reattach to its own parent's border, then detach inside.
+  handle = await endHandle();
+  await pointer('mousedown', handle.x, handle.y);
+  await pointer('mousemove', 400, 420);
+  await pointer('mouseup', 400, 420);
+  assert.equal((await save()).connections[inside].end.objectId, 'a');
+  assert.deepEqual(await endHandle(), { x: 408, y: 420 });
+  handle = await endHandle();
+  await pointer('mousedown', handle.x, handle.y);
+  await pointer('mousemove', 480, 330);
+  await pointer('mouseup', 480, 330);
+  assert.deepEqual((await save()).connections[inside].end, {
+    kind: 'free',
+    x: -120,
+    y: -90,
+  });
+  await click('Undo');
+  await click('Undo');
+  await save();
+
+  saved = await draw([600, 380], [600, 270]);
+  const reverse = Object.keys(saved.connections).find(
+    (key) => key !== outside && key !== inside,
+  );
+  assert.equal(saved.connections[reverse].ownerId, 'a');
+  assert.deepEqual(await endHandle(), { x: 600, y: 278 });
+  assert.equal(saved.objects.a.boundaryPoints, undefined);
+  await click('Hide children of a');
+  assert.equal(
+    await sync(`return !!window.Konva.stages[0].findOne(arguments[0])`, [
+      `#connection-${inside}`,
+    ]),
+    false,
+  );
+  assert.equal(
+    await sync(`return !!window.Konva.stages[0].findOne(arguments[0])`, [
+      `#connection-${outside}`,
+    ]),
+    true,
+  );
+  await click('Undo');
+  await save();
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open');
+  await until(async () => !(await state()).canUndo);
+  await select(inside);
+  await js(
+    'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+  );
+  assert.deepEqual(await startHandle(), { x: 792, y: 420 });
+  assert.deepEqual(await endHandle(), { x: 658, y: 420 });
+  const parentScreenshot = await driver.request(
+    `/session/${driver.session}/screenshot`,
+    undefined,
+    'GET',
+  );
+  await writeFile(
+    path.join(profile, 'parent-connectors.png'),
+    Buffer.from(parentScreenshot, 'base64'),
+  );
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS parent connections: shared inside/outside anchor, both drawing directions, inward routing, reattachment/detachment, Undo/Redo, collapse and reopen.',
   );
 }
