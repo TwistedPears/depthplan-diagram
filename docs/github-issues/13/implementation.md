@@ -34,6 +34,9 @@ Rollback is reverting the feature commit; no document or project format changes.
 - Native authoring waits for React to paint after MCP command acknowledgments,
   matching the existing click/bookmark helpers. This fixes a premature selection
   toolbar assertion; the expected controls and values remain unchanged.
+- Native expansion waits for paint before starting pointer gestures. A repeated
+  probe caught mouse-down seeing no hit target while mouse-up saw the toggle:
+  Konva's hit canvas had not caught up with its geometry/listening state.
 - Mandatory local gate: `npm run check:local` (format, types, lint, JS and Rust
   tests, Clippy, native smoke, instrumented and ordinary builds, license checks,
   automation exclusion and dependency audits). Results accompany the PR.
