@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -16,6 +17,7 @@ import {
 import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
+  | { kind: 'recents' }
   | { kind: 'settings' }
   | { kind: 'saveIssue'; boardId: string }
   | {
@@ -42,6 +44,74 @@ function useProject() {
   const [dialog, setDialog] = useState<ProjectDialog | null>(null);
   const [drawer, setDrawer] = useState(() => window.innerWidth >= 1100);
   const [filter, setFilter] = useState('');
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const writes = useRef(Promise.resolve());
+  const remember = async (activeKey = registry.snapshot().activeKey) => {
+    const current = live.current;
+    if (!current) return;
+    const tabs = registry.snapshot().sessions.flatMap((session) => {
+      const owner = registry.controllers.get(session.key)?.owner;
+      return session.project && owner
+        ? [
+            {
+              boardId: session.project.boardId,
+              camera: owner.snapshot().camera,
+            },
+          ]
+        : [];
+    });
+    const active =
+      registry.snapshot().sessions.find((session) => session.key === activeKey)
+        ?.project?.boardId ?? null;
+    const view = {
+      tabs,
+      active,
+      drawer,
+      window: [
+        Math.max(900, window.innerWidth),
+        Math.max(640, window.innerHeight),
+      ] as [number, number],
+    };
+    const pending = writes.current
+      .catch(() => {})
+      .then(async () => {
+        success(
+          await window.desktop.projects.remember(current.sessionId, view),
+        );
+      });
+    writes.current = pending;
+    await pending;
+  };
+  const writer = useRef(remember);
+  writer.current = remember;
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const scheduleRemember = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!locked.current)
+        void writer
+          .current()
+          .catch((e) =>
+            setError(`Could not save local workspace: ${String(e)}`),
+          );
+    }, 500);
+  }, []);
+  useEffect(() => {
+    scheduleRemember();
+  }, [
+    project,
+    registry.sessions,
+    registry.activeKey,
+    drawer,
+    scheduleRemember,
+  ]);
+  useEffect(() => {
+    window.addEventListener('resize', scheduleRemember);
+    return () => {
+      clearTimeout(timer.current);
+      window.removeEventListener('resize', scheduleRemember);
+    };
+  }, [scheduleRemember]);
   const toggle = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const update = (next: ProjectSnapshot | null) => {
@@ -57,6 +127,9 @@ function useProject() {
     setBusy(true);
     setError('');
     try {
+      await remember(previous).catch((e) =>
+        setError(`Could not save local workspace: ${String(e)}`),
+      );
       completed = (await action()) !== false;
       return completed;
     } catch (e) {
@@ -67,6 +140,7 @@ function useProject() {
       if (!completed) registry.activate(previous);
       locked.current = false;
       setBusy(false);
+      scheduleRemember();
     }
   };
   const openBoard = async (boardId: string) => {
@@ -133,27 +207,56 @@ function useProject() {
     }
   };
   const install = async (next: ProjectSnapshot) => {
+    let saved = null;
+    try {
+      saved = success(
+        await window.desktop.projects.workspace(next.sessionId),
+      )?.view;
+    } catch (e) {
+      setError(`Could not restore local workspace: ${String(e)}`);
+    }
     const previous = live.current;
     await registry.retire();
     if (previous)
       success(await window.desktop.projects.close(previous.sessionId));
     registry.install([]);
     update(next);
+    if (saved) {
+      setDrawer(saved.drawer);
+      for (const tab of saved.tabs) {
+        if (!next.manifest.boards.some((board) => board.id === tab.boardId)) {
+          setError('Some previous tabs are no longer project members.');
+          continue;
+        }
+        try {
+          if (await openBoard(tab.boardId))
+            registry.controllers
+              .get(key(tab.boardId))
+              ?.owner.setCamera(tab.camera);
+        } catch (e) {
+          setError(`Could not restore board: ${String(e)}`);
+        }
+      }
+      if (saved.active) registry.activate(key(saved.active));
+      if (!saved.tabs.length || registry.snapshot().sessions.length) return;
+    }
     await openHome(next);
   };
-  const openProject = () =>
+  const acceptProject = async (candidate: ProjectSnapshot) => {
+    if (candidate.sessionId === live.current?.sessionId) return true;
+    let installed = false;
+    try {
+      if (!(await registry.prepare())) return false;
+      await install(candidate);
+      installed = true;
+    } finally {
+      if (!installed) await window.desktop.projects.close(candidate.sessionId);
+    }
+  };
+  const openProject = (read = () => window.desktop.projects.open()) =>
     run(async () => {
-      const candidate = success(await window.desktop.projects.open());
-      if (!candidate) return false;
-      let installed = false;
-      try {
-        if (!(await registry.prepare())) return false;
-        await install(candidate.project);
-        installed = true;
-      } finally {
-        if (!installed)
-          await window.desktop.projects.close(candidate.project.sessionId);
-      }
+      const candidate = success(await read());
+      return candidate ? acceptProject(candidate.project) : false;
     });
   const createProject = (name: string, folder: string, copy: boolean) =>
     run(async () => {
@@ -171,24 +274,36 @@ function useProject() {
       await install(created.project);
       setDialog(null);
     });
+  const acceptStandalone = async (candidate: FileCandidate | null) => {
+    if (!(await registry.prepare())) return false;
+    await registry.retire();
+    if (live.current)
+      success(await window.desktop.projects.close(live.current.sessionId));
+    update(null);
+    registry.install([
+      {
+        key: crypto.randomUUID(),
+        document:
+          candidate?.document ??
+          createRecursiveDocument(crypto.randomUUID(), 'Untitled Document'),
+        source: candidate?.source ?? null,
+      },
+    ]);
+  };
   const standalone = (read?: () => Promise<FileResult<FileCandidate>>) =>
     run(async () => {
       const candidate = read ? success(await read()) : null;
-      if (read && !candidate) return false;
-      if (!(await registry.prepare())) return false;
-      await registry.retire();
-      if (live.current)
-        success(await window.desktop.projects.close(live.current.sessionId));
-      update(null);
-      registry.install([
-        {
-          key: crypto.randomUUID(),
-          document:
-            candidate?.document ??
-            createRecursiveDocument(crypto.randomUUID(), 'Untitled Document'),
-          source: candidate?.source ?? null,
-        },
-      ]);
+      return read && !candidate ? false : acceptStandalone(candidate);
+    });
+  const openRequest = (id: string) =>
+    run(async () => {
+      const candidate = success(
+        await window.desktop.fileSystem.readOpenRequest(id),
+      );
+      if (!candidate) return false;
+      return 'project' in candidate
+        ? acceptProject(candidate.project)
+        : acceptStandalone(candidate);
     });
   const apply = async (action: ProjectAction) => {
     const current = live.current!;
@@ -204,7 +319,7 @@ function useProject() {
     return result.project;
   };
   const manage = (
-    kind: Exclude<ProjectDialog['kind'], 'settings' | 'saveIssue'>,
+    kind: Exclude<ProjectDialog['kind'], 'settings' | 'saveIssue' | 'recents'>,
     name = '',
     path = '',
     boardId?: string,
@@ -379,6 +494,10 @@ function useProject() {
   });
   return {
     project,
+    recoveryReady,
+    setRecoveryReady,
+    remember,
+    scheduleRemember,
     busy,
     loadingBoard,
     error,
@@ -398,6 +517,7 @@ function useProject() {
     resolveDefinition,
     openBoard,
     openProject,
+    openRequest,
     createProject,
     standalone,
     manage,

@@ -11,6 +11,7 @@ import FormDialog from './FormDialog';
 import ProjectSettings from './ProjectSettings';
 import ProjectSaveIssue from './ProjectSaveIssue';
 import ProjectDefinitionActions from './ProjectDefinitionActions';
+import RecentProjects from './RecentProjects';
 import Icon from './Icon';
 import './ProjectNavigation.css';
 
@@ -85,6 +86,15 @@ export function ProjectMenu({
           </button>
         </>
       )}
+      <button
+        disabled={busy}
+        onClick={() => {
+          setDialog({ kind: 'recents' });
+          onAction();
+        }}
+      >
+        Recent Projects…
+      </button>
     </div>
   );
 }
@@ -92,7 +102,10 @@ export function ProjectMenu({
 function ProjectForm({
   action,
 }: {
-  action: Exclude<ProjectDialog, { kind: 'settings' | 'saveIssue' }>;
+  action: Exclude<
+    ProjectDialog,
+    { kind: 'settings' | 'saveIssue' | 'recents' }
+  >;
 }) {
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
@@ -629,6 +642,8 @@ export default function ProjectNavigation() {
         <ProjectSaveIssue boardId={workspace.dialog.boardId} />
       ) : workspace.dialog?.kind === 'settings' ? (
         <ProjectSettings />
+      ) : workspace.dialog?.kind === 'recents' ? (
+        <RecentProjects />
       ) : (
         workspace.dialog && (
           <ProjectForm

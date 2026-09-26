@@ -152,7 +152,9 @@ export async function launchNative(existingProfile, fileArguments = []) {
       height: 900,
     });
     await until(() =>
-      sync('return !!window.desktop && !!document.querySelector("canvas")'),
+      sync(
+        'return !!window.desktop && !!document.querySelector("canvas, .project-navigation")',
+      ),
     );
     await sync(
       'window.nativeErrors=[];addEventListener("error",e=>window.nativeErrors.push(e.message));addEventListener("unhandledrejection",e=>window.nativeErrors.push(String(e.reason)))',

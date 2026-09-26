@@ -182,6 +182,11 @@ export async function projectNavigation(driver) {
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
+  // Settings choose the home for a fresh local workspace; valid saved tabs win otherwise.
+  const recent = (await driver.native('project:recents')).entries.find(
+    (entry) => entry.id === persisted.id,
+  );
+  await driver.native('project:forget', recent.key);
   await click('Menu');
   await dialogs('project-open', actualPath);
   await click('Open Project…');

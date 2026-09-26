@@ -102,6 +102,19 @@ export interface ProjectBoard {
   fingerprint: string;
   source: SourceFile;
 }
+export type ProjectView = {
+  tabs: { boardId: string; camera: { x: number; y: number; scale: number } }[];
+  active: string | null;
+  drawer: boolean;
+  window: [number, number] | null;
+};
+export type RecentProject = {
+  key: string;
+  id: string;
+  name: string;
+  location: string;
+  available: boolean;
+};
 
 /** Portable filenames for Unicode labels; native storage still checks disk collisions. */
 export function projectFilename(

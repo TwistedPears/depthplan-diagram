@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+  waitFor,
+} from '@testing-library/react';
 import { Workspace } from '../renderer/App';
 import useDocumentSessions, {
   DocumentSessions,
@@ -99,6 +106,8 @@ beforeEach(() => {
       openDocument: jest.fn().mockResolvedValue({ status: 'canceled' }),
     },
     projects: {
+      workspace: jest.fn().mockResolvedValue({ status: 'success', view: null }),
+      remember: jest.fn().mockResolvedValue({ status: 'success', view: null }),
       open: jest.fn(async () => response()),
       close: jest.fn().mockResolvedValue({ status: 'success' }),
       inspect: jest.fn(async () => response()),
@@ -534,13 +543,11 @@ test('reloading a repathed manifest guards dirty boards and keeps unaffected ses
   const bBefore = controller('b').owner.snapshot();
   const changed = clone(project);
   changed.manifest.boards[0].path = 'repathed.depthplan';
-  window.desktop.projects.definition = jest
-    .fn()
-    .mockResolvedValue({
-      status: 'success',
-      manifest: changed.manifest,
-      fingerprint: 'external',
-    });
+  window.desktop.projects.definition = jest.fn().mockResolvedValue({
+    status: 'success',
+    manifest: changed.manifest,
+    fingerprint: 'external',
+  });
   window.desktop.projects.resolveDefinition = jest.fn(async () => {
     project = changed;
     return response();
@@ -607,5 +614,80 @@ test('a broken home board falls back without dropping its row, and a canceled co
   );
   expect(controller('b').owner.snapshot()).toEqual(before);
   expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+  expect(window.desktop.projects.close).not.toHaveBeenCalled();
+});
+
+test('restores local tabs/order, active board and cameras without source writes; an intentionally empty workspace stays empty', async () => {
+  const view = {
+    tabs: ['c', 'b'].map((boardId, i) => ({
+      boardId,
+      camera: { x: i * 30, y: -12, scale: 2 },
+    })),
+    active: 'c',
+    drawer: true,
+    window: null,
+  };
+  jest
+    .mocked(window.desktop.projects.workspace)
+    .mockResolvedValue({ status: 'success', view });
+  const original = clone(documents);
+  await setup();
+  expect(registry.sessions.map((session) => session.project?.boardId)).toEqual([
+    'c',
+    'b',
+  ]);
+  expect(registry.activeKey).toBe(key('c'));
+  expect(controller('b').owner.camera).toEqual({ x: 30, y: -12, scale: 2 });
+  expect(controller('b').owner.dirty).toBe(false);
+  act(() => controller('c').owner.setCamera({ x: 50, y: 40, scale: 1.5 }));
+  await waitFor(() =>
+    expect(window.desktop.projects.remember).toHaveBeenCalledWith(
+      'project-session',
+      expect.objectContaining({
+        active: 'c',
+        tabs: [
+          { boardId: 'c', camera: { x: 50, y: 40, scale: 1.5 } },
+          { boardId: 'b', camera: { x: 30, y: -12, scale: 2 } },
+        ],
+      }),
+    ),
+  );
+  await click('Menu');
+  await click('Close Project');
+  jest
+    .mocked(window.desktop.projects.workspace)
+    .mockResolvedValue({
+      status: 'success',
+      view: { ...view, tabs: [], active: null },
+    });
+  await click('Menu');
+  await click('Open Project…');
+  expect(registry.sessions).toHaveLength(0);
+  expect(screen.getByText('Choose a board to begin.')).toBeInTheDocument();
+  expect(window.desktop.projects.writeBoard).not.toHaveBeenCalled();
+  expect(documents).toEqual(original);
+});
+
+test('skips removed local tabs and falls back to home; reopening the same native session preserves live work', async () => {
+  jest
+    .mocked(window.desktop.projects.workspace)
+    .mockResolvedValue({
+      status: 'success',
+      view: {
+        tabs: [{ boardId: 'removed', camera: { x: 0, y: 0, scale: 1 } }],
+        active: 'removed',
+        drawer: false,
+        window: null,
+      },
+    });
+  await setup();
+  const owner = controller('a').owner.sessionId;
+  act(() =>
+    controller('a').owner.transact(editObject('api', { name: 'Keep local' })),
+  );
+  await click('Menu');
+  await click('Open Project…');
+  expect(controller('a').owner.sessionId).toBe(owner);
+  expect(controller('a').owner.document!.objects.api.name).toBe('Keep local');
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
 });

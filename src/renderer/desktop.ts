@@ -12,6 +12,8 @@ import type {
   ProjectBoard,
   ProjectSnapshot,
   ProjectManifest,
+  ProjectView,
+  RecentProject,
 } from '../shared/projectContract';
 import type {
   FileCandidate,
@@ -94,6 +96,23 @@ async function projectCall(
 
 const desktopHandler = {
   projects: {
+    recents: () =>
+      native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
+    forget: (key: string) =>
+      native<FileResult<Record<string, never>>>('project:forget', key),
+    openRecent: (key: string, locate = false) =>
+      projectCall('project:recent-open', key, locate),
+    workspace: (sessionId: string) =>
+      native<FileResult<{ view: ProjectView | null }>>(
+        'project:workspace',
+        sessionId,
+      ),
+    remember: (sessionId: string, view: ProjectView) =>
+      native<FileResult<{ view: ProjectView | null }>>(
+        'project:remember',
+        sessionId,
+        view,
+      ),
     create: (name: string, folder: string, document?: RecursiveDocument) =>
       projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
@@ -350,7 +369,9 @@ const desktopHandler = {
         void ready.then((stop) => stop()).catch(console.error);
       };
     },
-    readOpenRequest: (id: string): Promise<FileResult<FileCandidate>> =>
+    readOpenRequest: (
+      id: string,
+    ): Promise<FileResult<FileCandidate | { project: ProjectSnapshot }>> =>
       native('file:open-request', id),
     releaseOpenRequest: (id: string): Promise<void> =>
       native('file:release-open-request', id),

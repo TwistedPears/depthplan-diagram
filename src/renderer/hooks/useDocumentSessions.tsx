@@ -305,6 +305,7 @@ function useRegistry() {
   };
   return {
     sessions,
+    snapshot: () => current.current,
     statuses,
     report,
     activeKey,

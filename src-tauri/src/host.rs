@@ -5,6 +5,7 @@ use crate::{
     projects::{Action, Project, Projects},
     recovery::Recovery,
     validation,
+    workspace::{View, Workspaces},
 };
 use base64::Engine;
 use serde_json::{json, Value};
@@ -41,7 +42,9 @@ fn open_paths(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
     let mut requests = requests.0.lock().unwrap();
     for path in paths {
         if !path.extension().is_some_and(|ext| {
-            ext.eq_ignore_ascii_case("depthplan") || ext.eq_ignore_ascii_case("json")
+            ext.eq_ignore_ascii_case("depthplan")
+                || ext.eq_ignore_ascii_case("json")
+                || ext.eq_ignore_ascii_case("depthproject")
         }) || requests.iter().any(|(_, pending)| pending == &path)
         {
             continue;
@@ -70,6 +73,7 @@ pub struct Host {
     closing: Mutex<Closing>,
     png: Mutex<Option<PngExport>>,
     projects: Mutex<Projects>,
+    workspaces: Mutex<Workspaces>,
 }
 fn string(value: &Value) -> Result<&str> {
     value.as_str().ok_or("Expected text".into())
@@ -276,6 +280,14 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
                 .find(|(pending, _)| pending == id)
                 .map(|(_, path)| path.clone())
                 .ok_or("File open request is no longer available")?;
+            if path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("depthproject"))
+            {
+                return Ok(
+                    json!({"status":"success","project":host.projects.lock().unwrap().open(&path)?}),
+                );
+            }
             let mut value = host.storage.lock().unwrap().files.read(&path)?;
             value["status"] = "success".into();
             Ok(value)
@@ -310,6 +322,64 @@ fn arg(args: &[Value], i: usize) -> &Value {
 fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value> {
     let host = app.state::<Host>();
     match method {
+        "project:recents" => {
+            Ok(json!({"status":"success","entries":host.workspaces.lock().unwrap().list()}))
+        }
+        "project:forget" => {
+            host.workspaces
+                .lock()
+                .unwrap()
+                .forget(string(arg(args, 0))?)?;
+            Ok(json!({"status":"success"}))
+        }
+        "project:workspace" | "project:remember" => {
+            let project = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .workspace_identity();
+            let mut workspaces = host.workspaces.lock().unwrap();
+            if method == "project:remember" {
+                workspaces.remember(
+                    &project,
+                    if arg(args, 1).is_null() {
+                        None
+                    } else {
+                        Some(View::parse(arg(args, 1).clone())?)
+                    },
+                )?;
+            }
+            let view = workspaces.view(string(&project["workspaceKey"])?);
+            if method == "project:workspace" {
+                if let Some([width, height]) = view.as_ref().and_then(|v| v.window) {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+                    }
+                }
+            }
+            Ok(json!({"status":"success","view":view}))
+        }
+        "project:recent-open" => {
+            let recent = host.workspaces.lock().unwrap().get(string(arg(args, 0))?)?;
+            let locate = arg(args, 1).as_bool() == Some(true);
+            let path = if locate {
+                let Some(path) = select(app, "project-open", "")? else {
+                    return Ok(json!({"status":"canceled"}));
+                };
+                path
+            } else {
+                recent.location.clone()
+            };
+            let project = host.projects.lock().unwrap().open(&path)?;
+            if locate && !recent.location.exists() && project["manifest"]["id"] == recent.id && choice(app,"Restore moved project workspace?", "The project identity matches and its previous location is unavailable. Restore its tabs and camera positions at this location?", "Restore workspace", "Start fresh") == "Restore workspace" {
+                let mut workspaces = host.workspaces.lock().unwrap();
+                if let Err(error) = workspaces.remember(&project, recent.view).and_then(|_| workspaces.forget(&recent.key)) {
+                    log::warn!("Could not migrate local project workspace: {error}");
+                }
+            }
+            Ok(json!({"status":"success","project":project}))
+        }
         "project:import" => {
             let id = string(arg(args, 0))?;
             host.projects
@@ -370,8 +440,7 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let Some(path) = select(app, "project-open", "")? else {
                 return Ok(json!({"status":"canceled"}));
             };
-            let project = Project::open(&path)?;
-            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().insert(project)}))
+            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().open(&path)?}))
         }
         "project:create" => {
             let name = string(arg(args, 0))?;
@@ -1250,13 +1319,16 @@ pub fn run() {
                 dialogs: AtomicUsize::new(0),
                 storage: Mutex::new(Storage {
                     files: FileStore::default(),
-                    recovery: Recovery::new(root, instance.clone()),
+                    recovery: Recovery::new(root.clone(), instance.clone()),
                 }),
                 service: Mutex::new(Service::new(instance)?),
                 folders: Folders::default(),
                 closing: Mutex::new(Closing::default()),
                 png: Mutex::new(None),
                 projects: Mutex::new(Projects::default()),
+                workspaces: Mutex::new(Workspaces::new(
+                    root.parent().unwrap().join("workspaces.json"),
+                )),
             });
             create_window(app.handle())?;
             menu(app.handle())?;

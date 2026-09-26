@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>DepthPlan project</title>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#ffffff"/>
+  <path d="M192 324a52 52 0 0 1 52-52h218l64 72h254a52 52 0 0 1 52 52v344a52 52 0 0 1-52 52H244a52 52 0 0 1-52-52Z" fill="#eaf0ff" stroke="#2d62d5" stroke-width="28"/>
+  <g fill="#ffffff" stroke="#2d62d5" stroke-width="24">
+    <rect x="300" y="440" width="228" height="172" rx="16"/>
+    <rect x="392" y="496" width="228" height="172" rx="16"/>
+    <rect x="484" y="552" width="228" height="172" rx="16"/>
+  </g>
+</svg>

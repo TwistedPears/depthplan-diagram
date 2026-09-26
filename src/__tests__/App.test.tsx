@@ -123,6 +123,53 @@ describe('App', () => {
     expect(await screen.findByText('Saved')).toBeInTheDocument();
   });
 
+  it('queues OS opens until startup recovery discovery and the explicit skip finish', async () => {
+    let discovered!: (result: {
+      entries: unknown[];
+      warnings: string[];
+    }) => void;
+    (window.desktop.recovery.discover as jest.Mock).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          discovered = resolve;
+        }),
+    );
+    (window.desktop.fileSystem.readOpenRequest as jest.Mock).mockResolvedValue({
+      status: 'success',
+      document: recursiveFixture(),
+      source: { id: 'os', path: '/os.depthplan', fingerprint: 'os' },
+    });
+    render(<App />);
+    const receive = (window.desktop.fileSystem.onOpenRequested as jest.Mock)
+      .mock.calls[0][0];
+    act(() => receive('queued-open'));
+    expect(window.desktop.fileSystem.readOpenRequest).not.toHaveBeenCalled();
+    await act(async () =>
+      discovered({
+        entries: [
+          {
+            id: 'recover',
+            title: 'Recovered board',
+            sourcePath: null,
+            capturedAt: new Date().toISOString(),
+            sessionId: 'old',
+            instanceId: 'previous',
+            revision: 1,
+          },
+        ],
+        warnings: [],
+      }),
+    );
+    expect(window.desktop.fileSystem.readOpenRequest).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue without restoring' }),
+    );
+    await screen.findByText('Fixture');
+    expect(window.desktop.fileSystem.releaseOpenRequest).toHaveBeenCalledWith(
+      'queued-open',
+    );
+  });
+
   it('routes OS file opens through the unsaved-work guard and deduplicates startup events', async () => {
     const document = recursiveFixture();
     (window.desktop.fileSystem.readOpenRequest as jest.Mock).mockResolvedValue({

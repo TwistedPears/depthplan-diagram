@@ -71,6 +71,14 @@ function SessionWorkspace() {
     };
   }, []);
   const registry = useDocumentSessions();
+  useDocumentOpenRequests(
+    projectWorkspace.busy ||
+      !!projectWorkspace.dialog ||
+      !projectWorkspace.recoveryReady ||
+      !registry.canSwitch(),
+    projectWorkspace.openRequest,
+    projectWorkspace.setError,
+  );
   useEffect(() =>
     window.desktop.transitions.onRequest((id) => {
       void (async () => {
@@ -79,6 +87,7 @@ function SessionWorkspace() {
             await window.desktop.transitions.reply(id, false);
             return;
           }
+          await projectWorkspace.remember();
           const approved = await registry.closeAll();
           await window.desktop.transitions.reply(id, approved);
         } catch {
@@ -187,6 +196,10 @@ function BoardWorkspace({
   const autosave =
     !!session.project && !!projectWorkspace.project?.manifest.autosave;
   useProjectAutosave(owner, files, autosave);
+  const { scheduleRemember } = projectWorkspace;
+  useEffect(() => {
+    if (session.project) scheduleRemember();
+  }, [owner.camera, session.project, scheduleRemember]);
   const transitions = useDocumentTransitions(
     owner,
     files,
@@ -258,15 +271,6 @@ function BoardWorkspace({
     files.blocking ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
-  useDocumentOpenRequests(
-    transitions,
-    isLoading || projectWorkspace.busy,
-    showStatus,
-    active,
-    projectWorkspace.project
-      ? (read) => projectWorkspace.standalone(read)
-      : undefined,
-  );
   const handleNewDocument = () => {
     if (!isLoading) {
       if (projectWorkspace.project)
@@ -450,6 +454,7 @@ function BoardWorkspace({
         >
           {!session.source && (
             <RecoveryChoices
+              onReady={projectWorkspace.setRecoveryReady}
               refresh={mcpWorkflows.recoveryVersion()}
               onRestore={async (candidate) =>
                 transitions.request('restore', () => {

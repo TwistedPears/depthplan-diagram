@@ -32,6 +32,18 @@
           "identifier": "com.twistedpears.depthplan.document",
           "conformsTo": ["public.json"]
         }
+      },
+      {
+        "ext": ["depthproject"],
+        "name": "DepthPlan project",
+        "description": "DepthPlan project",
+        "role": "Editor",
+        "rank": "Owner",
+        "mimeType": "application/x-depthproject",
+        "exportedType": {
+          "identifier": "com.twistedpears.depthplan.project",
+          "conformsTo": ["public.json"]
+        }
       }
     ],
     "resources": {
@@ -39,32 +51,42 @@
       "../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md",
       "../COMMERCIAL-TERMS.md": "COMMERCIAL-TERMS.md",
       "generated/RUST-LICENSES.json": "licenses/RUST-LICENSES.json",
-      "../out/tauri-renderer/THIRD-PARTY-LICENSES.json": "licenses/JAVASCRIPT-LICENSES.json"
+      "../out/tauri-renderer/THIRD-PARTY-LICENSES.json": "licenses/JAVASCRIPT-LICENSES.json",
+      "../assets/project.icns": "project.icns",
+      "../assets/project.ico": "project.ico"
     },
     "externalBin": ["binaries/depthplan-mcp"],
     "linux": {
       "deb": {
         "files": {
           "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
-          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthproject.png": "../assets/project.png"
         }
       },
       "rpm": {
         "files": {
           "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
-          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthproject.png": "../assets/project.png"
         }
       },
       "appimage": {
         "files": {
           "/usr/share/mime/packages/depthplan.xml": "mime/depthplan.xml",
-          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png"
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png": "../assets/icon.png",
+          "/usr/share/icons/hicolor/512x512/mimetypes/application-x-depthproject.png": "../assets/project.png"
         }
       }
     },
     "macOS": {
       "infoPlist": "Info.plist",
       "minimumSystemVersion": "10.13"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/project-icon.nsh"
+      }
     }
   }
 }

@@ -732,6 +732,9 @@ impl Project {
         Ok(())
     }
 
+    pub fn workspace_identity(&self) -> Value {
+        json!({"location":self.path,"workspaceKey":files::fingerprint(format!("{}\0{}", self.manifest.id, self.root.display()).as_bytes()),"manifest":{"id":self.manifest.id,"name":self.manifest.name}})
+    }
     pub fn snapshot(&self, session: &str) -> Value {
         let mut diagnostics = Vec::new();
         for board in &self.manifest.boards {
@@ -796,6 +799,13 @@ fn blank(name: &str) -> Value {
 #[derive(Default)]
 pub struct Projects(pub HashMap<String, Project>);
 impl Projects {
+    pub fn open(&mut self, path: &Path) -> Result<Value> {
+        let canonical = fs::canonicalize(path).map_err(|e| e.to_string())?;
+        if let Some((id, project)) = self.0.iter().find(|(_, project)| project.path == canonical) {
+            return Ok(project.snapshot(id));
+        }
+        Ok(self.insert(Project::open(path)?))
+    }
     pub fn insert(&mut self, project: Project) -> Value {
         let id = Uuid::new_v4().to_string();
         let result = project.snapshot(&id);
