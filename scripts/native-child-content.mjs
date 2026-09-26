@@ -38,7 +38,14 @@ export async function childContent(driver, probe) {
     await dialogs('open', file);
     await click('Menu');
     await click('Open');
-    await until(async () => (await state()).source?.path === file);
+    // The owner publishes the file before React mounts its canvas. That mount
+    // sets the viewport and advances viewRevision, so wait before guarded edits.
+    await until(async () => {
+      const current = await state();
+      return (
+        current.source?.path === file && current.canvas.viewport.height > 0
+      );
+    });
   };
   const save = async () => {
     await click('Save document');

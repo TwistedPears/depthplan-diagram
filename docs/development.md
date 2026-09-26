@@ -82,7 +82,9 @@ node scripts/check-licenses.cjs
 
 For Clippy without bundle resources, use
 `TAURI_CONFIG='{"bundle":{"active":false,"externalBin":[],"resources":[]}}'`.
-Linux smoke needs a display, or `xvfb-run --auto-servernum npm run smoke:ci`.
+Linux smoke needs a display and a session bus, or
+`xvfb-run --auto-servernum dbus-run-session -- npm run smoke:ci` (install `xvfb`
+and `dbus-daemon`). Start the bus after Xvfb so desktop services inherit `DISPLAY`.
 Linux `test:native` uses release mode and includes the GLib string-iterator
 regression for the [security backport](../src-tauri/vendor/README.md).
 Automation uses disposable profiles/files and prints its evidence directory.
@@ -117,8 +119,15 @@ Development recovery uses `DepthPlan Development`, production uses `DepthPlan`,
 and automation uses a temporary profile. Test-only profile overrides are not
 ordinary release configuration.
 
-The Test workflow retains the full macOS, Windows and Linux matrix. While the
-repository is private, it runs only via Actions → Test → Run workflow. Once public,
+The Test workflow runs three independent suites on macOS, Windows and Linux:
+`checks` (source checks, unit tests, Clippy and audits), `native` (instrumented
+application integration), and `release` (ordinary build, licenses and automation
+exclusion). All nine jobs must pass; a native failure leaves the other results
+visible. Windows checks also stress concurrent native handle clone/drop and
+cleanup after the runtime exits; see the [runtime patch](../src-tauri/vendor/README.md#tauri-windows-runtime-ownership).
+Native failures retain screenshots and `failure.json` with process diagnostics.
+
+While the repository is private, it runs only via Actions → Test → Run workflow. Once public,
 it also runs on PRs targeting main and pushes to main; feature-branch pushes and
 tag pushes do not duplicate those runs. Superseded test runs are canceled.
 CodeQL remains public-only, including its weekly scan. The Draft release workflow

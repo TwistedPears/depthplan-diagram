@@ -79,7 +79,9 @@ export async function connectors(driver, probe) {
   const pointer = async (type, x, y, modifiers = {}) => {
     await sync(
       `const [type,x,y,modifiers]=arguments;
-      document.elementFromPoint(x,y).dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
+      const target=document.elementFromPoint(x,y);
+      if(!target)throw new Error('Pointer '+x+','+y+' outside viewport '+innerWidth+'x'+innerHeight);
+      target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
       [type, x, y, modifiers],
     );
     await js(
@@ -205,13 +207,17 @@ export async function connectors(driver, probe) {
     document.objects.b.boundaryPoints,
   );
   handle = await endHandle();
+  // Hosted macOS can clamp the window below its requested height.
+  // Stay clear of both the bottom toolbar and the diamond's snap radius.
+  const free = await sync(
+    'return {x:Math.min(1200,innerWidth-40),y:Math.min(720,innerHeight-130)}',
+  );
   await pointer('mousedown', handle.x, handle.y);
-  await pointer('mousemove', 1150, 720);
-  await pointer('mouseup', 1150, 720);
+  await pointer('mousemove', free.x, free.y);
+  await pointer('mouseup', free.x, free.y);
   assert.deepEqual((await save()).connections.legacy.end, {
     kind: 'free',
-    x: 1150,
-    y: 720,
+    ...free,
   });
 
   // A preferred point returns after the shapes move back into view of each other.
@@ -236,11 +242,14 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(
-    async () =>
-      (await state()).source?.path === file &&
-      !(await state()).busyReasons.length,
-  );
+  await until(async () => {
+    const current = await state();
+    return (
+      current.source?.path === file &&
+      current.canvas.viewport.height > 0 &&
+      !current.busyReasons.length
+    );
+  });
   await select(id);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -398,7 +407,10 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(async () => !(await state()).canUndo);
+  await until(async () => {
+    const current = await state();
+    return !current.canUndo && current.canvas.viewport.height > 0;
+  });
   await select(inside);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -525,7 +537,10 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(async () => !(await state()).canUndo);
+  await until(async () => {
+    const current = await state();
+    return !current.canUndo && current.canvas.viewport.height > 0;
+  });
   await select(direct);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -533,12 +548,11 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await endHandle(), { x: 808, y: 420 });
   handle = await endHandle();
   await pointer('mousedown', handle.x, handle.y);
-  await pointer('mousemove', 1120, 650);
-  await pointer('mouseup', 1120, 650);
+  await pointer('mousemove', free.x, free.y);
+  await pointer('mouseup', free.x, free.y);
   assert.deepEqual((await save()).connections[direct].end, {
     kind: 'free',
-    x: 1120,
-    y: 650,
+    ...free,
   });
   await click('Undo');
   assert.deepEqual((await save()).connections[direct], attachment);

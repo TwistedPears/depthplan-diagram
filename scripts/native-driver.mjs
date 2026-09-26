@@ -50,9 +50,10 @@ export async function launchNative(existingProfile, fileArguments = []) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(15000),
     }).catch((error) => {
-      throw new Error(`WebDriver ${method} ${route}: ${error.message}`, {
-        cause: error,
-      });
+      throw new Error(
+        `WebDriver ${method} ${route}: ${error.message}; app exit=${app.exitCode}, signal=${app.signalCode}\n${diagnostics}`,
+        { cause: error },
+      );
     });
     const bodyText = await r.text();
     assert.equal(r.ok, true, `WebDriver ${r.status}: ${bodyText}`);
@@ -60,13 +61,19 @@ export async function launchNative(existingProfile, fileArguments = []) {
     assert.equal(result.value?.error, undefined, JSON.stringify(result));
     return result.value;
   }
+  // WebKitGTK marshals objects through an unordered map. Carry JSON text so
+  // reading an ordered document through WebDriver cannot change its contents.
   const sync = (script, args = []) =>
-    request(`/session/${session}/execute/sync`, { script, args });
+    request(`/session/${session}/execute/sync`, {
+      script: `return JSON.stringify((function(){${script}\n}).apply(null,JSON.parse(arguments[0])))`,
+      args: [JSON.stringify(args)],
+    }).then(JSON.parse);
   const js = (expression, args = []) =>
     request(`/session/${session}/execute/async`, {
-      script: `const done=arguments[arguments.length-1]; Promise.resolve().then(()=>(${expression})).then(value=>done({value}),error=>done({failure:String(error)}))`,
-      args,
-    }).then((result) => {
+      script: `const done=arguments[arguments.length-1],args=JSON.parse(arguments[0]); Promise.resolve().then(()=>(function(){return (${expression})}).apply(null,args)).then(value=>done(JSON.stringify({value}))).catch(error=>done(JSON.stringify({failure:String(error)})))`,
+      args: [JSON.stringify(args)],
+    }).then((text) => {
+      const result = JSON.parse(text);
       assert.equal(result.failure, undefined, result.failure);
       return result.value;
     });
@@ -165,6 +172,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
       drag,
       until,
       close,
+      diagnostics: () => diagnostics,
     };
   } catch (error) {
     await close();

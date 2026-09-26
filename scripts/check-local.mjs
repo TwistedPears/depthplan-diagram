@@ -43,6 +43,14 @@ if (process.platform === 'win32') {
 }
 npm('run', 'test:native');
 npm('run', 'build:automation');
+const nativeOptions = {
+  env: {
+    ...process.env,
+    TAURI_CONFIG: JSON.stringify({
+      bundle: { active: false, externalBin: [], resources: [] },
+    }),
+  },
+};
 run(
   'cargo',
   [
@@ -56,15 +64,22 @@ run(
     '-D',
     'warnings',
   ],
-  {
-    env: {
-      ...process.env,
-      TAURI_CONFIG: JSON.stringify({
-        bundle: { active: false, externalBin: [], resources: [] },
-      }),
-    },
-  },
+  nativeOptions,
 );
+if (process.platform === 'win32') {
+  run(
+    'cargo',
+    [
+      'run',
+      '--manifest-path',
+      'src-tauri/Cargo.toml',
+      '--locked',
+      '--example',
+      'runtime_handle_stress',
+    ],
+    nativeOptions,
+  );
+}
 
 // Use the automation build from this run, including a custom Cargo target dir.
 const smokeOptions = {
@@ -85,7 +100,13 @@ if (
 ) {
   run(
     'xvfb-run',
-    ['--auto-servernum', process.execPath, ...smokeArgs],
+    [
+      '--auto-servernum',
+      'dbus-run-session',
+      '--',
+      process.execPath,
+      ...smokeArgs,
+    ],
     smokeOptions,
   );
 } else {

@@ -19,18 +19,27 @@ const {
   session,
   request,
   sync,
+  js,
   native,
   dialogs,
   click,
   drag,
   until,
   close,
+  diagnostics,
 } = await launchNative(undefined, [
   pathToFileURL(path.resolve('docs/sample/recursive_document.depthplan')).href,
 ]);
 let probe;
 let resumed;
 try {
+  const ordered = { 'z-first': { z: 1, a: 2 }, 'a-last': null };
+  for (const result of [
+    await sync('return arguments[0]', [ordered]),
+    await js('Promise.resolve(arguments[0])', [ordered]),
+  ]) {
+    assert.equal(JSON.stringify(result), JSON.stringify(ordered));
+  }
   await until(() =>
     sync(
       'return document.body.textContent.includes("recursive_document.depthplan")',
@@ -520,7 +529,12 @@ try {
   );
 } catch (error) {
   const active = resumed ?? { app, request, session, sync };
-  const failure = { error: String(error.stack ?? error) };
+  const failure = {
+    error: String(error.stack ?? error),
+    exitCode: active.app.exitCode,
+    signal: active.app.signalCode,
+    diagnostics: (resumed?.diagnostics ?? diagnostics)(),
+  };
   if (active.app.exitCode === null) {
     try {
       failure.console = await active.sync('return window.nativeErrors');

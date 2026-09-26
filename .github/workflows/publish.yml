@@ -43,7 +43,7 @@ jobs:
           if-no-files-found: warn
       - name: Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus-daemon
       - name: Check version tag
         run: node -e "if (process.env.GITHUB_REF_NAME !== 'v' + require('./package.json').version) throw new Error('Tag must match package version')"
       - run: npm ci
@@ -53,10 +53,17 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:hooks
+      - run: node --test scripts/native-driver.test.mjs
       - run: npm test -- --runInBand
       - run: npm run test:native
       - run: npm run build:automation
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+      - name: Windows runtime ownership regression
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        run: cargo run --manifest-path src-tauri/Cargo.toml --locked --example runtime_handle_stress
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
       - name: Tauri native integration
@@ -64,7 +71,7 @@ jobs:
           TMPDIR: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
           TEMP: ${{ runner.temp }}
-        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum' || '' }} npm run smoke:ci
+        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} npm run smoke:ci
       - name: Package uninstrumented application without publishing
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

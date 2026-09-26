@@ -360,5 +360,5 @@ export async function authoring(driver, probe) {
     'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"test:quit",args:[]}),100)',
   );
   await until(() => driver.app.exitCode !== null);
-  assert.equal(driver.app.exitCode, 0);
+  assert.equal(driver.app.exitCode, 0, driver.diagnostics());
 }
