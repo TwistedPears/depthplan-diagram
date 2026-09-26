@@ -78,6 +78,7 @@ type State = {
   dirty: boolean;
 };
 type Action =
+  | { type: 'relocate'; title: string; source: SourceFile }
   | { type: 'edit'; edit: DocumentEdit; now: string; camera?: Camera }
   | { type: 'camera'; update: SetStateAction<Camera> }
   | { type: 'canvas'; update: SetStateAction<CanvasState> }
@@ -125,6 +126,27 @@ function initialState(
   };
 }
 function reduce(state: State, action: Action): State {
+  if (action.type === 'relocate') {
+    const rename = (document: RecursiveDocument) => ({
+      ...document,
+      metadata: { ...document.metadata, title: action.title },
+    });
+    return {
+      ...state,
+      document: state.document && rename(state.document),
+      saved: state.saved && rename(state.saved),
+      source: action.source,
+      revision: state.revision + 1,
+      past: state.past.map((entry) => ({
+        ...entry,
+        document: rename(entry.document),
+      })),
+      future: state.future.map((entry) => ({
+        ...entry,
+        document: rename(entry.document),
+      })),
+    };
+  }
   if (action.type === 'canvas') {
     const canvas =
       typeof action.update === 'function'
@@ -231,7 +253,12 @@ export default function useDocumentState(
   // Publish to the authoritative owner synchronously, then schedule its React view.
   // Consecutive commands in one event turn must observe each other's revisions.
   const dispatch = useCallback((action: Action) => {
-    if (busySources.current.has('closing')) return live.current;
+    if (
+      busySources.current.has('closing') &&
+      action.type !== 'saved' &&
+      action.type !== 'relocate'
+    )
+      return live.current;
     let next = reduce(live.current, action);
     if (next === live.current) return next;
     next = {
@@ -413,6 +440,8 @@ export default function useDocumentState(
   );
   useEffect(() => () => editorCommand.dispose(), [editorCommand]);
   return {
+    relocate: (title: string, source: SourceFile) =>
+      dispatch({ type: 'relocate', title, source }),
     ...state,
     snapshot,
     editorQueries,

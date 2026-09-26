@@ -57,6 +57,9 @@
   margin-top: 3px;
   color: var(--muted);
   font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .document-actions {
   display: flex;

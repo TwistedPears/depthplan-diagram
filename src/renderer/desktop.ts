@@ -60,6 +60,11 @@ const menuChannels = [
   'menu:redo',
   'menu:new',
   'menu:open',
+  'menu:new-project',
+  'menu:open-project',
+  'menu:close-project',
+  'menu:project-board',
+  'menu:close-tab',
   'menu:reload-document',
   'menu:save',
   'menu:save-as',
@@ -86,11 +91,39 @@ const desktopHandler = {
     create: (name: string, folder: string, document?: RecursiveDocument) =>
       projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
+    importBoards: async (
+      sessionId: string,
+      expected: string,
+    ): Promise<
+      FileResult<{
+        project: ProjectSnapshot;
+        imported: string[];
+        errors: string[];
+      }>
+    > => {
+      const result = await native<
+        FileResult<{
+          project: ProjectSnapshot;
+          imported: string[];
+          errors: string[];
+        }>
+      >('project:import', sessionId, expected);
+      if (result.status === 'success')
+        validateProjectManifest(result.project.manifest);
+      return result;
+    },
     inspect: (sessionId: string) => projectCall('project:inspect', sessionId),
     apply: (sessionId: string, expected: string, action: ProjectAction) =>
       projectCall('project:apply', sessionId, expected, action),
     close: (sessionId: string): Promise<FileResult<Record<string, never>>> =>
       native('project:close', sessionId),
+    writeBoard: (
+      sessionId: string,
+      boardId: string,
+      expected: string,
+      document: RecursiveDocument,
+    ): Promise<FileResult<{ source: SourceFile }>> =>
+      native('project:write-board', sessionId, boardId, expected, document),
     readBoard: async (
       sessionId: string,
       boardId: string,

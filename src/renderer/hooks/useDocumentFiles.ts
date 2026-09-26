@@ -31,6 +31,7 @@ export default function useDocumentFiles(
     saved: (sessionId: string, revision: number) => Promise<void>;
     leave: (sessionId: string) => Promise<void>;
   },
+  project?: { sessionId: string; boardId: string },
 ) {
   const [loading, setLoading] = useState(false);
   const locked = useRef(false);
@@ -59,11 +60,18 @@ export default function useDocumentFiles(
             captured.document,
             saveAs ? undefined : captured.source?.id,
           )
-        : window.desktop.fileSystem.saveDocument(
-            captured.document,
-            captured.source?.id,
-            saveAs,
-          ));
+        : project && !saveAs
+          ? window.desktop.projects.writeBoard(
+              project.sessionId,
+              project.boardId,
+              captured.source?.fingerprint ?? '',
+              captured.document,
+            )
+          : window.desktop.fileSystem.saveDocument(
+              captured.document,
+              captured.source?.id,
+              saveAs,
+            ));
       if (saved.status === 'error') throw new Error(saved.error);
       if (saved.status === 'canceled') {
         onStatus('Save canceled');
@@ -71,6 +79,10 @@ export default function useDocumentFiles(
       }
       if (owner.snapshot().sessionId !== captured.sessionId)
         return result('stale');
+      if (project && saveAs) {
+        onStatus(`Saved copy: ${saved.source.path}`);
+        return result('success');
+      }
       owner.markSaved(captured.document, captured.sessionId, saved.source);
       await recovery?.saved(captured.sessionId, captured.revision);
       onStatus(`Saved: ${saved.source.path.split(/[\\/]/).pop()}`);
@@ -115,13 +127,25 @@ export default function useDocumentFiles(
         } else {
           const candidate: FileResult<FileCandidate> = await (access.read
             ? access.read()
-            : reread
-              ? window.desktop.fileSystem.reloadDocument(reread)
-              : kind === 'open'
-                ? window.desktop.fileSystem.openDocument()
-                : window.desktop.fileSystem.reloadDocument(
-                    captured.source!.id,
-                  ));
+            : project && kind === 'reload'
+              ? window.desktop.projects
+                  .readBoard(project.sessionId, project.boardId)
+                  .then((result) =>
+                    result.status === 'success'
+                      ? {
+                          status: 'success' as const,
+                          document: result.board.document,
+                          source: result.board.source,
+                        }
+                      : result,
+                  )
+              : reread
+                ? window.desktop.fileSystem.reloadDocument(reread)
+                : kind === 'open'
+                  ? window.desktop.fileSystem.openDocument()
+                  : window.desktop.fileSystem.reloadDocument(
+                      captured.source!.id,
+                    ));
           if (candidate.status === 'error') throw new Error(candidate.error);
           if (candidate.status === 'canceled') return result('canceled');
           document = candidate.document;

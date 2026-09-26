@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type useDocumentTransitions from './useDocumentTransitions';
+import type { FileCandidate, FileResult } from '../../shared/fileContract';
 
 /** OS opens use the same draft/unsaved-work guards as the Open command. */
 export default function useDocumentOpenRequests(
@@ -7,6 +8,7 @@ export default function useDocumentOpenRequests(
   busy: boolean,
   onStatus: (message: string) => void,
   enabled = true,
+  open?: (read: () => Promise<FileResult<FileCandidate>>) => Promise<boolean>,
 ) {
   const [requests, setRequests] = useState<string[]>([]);
   const handling = useRef(false);
@@ -27,9 +29,12 @@ export default function useDocumentOpenRequests(
     handling.current = true;
     void (async () => {
       try {
-        await transitions.request('open', undefined, {
-          read: () => window.desktop.fileSystem.readOpenRequest(id),
-        });
+        if (open)
+          await open(() => window.desktop.fileSystem.readOpenRequest(id));
+        else
+          await transitions.request('open', undefined, {
+            read: () => window.desktop.fileSystem.readOpenRequest(id),
+          });
       } finally {
         try {
           await window.desktop.fileSystem.releaseOpenRequest(id);

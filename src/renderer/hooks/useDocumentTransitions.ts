@@ -111,7 +111,14 @@ export default function useDocumentTransitions(
     owner.setBusy('closing', false);
   };
   const request = async (
-    kind: 'new' | 'open' | 'reload' | 'close' | 'prepare-close' | 'restore',
+    kind:
+      | 'new'
+      | 'open'
+      | 'reload'
+      | 'close'
+      | 'prepare-close'
+      | 'prepare-copy'
+      | 'restore',
     install?: () => void,
     access: TransitionAccess = {},
   ) => {
@@ -126,11 +133,22 @@ export default function useDocumentTransitions(
     owner.setBusy('transition', true);
     let closing = false;
     try {
-      if (kind === 'close' || kind === 'prepare-close' || kind === 'restore') {
-        if (!(await guard(access))) return false;
+      if (
+        kind === 'close' ||
+        kind === 'prepare-close' ||
+        kind === 'prepare-copy' ||
+        kind === 'restore'
+      ) {
+        if (
+          !(await (kind === 'prepare-copy'
+            ? resolveDrafts(access)
+            : guard(access)))
+        )
+          return false;
         if (access.permit?.() === false) return false;
         owner.setBusy('closing', true);
-        if (kind !== 'prepare-close') await leave?.(owner.snapshot().sessionId);
+        if (kind === 'close' || kind === 'restore')
+          await leave?.(owner.snapshot().sessionId);
         if (kind === 'restore') {
           owner.setBusy('closing', false);
           install!();

@@ -2,6 +2,45 @@ use super::*;
 fn create(dir: &Path) -> Project {
     Project::create(dir, "project", "Project", None, &|_| Ok(())).unwrap()
 }
+#[test]
+fn board_saves_use_owned_project_and_reject_stale_identity_or_manifest() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = create(dir.path());
+    let id = project.manifest.boards[0].id.clone();
+    let read = project.read_board(&id).unwrap();
+    let original = read["fingerprint"].as_str().unwrap();
+    let mut edited = read["document"].clone();
+    edited["metadata"]["title"] = "Accepted content".into();
+    let saved = project.write_board(&id, original, &edited).unwrap();
+    assert_eq!(
+        project.read_board(&id).unwrap()["document"]["metadata"]["title"],
+        "Accepted content"
+    );
+    assert!(project.write_board(&id, original, &edited).is_err());
+    assert!(project.write_board("unknown", &saved, &edited).is_err());
+    edited["id"] = "wrong".into();
+    assert!(project.write_board(&id, &saved, &edited).is_err());
+    edited["id"] = id.clone().into();
+    let path = project.board_path(&id).unwrap();
+    let bytes = fs::read(&path).unwrap();
+    fs::write(&project.path, "{}").unwrap();
+    assert!(project.write_board(&id, &saved, &edited).is_err());
+    assert_eq!(fs::read(&path).unwrap(), bytes);
+    fs::write(
+        &project.path,
+        serde_json::to_vec(&project.manifest).unwrap(),
+    )
+    .unwrap();
+    let source = dir.path().join("legacy.depthplan.json");
+    fs::write(&source, serde_json::to_vec(&edited).unwrap()).unwrap();
+    let imported = project.import_path(&source).unwrap();
+    assert_ne!(imported, id);
+    assert!(source.exists());
+    let count = project.manifest.boards.len();
+    fs::write(&source, "{}").unwrap();
+    assert!(project.import_path(&source).is_err());
+    assert_eq!(project.manifest.boards.len(), count);
+}
 fn apply(project: &mut Project, action: Value) {
     project
         .apply(

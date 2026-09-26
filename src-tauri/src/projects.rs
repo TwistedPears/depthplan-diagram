@@ -301,7 +301,7 @@ impl Project {
         }
         Ok(path)
     }
-    fn check(&self, expected: &str) -> Result<()> {
+    pub fn check(&self, expected: &str) -> Result<()> {
         self.check_location()?;
         regular(&self.path)?;
         if expected != self.fingerprint || files::hash(&self.path)?.as_deref() != Some(expected) {
@@ -343,7 +343,10 @@ impl Project {
             description: String::new(),
             boards: vec![Board {
                 id: first["id"].as_str().unwrap().into(),
-                name: "Overview".into(),
+                name: first["metadata"]["title"]
+                    .as_str()
+                    .unwrap_or("Overview")
+                    .into(),
                 path: "Overview.depthplan".into(),
             }],
             home_board_id: first["id"].as_str().map(str::to_string),
@@ -419,24 +422,110 @@ impl Project {
         })?;
         before("manifest-published")
     }
-    pub fn read_board(&self, id: &str) -> Result<Value> {
+    pub fn board_path(&self, id: &str) -> Result<PathBuf> {
         let board = self
             .manifest
             .boards
             .iter()
             .find(|b| b.id == id)
             .ok_or("Unknown project board")?;
-        let path = self.resolve(&board.path)?;
+        self.resolve(&board.path)
+    }
+    pub fn read_board(&self, id: &str) -> Result<Value> {
+        let path = self.board_path(id)?;
         regular(&path)?;
         let bytes = fs::read(&path).map_err(|e| e.to_string())?;
         let document: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         validation::document(&document)?;
-        if document["id"] != board.id {
+        if document["id"] != id {
             return Err(
                 "Board identity differs from manifest; explicitly import the replacement".into(),
             );
         }
         Ok(json!({"document": document, "fingerprint": files::fingerprint(&bytes)}))
+    }
+    pub fn write_board(&self, id: &str, expected: &str, document: &Value) -> Result<String> {
+        self.check(&self.fingerprint)?;
+        validation::document(document)?;
+        if document["id"] != id {
+            return Err("Save snapshot has a different board identity".into());
+        }
+        let path = self.board_path(id)?;
+        regular(&path)?;
+        let mut document = document.clone();
+        document["metadata"]["modified"] = files::now().into();
+        let bytes = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
+        let mut temporary =
+            tempfile::NamedTempFile::new_in(path.parent().unwrap()).map_err(|e| e.to_string())?;
+        temporary.write_all(&bytes).map_err(|e| e.to_string())?;
+        temporary.as_file().sync_all().map_err(|e| e.to_string())?;
+        self.check(&self.fingerprint)?;
+        self.board_path(id)?;
+        regular(&path)?;
+        if files::hash(&path)?.as_deref() != Some(expected) {
+            return Err(files::SOURCE_CHANGED.into());
+        }
+        temporary.persist(&path).map_err(|e| e.to_string())?;
+        durable_directory(path.parent().unwrap())?;
+        Ok(files::fingerprint(&bytes))
+    }
+    pub fn import_path(&mut self, path: &Path) -> Result<String> {
+        let filename = path.file_name().unwrap_or_default().to_string_lossy();
+        let lower = filename.to_lowercase();
+        if !lower.ends_with(".depthplan") && !lower.ends_with(".depthplan.json") {
+            return Err("Import requires a .depthplan or .depthplan.json document".into());
+        }
+        let document: Value = serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        validation::document(&document)?;
+        let name: String = document["metadata"]["title"]
+            .as_str()
+            .unwrap_or("Imported board")
+            .trim()
+            .chars()
+            .take(60)
+            .map(|c| {
+                if c.is_control() || "\\/:*?\"<>|".contains(c) {
+                    '_'
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let name = name.trim_end_matches([' ', '.']);
+        let name = if name.is_empty() {
+            "Imported board"
+        } else {
+            name
+        };
+        let mut occupied = fs::read_dir(&self.root)
+            .map_err(|e| e.to_string())?
+            .map(|entry| {
+                entry
+                    .map(|e| e.file_name().to_string_lossy().to_lowercase())
+                    .map_err(|e| e.to_string())
+            })
+            .collect::<Result<HashSet<_>>>()?;
+        occupied.extend(
+            self.manifest
+                .boards
+                .iter()
+                .map(|board| board.path.to_lowercase()),
+        );
+        let relative = (1..=occupied.len() + 1)
+            .map(|n| format!("Board-{n}.depthplan"))
+            .find(|name| !occupied.contains(&name.to_lowercase()))
+            .unwrap();
+        self.apply(
+            &self.fingerprint.clone(),
+            Action::ImportBoard {
+                name: name.into(),
+                path: relative,
+            },
+            Some(document),
+            &|_| Ok(()),
+        )?;
+        Ok(self.manifest.boards.last().unwrap().id.clone())
     }
     pub fn apply(
         &mut self,

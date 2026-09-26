@@ -310,6 +310,62 @@ fn arg(args: &[Value], i: usize) -> &Value {
 fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value> {
     let host = app.state::<Host>();
     match method {
+        "project:import" => {
+            let id = string(arg(args, 0))?;
+            host.projects
+                .lock()
+                .unwrap()
+                .get(id)?
+                .check(string(arg(args, 1))?)?;
+            let _guard = DialogGuard::new(&host.dialogs);
+            #[cfg(feature = "automation")]
+            let injected = test_dialog(app, "project-import");
+            #[cfg(not(feature = "automation"))]
+            let injected: Option<Value> = None;
+            let paths = if let Some(value) = injected {
+                value.as_array().map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(PathBuf::from)
+                        .collect::<Vec<_>>()
+                })
+            } else {
+                let mut dialog = app
+                    .dialog()
+                    .file()
+                    .add_filter("DepthPlan documents", &["depthplan", "json"]);
+                if let Some(window) = app.get_webview_window("main") {
+                    dialog = dialog.set_parent(&window);
+                }
+                dialog
+                    .blocking_pick_files()
+                    .map(|paths| {
+                        paths
+                            .into_iter()
+                            .map(|p| p.into_path().map_err(|e| e.to_string()))
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .transpose()?
+            };
+            let Some(paths) = paths else {
+                return Ok(json!({"status":"canceled"}));
+            };
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            project.check(string(arg(args, 1))?)?;
+            let mut imported = Vec::new();
+            let mut errors = Vec::new();
+            for path in paths {
+                match project.import_path(&path) {
+                    Ok(board_id) => imported.push(board_id),
+                    Err(error) => errors.push(format!("{}: {error}", path.display())),
+                }
+            }
+            Ok(
+                json!({"status":"success","project":project.snapshot(id),"imported":imported,"errors":errors}),
+            )
+        }
         "project:open" => {
             let Some(path) = select(app, "project-open", "")? else {
                 return Ok(json!({"status":"canceled"}));
@@ -343,10 +399,25 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
         }
         "project:read-board" => {
             let mut projects = host.projects.lock().unwrap();
-            let board = projects
-                .get(string(arg(args, 0))?)?
-                .read_board(string(arg(args, 1))?)?;
+            let project = projects.get(string(arg(args, 0))?)?;
+            let id = string(arg(args, 1))?;
+            let mut board = project.read_board(id)?;
+            board["source"] = json!(host.storage.lock().unwrap().files.remember(
+                project.board_path(id)?.to_string_lossy().into_owned(),
+                board["fingerprint"].as_str().map(str::to_string),
+            ));
             Ok(json!({"status":"success", "board":board}))
+        }
+        "project:write-board" => {
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(string(arg(args, 0))?)?;
+            let id = string(arg(args, 1))?;
+            let fingerprint = project.write_board(id, string(arg(args, 2))?, arg(args, 3))?;
+            let source = host.storage.lock().unwrap().files.remember(
+                project.board_path(id)?.to_string_lossy().into_owned(),
+                Some(fingerprint),
+            );
+            Ok(json!({"status":"success", "source":source}))
         }
         "project:apply" => {
             let id = string(arg(args, 0))?;
@@ -959,8 +1030,12 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
     }
     let file = Submenu::new(app, "File", true)?;
     for (id, title, key) in [
-        ("menu:new", "New", Some("CmdOrCtrl+N")),
-        ("menu:open", "Open…", Some("CmdOrCtrl+O")),
+        ("menu:new", "New Board", Some("CmdOrCtrl+N")),
+        ("menu:open", "Open Board…", Some("CmdOrCtrl+O")),
+        ("menu:new-project", "New Project…", None),
+        ("menu:open-project", "Open Project…", None),
+        ("menu:close-project", "Close Project", None),
+        ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),
         ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
@@ -1118,7 +1193,13 @@ pub fn run() {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "app:quit" => request_close(app, true),
-            "app:close" => request_close(app, false),
+            "app:close" => {
+                if app.state::<Host>().projects.lock().unwrap().0.is_empty() {
+                    request_close(app, false);
+                } else {
+                    let _ = app.emit_to("main", "menu:close-tab", ());
+                }
+            }
             "app:devtools" =>
             {
                 #[cfg(debug_assertions)]

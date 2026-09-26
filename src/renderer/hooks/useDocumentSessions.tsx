@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -25,15 +26,25 @@ export type BoardSession = {
   key: string;
   document: RecursiveDocument;
   source: SourceFile | null;
+  project?: { sessionId: string; boardId: string };
 };
 export type SessionController = {
   owner: ReturnType<typeof useDocumentState>;
   files: ReturnType<typeof useDocumentFiles>;
   transitions: ReturnType<typeof useDocumentTransitions>;
   leave: (sessionId: string) => Promise<void>;
+  hasDrafts?: boolean;
 };
 
 function useRegistry() {
+  const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const report = useCallback(
+    (key: string, status: string) =>
+      setStatuses((all) =>
+        all[key] === status ? all : { ...all, [key]: status },
+      ),
+    [],
+  );
   const [sessions, setSessions] = useState<BoardSession[]>(() => [
     {
       key: crypto.randomUUID(),
@@ -44,7 +55,7 @@ function useRegistry() {
       source: null,
     },
   ]);
-  const [activeKey, setActiveKey] = useState(sessions[0].key);
+  const [activeKey, setActiveKey] = useState(() => sessions[0].key);
   const current = useRef({ sessions, activeKey });
   const controllers = useRef(new Map<string, SessionController>());
   const opening = useRef(new Map<string, Promise<string | null>>());
@@ -103,6 +114,7 @@ function useRegistry() {
   const open = (
     key: string,
     read: () => Promise<FileResult<FileCandidate>>,
+    project?: BoardSession['project'],
   ) => {
     if (current.current.sessions.some((session) => session.key === key))
       return Promise.resolve(activate(key) ? key : null);
@@ -125,7 +137,12 @@ function useRegistry() {
       if (!duplicate) {
         const next = [
           ...current.current.sessions,
-          { key, document: candidate.document, source: candidate.source },
+          {
+            key,
+            document: candidate.document,
+            source: candidate.source,
+            project,
+          },
         ];
         current.current.sessions = next;
         flushSync(() => setSessions(next));
@@ -143,52 +160,107 @@ function useRegistry() {
       controller.transitions.release();
   };
   const close = async (key: string) => {
+    const previous = current.current.activeKey;
     if (!activate(key)) return false;
     const controller = controllers.current.get(key);
     if (!controller) return false;
     closing.current = true;
+    let closed = false;
     try {
       if (!(await controller.transitions.request('close'))) return false;
-      const next = current.current.sessions.filter(
-        (session) => session.key !== key,
-      );
-      current.current.sessions = next;
-      focus.current.delete(key);
-      flushSync(() => setSessions(next));
-      show(next[0]?.key ?? '');
+      drop(key);
+      closed = true;
       return true;
     } finally {
       release();
+      if (!closed) show(previous);
     }
   };
-  const closeAll = async () => {
+  const prepare = async (
+    keys = current.current.sessions.map((s) => s.key),
+    copyKey?: string,
+  ) => {
     if (!canSwitch() || opening.current.size) return false;
+    const previous = current.current.activeKey;
     closing.current = true;
     let approved = false;
     try {
       // Resolve every board before retiring any recovery data. Cancel retains all sessions.
-      for (const session of current.current.sessions) {
+      for (const session of current.current.sessions.filter((s) =>
+        keys.includes(s.key),
+      )) {
         show(session.key);
         const controller = controllers.current.get(session.key)!;
-        if (!(await controller.transitions.request('prepare-close')))
+        if (
+          !(await controller.transitions.request(
+            session.key === copyKey ? 'prepare-copy' : 'prepare-close',
+          ))
+        )
           return false;
       }
-      for (const controller of controllers.current.values())
-        await controller.leave(controller.owner.snapshot().sessionId);
       approved = true;
       return true;
     } finally {
-      if (!approved) release();
+      if (!approved) {
+        release();
+        show(previous);
+      }
     }
+  };
+  const retire = async (keys = current.current.sessions.map((s) => s.key)) => {
+    for (const key of keys) {
+      const controller = controllers.current.get(key);
+      if (controller)
+        await controller.leave(controller.owner.snapshot().sessionId);
+    }
+  };
+  const install = (next: BoardSession[], active = next[0]?.key ?? '') => {
+    navigation.current += 1;
+    current.current = { sessions: next, activeKey: active };
+    const keys = new Set(next.map((session) => session.key));
+    for (const key of focus.current.keys())
+      if (!keys.has(key)) focus.current.delete(key);
+    flushSync(() => {
+      setSessions(next);
+      setActiveKey(active);
+      setStatuses((all) =>
+        Object.fromEntries(
+          Object.entries(all).filter(([key]) => keys.has(key)),
+        ),
+      );
+    });
+    release();
+  };
+  const drop = (key: string) => {
+    const index = current.current.sessions.findIndex((s) => s.key === key);
+    const next = current.current.sessions.filter((s) => s.key !== key);
+    install(
+      next,
+      current.current.activeKey === key
+        ? (next[index]?.key ?? next[index - 1]?.key ?? '')
+        : current.current.activeKey,
+    );
+  };
+  const closeAll = async () => {
+    if (!(await prepare())) return false;
+    await retire();
+    return true;
   };
   return {
     sessions,
+    statuses,
+    report,
     activeKey,
     controllers: controllers.current,
     open,
     activate,
     close,
     closeAll,
+    prepare,
+    retire,
+    install,
+    drop,
+    canSwitch,
     release,
   };
 }

@@ -33,6 +33,10 @@ import useAutomation from './hooks/useAutomation';
 import './App.css';
 import UnifiedToolbar from './components/UnifiedToolbar';
 import exportAsJSON from './utils/jsonExport';
+import useProjectWorkspace, {
+  ProjectWorkspace,
+} from './hooks/useProjectWorkspace';
+import ProjectNavigation from './components/ProjectNavigation';
 
 export default function App() {
   return (
@@ -42,6 +46,14 @@ export default function App() {
   );
 }
 export function Workspace() {
+  return (
+    <ProjectWorkspace>
+      <SessionWorkspace />
+    </ProjectWorkspace>
+  );
+}
+function SessionWorkspace() {
+  const projectWorkspace = useProjectWorkspace()!;
   const [appInstanceId, setAppInstanceId] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -62,6 +74,10 @@ export function Workspace() {
     window.desktop.transitions.onRequest((id) => {
       void (async () => {
         try {
+          if (projectWorkspace.busy || projectWorkspace.dialog) {
+            await window.desktop.transitions.reply(id, false);
+            return;
+          }
           const approved = await registry.closeAll();
           await window.desktop.transitions.reply(id, approved);
         } catch {
@@ -85,6 +101,7 @@ export function Workspace() {
           />
         </DocumentDrafts>
       ))}
+      <ProjectNavigation />
     </>
   );
 }
@@ -98,6 +115,7 @@ function BoardWorkspace({
   active: boolean;
 }) {
   const registry = useDocumentSessions();
+  const projectWorkspace = useProjectWorkspace()!;
   // Release the Konva stage before Activity defers updates to the hidden tree.
   const [visible, setVisible] = useState(active);
   useLayoutEffect(() => setVisible(active), [active]);
@@ -106,6 +124,7 @@ function BoardWorkspace({
   });
   const recovery = useRecovery(owner);
   const hasDrafts = useHasDrafts();
+  const { report } = registry;
   const {
     document: currentDocument,
     sessionId,
@@ -163,7 +182,7 @@ function BoardWorkspace({
     kind: Parameters<typeof owner.editorCommand>[0],
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
-  const files = useDocumentFiles(owner, showStatus, recovery);
+  const files = useDocumentFiles(owner, showStatus, recovery, session.project);
   const transitions = useDocumentTransitions(
     owner,
     files,
@@ -177,8 +196,23 @@ function BoardWorkspace({
       files,
       transitions,
       leave: recovery.leave,
+      hasDrafts,
     });
   });
+  useEffect(
+    () =>
+      report(
+        session.key,
+        files.loading
+          ? 'Saving'
+          : hasDrafts
+            ? 'Draft not saved'
+            : dirty
+              ? 'Unsaved'
+              : 'Saved',
+      ),
+    [report, session.key, files.loading, hasDrafts, dirty],
+  );
   useLayoutEffect(
     () => () => {
       registry.controllers.delete(session.key);
@@ -205,15 +239,34 @@ function BoardWorkspace({
   );
   const isLoading =
     exportLoading ||
+    projectWorkspace.busy ||
+    !!projectWorkspace.dialog ||
     files.loading ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
-  useDocumentOpenRequests(transitions, isLoading, showStatus, active);
+  useDocumentOpenRequests(
+    transitions,
+    isLoading || projectWorkspace.busy,
+    showStatus,
+    active,
+    projectWorkspace.project
+      ? (read) => projectWorkspace.standalone(read)
+      : undefined,
+  );
   const handleNewDocument = () => {
-    if (!isLoading) return transitions.request('new');
+    if (!isLoading) {
+      if (projectWorkspace.project)
+        projectWorkspace.setDialog({ kind: 'createBoard' });
+      else return transitions.request('new');
+    }
   };
   const handleOpenFile = () => {
-    if (!isLoading) return transitions.request('open');
+    if (!isLoading)
+      return projectWorkspace.project
+        ? projectWorkspace.standalone(() =>
+            window.desktop.fileSystem.openDocument(),
+          )
+        : transitions.request('open');
   };
   const handleReloadFile = () => {
     if (!isLoading) return transitions.request('reload');
@@ -364,9 +417,21 @@ function BoardWorkspace({
   );
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
-      <div className="workspace" data-board-session={session.key}>
+      <div
+        className="workspace"
+        data-board-session={session.key}
+        id={session.project ? `board-${session.project.boardId}` : undefined}
+        role={session.project ? 'tabpanel' : undefined}
+        aria-labelledby={
+          session.project ? `tab-${session.project.boardId}` : undefined
+        }
+      >
         <div
-          inert={transitions.active || !!mcpWorkflows.activeOperation}
+          inert={
+            transitions.active ||
+            !!mcpWorkflows.activeOperation ||
+            projectWorkspace.busy
+          }
           style={{ display: 'contents' }}
         >
           {!session.source && (

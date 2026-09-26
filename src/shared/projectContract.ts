@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RecursiveDocument } from './recursiveDocument';
+import type { SourceFile } from './fileContract';
 
 export const PROJECT_MAX_BYTES = 1024 * 1024;
 const id = z
@@ -99,4 +100,26 @@ export interface ProjectSnapshot {
 export interface ProjectBoard {
   document: RecursiveDocument;
   fingerprint: string;
+  source: SourceFile;
+}
+
+/** Portable filenames for Unicode labels; native storage still checks disk collisions. */
+export function projectFilename(
+  name: string,
+  occupied: string[],
+  extension = '.depthplan',
+) {
+  let stem =
+    name
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'Board';
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem))
+    stem = `Board-${stem}`;
+  const paths = new Set(occupied.map((path) => path.toLowerCase()));
+  let candidate = `${stem}${extension}`;
+  for (let n = 2; paths.has(candidate.toLowerCase()); n++)
+    candidate = `${stem}-${n}${extension}`;
+  return candidate;
 }
