@@ -3,6 +3,39 @@ fn create(dir: &Path) -> Project {
     Project::create(dir, "project", "Project", None, &|_| Ok(())).unwrap()
 }
 #[test]
+fn definition_resolution_requires_the_observed_version_and_preserves_board_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = create(dir.path());
+    let id = project.manifest.boards[0].id.clone();
+    let board = fs::read(project.board_path(&id).unwrap()).unwrap();
+    let original = project.manifest.clone();
+    let mut external = original.clone();
+    external.name = "External name".into();
+    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    let (_, observed) = project.read_definition().unwrap();
+    assert!(project
+        .write_board(&id, "stale", &files::fixture())
+        .is_err());
+    fs::write(&project.path, serde_json::to_vec_pretty(&external).unwrap()).unwrap();
+    assert!(project.resolve_definition(&observed, true).is_err());
+    assert_eq!(project.manifest, original);
+    let (_, observed) = project.read_definition().unwrap();
+    project.resolve_definition(&observed, false).unwrap();
+    assert_eq!(project.manifest.name, "External name");
+    external.name = "Another external name".into();
+    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    let (_, observed) = project.read_definition().unwrap();
+    project.resolve_definition(&observed, true).unwrap();
+    assert_eq!(
+        read_manifest(&project.path).unwrap().0.name,
+        "External name"
+    );
+    assert_eq!(fs::read(project.board_path(&id).unwrap()).unwrap(), board);
+    external.id = Uuid::new_v4().to_string();
+    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    assert!(project.read_definition().is_err());
+}
+#[test]
 fn settings_failures_preserve_policy_and_boards_and_move_with_the_folder() {
     let dir = tempfile::tempdir().unwrap();
     let mut project = create(dir.path());

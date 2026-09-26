@@ -46,7 +46,7 @@ beforeEach(() => {
     },
   } as unknown as typeof window.desktop;
 });
-const setup = () =>
+const setup = (projectActive = false) =>
   renderHook(
     () => {
       const owner = useDocumentState(recursiveFixture(), 'app');
@@ -59,6 +59,7 @@ const setup = () =>
       );
       const exportRef = useRef<RecursiveExportHandle>(null);
       const work = useMcpWorkflows({
+        projectActive,
         owner,
         files,
         transitions,
@@ -81,6 +82,19 @@ const args = (result: Harness) => {
     requestId: `request-${++sequence}`,
   };
 };
+it('keeps standalone file and recovery workflows from replacing a project owner', () => {
+  const { result } = setup(true);
+  for (const [kind, extra] of [
+    ['files', { action: { type: 'new' } }],
+    ['recovery', { action: 'restore', id: 'checkpoint' }],
+  ] as const) {
+    expect(
+      result.current.work.start(kind, { ...args(result), ...extra }),
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
+  }
+  expect(window.desktop.mcpFiles.lease).not.toHaveBeenCalled();
+  expect(result.current.owner.document?.id).toBe(recursiveFixture().id);
+});
 const start = (
   result: Harness,
   kind: 'files' | 'export' | 'recovery',

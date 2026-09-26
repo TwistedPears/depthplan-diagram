@@ -198,6 +198,7 @@ function action(id: string, label: string) {
 }
 
 test('loads only selected boards, supports keyboard navigation, preserves dirty/history state and keeps membership when tabs close', async () => {
+  project.manifest.autosave = false;
   await setup();
   expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(1);
   expect(registry.sessions).toHaveLength(1);
@@ -227,13 +228,18 @@ test('loads only selected boards, supports keyboard navigation, preserves dirty/
   });
   expect(controller('b').owner.document!.objects.api.name).toBe('Accepted B');
   expect(controller('b').owner.canUndo).toBe(true);
+  let closing!: Promise<boolean>;
   await act(async () => {
-    expect(await registry.close(key('b'))).toBe(false);
+    closing = registry.close(key('b'));
   });
+  await click('Keep open');
+  expect(await closing).toBe(false);
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
   await act(async () => {
-    expect(await registry.close(key('b'))).toBe(true);
+    closing = registry.close(key('b'));
   });
+  await click('Review Same name…');
+  expect(await closing).toBe(true);
   expect(registry.activeKey).toBe(key('c'));
   expect(project.manifest.boards).toHaveLength(3);
   expect(window.desktop.projects.apply).not.toHaveBeenCalled();
@@ -337,12 +343,14 @@ test('settings apply shared policy without touching boards; cancel, validation a
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
   await click('Menu');
   await click('Close Project');
+  await click('Review Overview…');
   await click('Menu');
   await click('Open Project…');
   expect(registry.activeKey).toBe(key('b'));
 });
 
 test('rename saves the exact board and retains undo; duplicate copies current content; failed removal leaves the session intact', async () => {
+  project.manifest.autosave = false;
   await setup();
   const sessionId = controller('a').owner.sessionId;
   act(() =>
@@ -383,6 +391,7 @@ test('rename saves the exact board and retains undo; duplicate copies current co
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
   action('a', 'Remove from Project…');
   await click('Remove board');
+  await click('Review 設計 API…');
   expect(screen.getByRole('alert')).toHaveTextContent('Manifest changed');
   expect(controller('a').owner.document!.objects.api.name).toBe(
     'Unsaved copy content',
@@ -395,6 +404,7 @@ test('rename saves the exact board and retains undo; duplicate copies current co
 });
 
 test('canceled project/standalone replacement retains all sessions; Save Copy preserves membership and unsaved state', async () => {
+  project.manifest.autosave = false;
   await setup();
   drawer();
   await click('Open Same name, b.depthplan');
@@ -407,6 +417,7 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
   const before = registry.sessions;
   await click('Menu');
   await click('Close Project');
+  await click('Keep open');
   expect(registry.sessions).toBe(before);
   expect(registry.activeKey).toBe(key('b'));
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
@@ -415,6 +426,10 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
   });
   expect(controller('b').owner.dirty).toBe(true);
   expect(controller('b').owner.source!.path).toBe('/project/b.depthplan');
+  expect(
+    jest.mocked(window.desktop.fileSystem.saveDocument).mock.calls.at(-1)![0]
+      .id,
+  ).not.toBe('b');
   await click('Menu');
   await click('Open standalone board…');
   expect(registry.sessions).toBe(before);
@@ -431,6 +446,125 @@ test('closing every tab leaves an empty project with create/import actions and s
     projectFilename('設計', ['Board.depthplan', 'board-2.depthplan']),
   ).toBe('Board-3.depthplan');
   expect(projectFilename('API', ['api.depthplan'])).toBe('API-2.depthplan');
+});
+
+test('autosaves accepted edits in inactive boards without moving their target or undo history', async () => {
+  jest.useFakeTimers();
+  try {
+    await setup();
+    act(() =>
+      controller('a').owner.transact(
+        editObject('api', { name: 'Autosaved A' }),
+      ),
+    );
+    drawer();
+    await click('Open Same name, b.depthplan');
+    act(() =>
+      controller('b').owner.transact(
+        editObject('api', { name: 'Autosaved B' }),
+      ),
+    );
+    await act(() => jest.advanceTimersByTimeAsync(1000));
+    expect(registry.activeKey).toBe(key('b'));
+    expect(documents.a.objects.api.name).toBe('Autosaved A');
+    expect(documents.b.objects.api.name).toBe('Autosaved B');
+    expect(controller('a').owner.dirty).toBe(false);
+    expect(controller('b').owner.dirty).toBe(false);
+    expect(controller('a').owner.canUndo).toBe(true);
+    expect(controller('b').owner.canUndo).toBe(true);
+    expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('failed multi-board flush stays in one review; cancel preserves all sessions and Save All retries accepted work', async () => {
+  await setup();
+  drawer();
+  await click('Open Same name, b.depthplan');
+  act(() => {
+    controller('a').owner.transact(editObject('api', { name: 'Keep A' }));
+    controller('b').owner.transact(editObject('api', { name: 'Keep B' }));
+  });
+  const sessions = registry.sessions;
+  const save = jest
+    .mocked(window.desktop.projects.writeBoard)
+    .getMockImplementation()!;
+  jest
+    .mocked(window.desktop.projects.writeBoard)
+    .mockRejectedValue(new Error('Disk unavailable'));
+  await click('Menu');
+  await click('Close Project');
+  const review = screen.getByRole('dialog', { name: 'Review open boards' });
+  expect(within(review).getAllByRole('alert')).toHaveLength(2);
+  expect(window.desktop.projects.close).not.toHaveBeenCalled();
+  await click('Save all and continue');
+  expect(
+    screen.getByRole('dialog', { name: 'Review open boards' }),
+  ).toBeVisible();
+  await click('Keep open');
+  expect(registry.sessions).toBe(sessions);
+  expect(controller('a').owner.document!.objects.api.name).toBe('Keep A');
+  expect(controller('b').owner.document!.objects.api.name).toBe('Keep B');
+  expect(window.desktop.recovery.remove).not.toHaveBeenCalledWith(
+    controller('a').owner.sessionId,
+    undefined,
+  );
+  jest.mocked(window.desktop.projects.writeBoard).mockImplementation(save);
+  await click('Menu');
+  await click('Save All');
+  expect(controller('a').owner.dirty).toBe(false);
+  expect(controller('b').owner.dirty).toBe(false);
+  expect(controller('a').files.failure).toBeNull();
+  expect(controller('b').files.failure).toBeNull();
+  expect(controller('a').owner.canUndo).toBe(true);
+});
+
+test('reloading a repathed manifest guards dirty boards and keeps unaffected sessions and history', async () => {
+  project.manifest.autosave = false;
+  await setup();
+  act(() =>
+    controller('a').owner.transact(
+      editObject('api', { name: 'Preserve before repath' }),
+    ),
+  );
+  drawer();
+  await click('Open Same name, b.depthplan');
+  const aBefore = controller('a').owner.snapshot();
+  const bBefore = controller('b').owner.snapshot();
+  const changed = clone(project);
+  changed.manifest.boards[0].path = 'repathed.depthplan';
+  window.desktop.projects.definition = jest
+    .fn()
+    .mockResolvedValue({
+      status: 'success',
+      manifest: changed.manifest,
+      fingerprint: 'external',
+    });
+  window.desktop.projects.resolveDefinition = jest.fn(async () => {
+    project = changed;
+    return response();
+  });
+  jest
+    .mocked(window.desktop.projects.apply)
+    .mockResolvedValue({ status: 'error', error: 'Project manifest changed' });
+  await click('Menu');
+  await click('Project Settings…');
+  await click('Apply');
+  await click('Reload project definition…');
+  await click('Keep open');
+  expect(controller('a').owner.snapshot()).toEqual(aBefore);
+  expect(window.desktop.projects.resolveDefinition).not.toHaveBeenCalled();
+  await click('Apply');
+  await click('Reload project definition…');
+  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
+  await click('Review Overview…');
+  expect(registry.controllers.has(key('a'))).toBe(false);
+  expect(controller('b').owner.snapshot()).toEqual(bBefore);
+  expect(project.manifest.boards[0].path).toBe('repathed.depthplan');
+  expect(
+    screen.getByRole('dialog', { name: 'Project Settings' }),
+  ).toBeVisible();
 });
 
 test('a broken home board falls back without dropping its row, and a canceled copy creation preserves accepted work', async () => {

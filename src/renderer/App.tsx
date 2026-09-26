@@ -37,6 +37,7 @@ import useProjectWorkspace, {
   ProjectWorkspace,
 } from './hooks/useProjectWorkspace';
 import ProjectNavigation from './components/ProjectNavigation';
+import useProjectAutosave from './hooks/useProjectAutosave';
 
 export default function App() {
   return (
@@ -122,7 +123,7 @@ function BoardWorkspace({
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
   });
-  const recovery = useRecovery(owner);
+  const recovery = useRecovery(owner, session.project);
   const hasDrafts = useHasDrafts();
   const { report } = registry;
   const {
@@ -183,6 +184,9 @@ function BoardWorkspace({
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
   const files = useDocumentFiles(owner, showStatus, recovery, session.project);
+  const autosave =
+    !!session.project && !!projectWorkspace.project?.manifest.autosave;
+  useProjectAutosave(owner, files, autosave);
   const transitions = useDocumentTransitions(
     owner,
     files,
@@ -197,21 +201,30 @@ function BoardWorkspace({
       transitions,
       leave: recovery.leave,
       hasDrafts,
+      autosave,
     });
   });
-  useEffect(
-    () =>
-      report(
-        session.key,
-        files.loading
-          ? 'Saving'
+  const boardStatus = [
+    files.failure
+      ? files.failure.conflict
+        ? 'Conflict'
+        : 'Save failed'
+      : files.loading
+        ? 'Saving'
+        : dirty
+          ? session.project
+            ? 'Unsaved'
+            : 'Unsaved changes'
           : hasDrafts
-            ? 'Draft not saved'
-            : dirty
-              ? 'Unsaved'
-              : 'Saved',
-      ),
-    [report, session.key, files.loading, hasDrafts, dirty],
+            ? ''
+            : 'Saved',
+    hasDrafts ? 'Draft not saved' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  useEffect(
+    () => report(session.key, boardStatus),
+    [report, session.key, boardStatus],
   );
   useLayoutEffect(
     () => () => {
@@ -220,6 +233,7 @@ function BoardWorkspace({
     [registry.controllers, session.key],
   );
   const mcpWorkflows = useMcpWorkflows({
+    projectActive: !!session.project,
     owner,
     files,
     transitions,
@@ -241,7 +255,7 @@ function BoardWorkspace({
     exportLoading ||
     projectWorkspace.busy ||
     !!projectWorkspace.dialog ||
-    files.loading ||
+    files.blocking ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
   useDocumentOpenRequests(
@@ -271,8 +285,12 @@ function BoardWorkspace({
   const handleReloadFile = () => {
     if (!isLoading) return transitions.request('reload');
   };
-  const handleSave = (saveAs = false) => {
-    if (!isLoading) return files.save(saveAs);
+  const handleSave = async (saveAs = false) => {
+    if (!isLoading) {
+      const captured = owner.snapshot().sessionId;
+      await files.wait();
+      if (owner.snapshot().sessionId === captured) return files.save(saveAs);
+    }
   };
 
   const handleExportSVG = () => {
@@ -397,13 +415,9 @@ function BoardWorkspace({
       currentDocument={currentDocument}
       hasSource={!!currentFilePath}
       documentStatus={
-        hasDrafts
-          ? 'Draft not saved'
-          : dirty
-            ? 'Unsaved changes'
-            : currentFilePath
-              ? 'Saved'
-              : 'New document'
+        boardStatus === 'Saved' && !currentFilePath
+          ? 'New document'
+          : boardStatus
       }
       onReload={handleReloadFile}
       isLoading={isLoading}

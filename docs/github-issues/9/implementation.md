@@ -10,18 +10,18 @@ The approved behavior is in
 Use existing sessions, native project storage and form controls. No new runtime
 dependencies or second document authority are needed.
 
-| Issue   | Scope                                                 | Current evidence                                   |
-| ------- | ----------------------------------------------------- | -------------------------------------------------- |
-| #10–#13 | Native documents, UX, project storage, board sessions | Closed on GitHub and included in base `c78bd1c`    |
-| #14     | Drawer, tabs, board management                        | Local tests, native smoke and finish review passed |
-| #15     | Settings and home fallback                            | Local/native validation and finish review passed   |
-| #16     | Autosave, conflicts, recovery                         | Pending                                            |
-| #17     | Recent projects, native opening, local restoration    | Pending                                            |
-| #18     | Explicit MCP project/session targets                  | Pending                                            |
-| #19     | Integrated validation and documentation               | Pending                                            |
-| #20     | Project-wide search                                   | Pending after core implementation                  |
-| #21     | Stable board/bookmark links                           | Pending after core implementation                  |
-| Samples | Connect all three unchanged diagrams                  | Pending after feature implementation               |
+| Issue   | Scope                                                 | Current evidence                                    |
+| ------- | ----------------------------------------------------- | --------------------------------------------------- |
+| #10–#13 | Native documents, UX, project storage, board sessions | Closed on GitHub and included in base `c78bd1c`     |
+| #14     | Drawer, tabs, board management                        | Local tests, native smoke and finish review passed  |
+| #15     | Settings and home fallback                            | Local/native validation and finish review passed    |
+| #16     | Autosave, conflicts, recovery                         | Local/native crash journey and finish review passed |
+| #17     | Recent projects, native opening, local restoration    | Pending                                             |
+| #18     | Explicit MCP project/session targets                  | Pending                                             |
+| #19     | Integrated validation and documentation               | Pending                                             |
+| #20     | Project-wide search                                   | Pending after core implementation                   |
+| #21     | Stable board/bookmark links                           | Pending after core implementation                   |
+| Samples | Connect all three unchanged diagrams                  | Pending after feature implementation                |
 
 For each issue, validate its acceptance criteria, perform a correctness pass and
 the requested ponytail-review, fix findings, and commit before starting the next.

@@ -84,7 +84,7 @@ fn status(app: &AppHandle) -> Value {
         } else {
             "depthplan-mcp"
         });
-    json!({"enabled":service.token.is_some(),"descriptor":service.descriptor(),"executable":binary,"folders":host.folders.list()})
+    json!({"enabled":service.token.is_some(),"generation":service.generation,"descriptor":service.descriptor(),"executable":binary,"folders":host.folders.list()})
 }
 fn announce(app: &AppHandle) {
     let host = app.state::<Host>();
@@ -397,6 +397,33 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
                 json!({"status":"success", "project":host.projects.lock().unwrap().get(id)?.snapshot(id)}),
             )
         }
+        "project:definition" => {
+            let (manifest, fingerprint) = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .read_definition()?;
+            Ok(json!({"status":"success","manifest":manifest,"fingerprint":fingerprint}))
+        }
+        "project:resolve-definition" => {
+            let id = string(arg(args, 0))?;
+            let expected = string(arg(args, 1))?;
+            let overwrite = arg(args, 2)
+                .as_bool()
+                .ok_or("Expected overwrite decision")?;
+            let (manifest, observed) = host.projects.lock().unwrap().get(id)?.read_definition()?;
+            if expected != observed {
+                return Err("Project manifest changed; review it again".into());
+            }
+            if overwrite && choice(app, "Overwrite project definition?", &format!("Replace the observed definition of {} with the definition currently open in DepthPlan? Pending form changes still require Apply. Board files are retained.", manifest.name), "Overwrite", "Keep editing") != "Overwrite" {
+                return Ok(json!({"status":"canceled"}));
+            }
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            project.resolve_definition(expected, overwrite)?;
+            Ok(json!({"status":"success","project":project.snapshot(id)}))
+        }
         "project:reveal" => {
             let path = host
                 .projects
@@ -422,10 +449,33 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             Ok(json!({"status":"success", "board":board}))
         }
         "project:write-board" => {
+            let mut expected = string(arg(args, 2))?.to_owned();
+            let mut expected_manifest = None;
+            if arg(args, 4).as_bool() == Some(true) {
+                let (observed, manifest, path) = {
+                    let mut projects = host.projects.lock().unwrap();
+                    let project = projects.get(string(arg(args, 0))?)?;
+                    project.check(&project.fingerprint)?;
+                    let board = project.read_board(string(arg(args, 1))?)?;
+                    (
+                        string(&board["fingerprint"])?.to_owned(),
+                        project.fingerprint.clone(),
+                        project.board_path(string(arg(args, 1))?)?,
+                    )
+                };
+                if choice(app, "Overwrite changed board?", &format!("{}\nReplace this observed file with your accepted edits? Unapplied drafts are not included.", path.display()), "Overwrite", "Keep editing") != "Overwrite" {
+                    return Ok(json!({"status":"canceled"}));
+                }
+                expected_manifest = Some(manifest);
+                expected = observed;
+            }
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(string(arg(args, 0))?)?;
+            if let Some(manifest) = expected_manifest {
+                project.check(&manifest)?;
+            }
             let id = string(arg(args, 1))?;
-            let fingerprint = project.write_board(id, string(arg(args, 2))?, arg(args, 3))?;
+            let fingerprint = project.write_board(id, &expected, arg(args, 3))?;
             let source = host.storage.lock().unwrap().files.remember(
                 project.board_path(id)?.to_string_lossy().into_owned(),
                 Some(fingerprint),
@@ -540,9 +590,22 @@ fn io_command(
             Ok(Value::Null)
         }
         "recovery:write" => {
+            let mut input = a.clone();
+            if !a["project"].is_null() {
+                let board_id = string(&a["project"]["boardId"])?;
+                if a["document"]["id"] != board_id {
+                    return Err("Recovery project board identity mismatch".into());
+                }
+                input["project"] = host
+                    .projects
+                    .lock()
+                    .unwrap()
+                    .get(string(&a["project"]["sessionId"])?)?
+                    .recovery_context(board_id)?;
+            }
             let mut storage = host.storage.lock().unwrap();
             let Storage { files, recovery } = &mut *storage;
-            recovery.write(a, files)?;
+            recovery.write(&input, files)?;
             Ok(Value::Null)
         }
         "recovery:remove" => {
@@ -1052,6 +1115,7 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),
+        ("menu:save-all", "Save All Project Boards", None),
         ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (

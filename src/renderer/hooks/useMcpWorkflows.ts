@@ -27,6 +27,7 @@ import {
   EditorError,
 } from '../../shared/editorQueries';
 type Context = {
+  projectActive?: boolean;
   owner: ReturnType<typeof useDocumentState>;
   files: ReturnType<typeof useDocumentFiles>;
   transitions: ReturnType<typeof useDocumentTransitions>;
@@ -341,6 +342,17 @@ function workflows(current: () => Context, changed: () => void) {
         return boundedResult(s, { operationId: prior.id, replayed: true });
       }
       checkHandle(s, args.handle);
+      if (
+        current().projectActive &&
+        (kind === 'files' ||
+          (kind === 'recovery' &&
+            'action' in args &&
+            args.action === 'restore'))
+      )
+        throw new EditorError(
+          'INVALID_REQUEST',
+          'Use project file controls, or close the project before replacing or restoring a standalone document',
+        );
       if (
         args.expectedRevision !== s.revision ||
         args.expectedViewRevision !== s.viewRevision

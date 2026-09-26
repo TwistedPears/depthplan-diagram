@@ -13,6 +13,7 @@ import { rotation } from './native-rotation.mjs';
 import { childContent } from './native-child-content.mjs';
 import { projects } from './native-projects.mjs';
 import { projectNavigation } from './native-project-navigation.mjs';
+import { projectPersistence } from './native-project-persistence.mjs';
 const {
   adapter,
   profile,
@@ -528,6 +529,7 @@ try {
   probe.close();
   resumed = await launchNative(profile);
   await projectNavigation(resumed);
+  await projectPersistence(resumed);
   console.log(
     `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 26-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );

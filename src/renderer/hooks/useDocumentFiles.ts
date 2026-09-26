@@ -16,6 +16,7 @@ export type FileActionResult = {
   error?: string;
 };
 export type FileAccess = {
+  background?: boolean;
   read?: () => Promise<FileResult<FileCandidate>>;
   write?: (
     document: RecursiveDocument,
@@ -34,13 +35,22 @@ export default function useDocumentFiles(
   project?: { sessionId: string; boardId: string },
 ) {
   const [loading, setLoading] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [failure, setFailure] = useState<{
+    sessionId: string;
+    message: string;
+    conflict: boolean;
+  } | null>(null);
+  const [savedAt, setSavedAt] = useState(0);
+  const running = useRef<Promise<FileActionResult> | null>(null);
   const locked = useRef(false);
-  const busy = (value: boolean) => {
+  const busy = (value: boolean, background = false) => {
     locked.current = value;
     setLoading(value);
-    owner.setBusy('file-operation', value);
+    setBlocking(value && !background);
+    owner.setBusy('file-operation', value && !background);
   };
-  const save = async (
+  const performSave = async (
     saveAs = false,
     access: FileAccess = {},
   ): Promise<FileActionResult> => {
@@ -52,7 +62,7 @@ export default function useDocumentFiles(
     });
     if (locked.current || !captured.document || access.permit?.() === false)
       return result('canceled');
-    busy(true);
+    busy(true, access.background);
     onStatus('Saving...');
     try {
       const saved = await (access.write
@@ -68,7 +78,9 @@ export default function useDocumentFiles(
               captured.document,
             )
           : window.desktop.fileSystem.saveDocument(
-              captured.document,
+              project && saveAs
+                ? { ...captured.document, id: crypto.randomUUID() }
+                : captured.document,
               captured.source?.id,
               saveAs,
             ));
@@ -84,10 +96,22 @@ export default function useDocumentFiles(
         return result('success');
       }
       owner.markSaved(captured.document, captured.sessionId, saved.source);
+      setFailure(null);
+      setSavedAt(Date.now());
       await recovery?.saved(captured.sessionId, captured.revision);
       onStatus(`Saved: ${saved.source.path.split(/[\\/]/).pop()}`);
       return result('success');
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (owner.snapshot().sessionId === captured.sessionId)
+        setFailure({
+          sessionId: captured.sessionId,
+          message,
+          conflict:
+            /source file changed|manifest changed|ownership changed/i.test(
+              message,
+            ),
+        });
       onStatus(
         `Failed to save document: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -98,6 +122,16 @@ export default function useDocumentFiles(
     } finally {
       busy(false);
     }
+  };
+  const save = (saveAs = false, access: FileAccess = {}) => {
+    const operation = performSave(saveAs, access);
+    if (!running.current) {
+      running.current = operation;
+      void operation.finally(() => {
+        if (running.current === operation) running.current = null;
+      });
+    }
+    return operation;
   };
   const load = async (
     kind: 'new' | 'open' | 'reload',
@@ -183,6 +217,7 @@ export default function useDocumentFiles(
         await recovery?.leave(current.sessionId);
         owner.setBusy('closing', false);
         owner.replace(document, { source });
+        setFailure(null);
         onStatus(
           kind === 'new'
             ? 'New document created'
@@ -203,5 +238,15 @@ export default function useDocumentFiles(
       busy(false);
     }
   };
-  return { loading, save, load };
+  return {
+    loading,
+    blocking,
+    isLoading: () => locked.current,
+    save,
+    load,
+    savedAt,
+    failure: failure?.sessionId === owner.sessionId ? failure : null,
+    wait: () => running.current,
+    clearFailure: () => setFailure(null),
+  };
 }

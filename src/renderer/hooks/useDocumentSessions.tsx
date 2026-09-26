@@ -21,6 +21,12 @@ import type {
 import type useDocumentState from './useDocumentState';
 import type useDocumentFiles from './useDocumentFiles';
 import type useDocumentTransitions from './useDocumentTransitions';
+import ProjectCloseReview from '../components/ProjectCloseReview';
+
+export type CloseReview = {
+  keys: string[];
+  finish: (approved: boolean) => void;
+};
 
 export type BoardSession = {
   key: string;
@@ -34,9 +40,11 @@ export type SessionController = {
   transitions: ReturnType<typeof useDocumentTransitions>;
   leave: (sessionId: string) => Promise<void>;
   hasDrafts?: boolean;
+  autosave?: boolean;
 };
 
 function useRegistry() {
+  const [closeReview, setCloseReview] = useState<CloseReview | null>(null);
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const report = useCallback(
     (key: string, status: string) =>
@@ -164,10 +172,10 @@ function useRegistry() {
     if (!activate(key)) return false;
     const controller = controllers.current.get(key);
     if (!controller) return false;
-    closing.current = true;
     let closed = false;
     try {
-      if (!(await controller.transitions.request('close'))) return false;
+      if (!(await prepare([key]))) return false;
+      await retire([key]);
       drop(key);
       closed = true;
       return true;
@@ -185,6 +193,41 @@ function useRegistry() {
     closing.current = true;
     let approved = false;
     try {
+      const selected = current.current.sessions.filter((session) =>
+        keys.includes(session.key),
+      );
+      if (!copyKey && selected.some((session) => session.project)) {
+        await Promise.all(
+          selected.map(async (session) => {
+            const controller = controllers.current.get(session.key)!;
+            await controller.files.wait();
+            if (
+              controller.autosave &&
+              !controller.hasDrafts &&
+              !controller.files.failure &&
+              controller.owner.snapshot().dirty
+            )
+              await controller.files.save();
+          }),
+        );
+        if (
+          selected.some((session) => {
+            const controller = controllers.current.get(session.key)!;
+            return controller.hasDrafts || controller.owner.snapshot().dirty;
+          })
+        ) {
+          approved = await new Promise<boolean>((resolve) =>
+            setCloseReview({
+              keys,
+              finish: (answer) => {
+                flushSync(() => setCloseReview(null));
+                resolve(answer);
+              },
+            }),
+          );
+          return approved;
+        }
+      }
       // Resolve every board before retiring any recovery data. Cancel retains all sessions.
       for (const session of current.current.sessions.filter((s) =>
         keys.includes(s.key),
@@ -246,6 +289,20 @@ function useRegistry() {
     await retire();
     return true;
   };
+  const saveAll = async (keys = current.current.sessions.map((s) => s.key)) => {
+    const results = await Promise.all(
+      keys.map(async (key) => {
+        const controller = controllers.current.get(key);
+        if (!controller) return false;
+        await controller.files.wait();
+        return (
+          !controller.owner.snapshot().dirty ||
+          (await controller.files.save()).status === 'success'
+        );
+      }),
+    );
+    return results.every(Boolean);
+  };
   return {
     sessions,
     statuses,
@@ -256,6 +313,9 @@ function useRegistry() {
     activate,
     close,
     closeAll,
+    closeReview,
+    showForClose: show,
+    saveAll,
     prepare,
     retire,
     install,
@@ -267,8 +327,14 @@ function useRegistry() {
 
 const Sessions = createContext<ReturnType<typeof useRegistry> | null>(null);
 export function DocumentSessions({ children }: { children: ReactNode }) {
+  const registry = useRegistry();
   return (
-    <Sessions.Provider value={useRegistry()}>{children}</Sessions.Provider>
+    <Sessions.Provider value={registry}>
+      {children}
+      {registry.closeReview && (
+        <ProjectCloseReview request={registry.closeReview} />
+      )}
+    </Sessions.Provider>
   );
 }
 export default function useDocumentSessions() {

@@ -122,7 +122,9 @@ export default function useDocumentTransitions(
     install?: () => void,
     access: TransitionAccess = {},
   ) => {
-    if (pending.current || files.loading) return false;
+    if (pending.current) return false;
+    await files.wait();
+    if (pending.current || files.isLoading()) return false;
     if (pointerHeld.current) {
       onStatus('Finish or cancel the current gesture before continuing.');
       return false;

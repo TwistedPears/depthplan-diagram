@@ -9,6 +9,8 @@ import useProjectWorkspace, {
 } from '../hooks/useProjectWorkspace';
 import FormDialog from './FormDialog';
 import ProjectSettings from './ProjectSettings';
+import ProjectSaveIssue from './ProjectSaveIssue';
+import ProjectDefinitionActions from './ProjectDefinitionActions';
 import Icon from './Icon';
 import './ProjectNavigation.css';
 
@@ -18,6 +20,7 @@ export function ProjectMenu({
   onAction?: () => void;
 }) {
   const workspace = useProjectWorkspace();
+  const registry = useDocumentSessions();
   if (!workspace) return null;
   const { project, busy, setDialog, openProject, standalone, quickSwitch } =
     workspace;
@@ -44,6 +47,15 @@ export function ProjectMenu({
       </button>
       {project && (
         <>
+          <button
+            disabled={busy}
+            onClick={() => {
+              void workspace.run(() => registry.saveAll());
+              onAction();
+            }}
+          >
+            Save All
+          </button>
           <button
             disabled={busy}
             onClick={() => {
@@ -80,7 +92,7 @@ export function ProjectMenu({
 function ProjectForm({
   action,
 }: {
-  action: Exclude<ProjectDialog, { kind: 'settings' }>;
+  action: Exclude<ProjectDialog, { kind: 'settings' | 'saveIssue' }>;
 }) {
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
@@ -423,6 +435,8 @@ export default function ProjectNavigation() {
                     (d) => d.boardId === member.id,
                   );
                   const index = project.manifest.boards.indexOf(member);
+                  const failure =
+                    registry.controllers.get(sessionKey)?.files.failure;
                   return (
                     <li
                       key={member.id}
@@ -514,6 +528,21 @@ export default function ProjectNavigation() {
                           </div>
                         </details>
                       </div>
+                      {failure && (
+                        <button
+                          className="project-error"
+                          onClick={() =>
+                            workspace.setDialog({
+                              kind: 'saveIssue',
+                              boardId: member.id,
+                            })
+                          }
+                        >
+                          Resolve{' '}
+                          {failure.conflict ? 'conflict' : 'save failure'} for{' '}
+                          {member.name}…
+                        </button>
+                      )}
                       {diagnostic && (
                         <p className="project-error">
                           {diagnostic.error} Expected: {member.path}
@@ -531,6 +560,15 @@ export default function ProjectNavigation() {
                 </p>
               )}
               <footer>
+                <p role="status">
+                  {
+                    Object.values(registry.statuses).filter(
+                      (status) => status !== 'Saved',
+                    ).length
+                  }{' '}
+                  open boards need attention
+                  {workspace.dialog ? ' · Project action pending' : ''}
+                </p>
                 <button
                   disabled={busy}
                   onClick={() => workspace.setDialog({ kind: 'createBoard' })}
@@ -583,10 +621,13 @@ export default function ProjectNavigation() {
       {workspace.error && !workspace.dialog && (
         <div role="alert" className="project-notice">
           <p>{workspace.error}</p>
+          <ProjectDefinitionActions message={workspace.error} />
           <button onClick={() => workspace.setError('')}>Dismiss</button>
         </div>
       )}
-      {workspace.dialog?.kind === 'settings' ? (
+      {workspace.dialog?.kind === 'saveIssue' ? (
+        <ProjectSaveIssue boardId={workspace.dialog.boardId} />
+      ) : workspace.dialog?.kind === 'settings' ? (
         <ProjectSettings />
       ) : (
         workspace.dialog && (

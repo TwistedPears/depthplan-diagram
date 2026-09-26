@@ -17,6 +17,7 @@ import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
   | { kind: 'settings' }
+  | { kind: 'saveIssue'; boardId: string }
   | {
       kind:
         | 'create'
@@ -114,13 +115,7 @@ function useProject() {
       });
     return !!opened;
   };
-  const install = async (next: ProjectSnapshot) => {
-    const previous = live.current;
-    await registry.retire();
-    if (previous)
-      success(await window.desktop.projects.close(previous.sessionId));
-    registry.install([]);
-    update(next);
+  const openHome = async (next: ProjectSnapshot) => {
     // A healthy home board wins; failed members never prevent the project opening.
     const ids = [
       ...new Set([
@@ -136,6 +131,15 @@ function useProject() {
         setError(String(e));
       }
     }
+  };
+  const install = async (next: ProjectSnapshot) => {
+    const previous = live.current;
+    await registry.retire();
+    if (previous)
+      success(await window.desktop.projects.close(previous.sessionId));
+    registry.install([]);
+    update(next);
+    await openHome(next);
   };
   const openProject = () =>
     run(async () => {
@@ -200,7 +204,7 @@ function useProject() {
     return result.project;
   };
   const manage = (
-    kind: Exclude<ProjectDialog['kind'], 'settings'>,
+    kind: Exclude<ProjectDialog['kind'], 'settings' | 'saveIssue'>,
     name = '',
     path = '',
     boardId?: string,
@@ -263,6 +267,50 @@ function useProject() {
         await openBoard(next.manifest.boards.at(-1)!.id);
       setDialog(null);
     });
+  const resolveDefinition = (overwrite: boolean) =>
+    run(async () => {
+      const current = live.current!;
+      const observed = success(
+        await window.desktop.projects.definition(current.sessionId),
+      );
+      if (!observed) return false;
+      const affected = overwrite
+        ? []
+        : registry.sessions
+            .filter((session) => {
+              const original = current.manifest.boards.find(
+                (b) => b.id === session.project?.boardId,
+              );
+              return !observed.manifest.boards.some(
+                (b) => b.id === original?.id && b.path === original.path,
+              );
+            })
+            .map((session) => session.key);
+      if (affected.length && !(await registry.prepare(affected))) return false;
+      const result = success(
+        await window.desktop.projects.resolveDefinition(
+          current.sessionId,
+          observed.fingerprint,
+          overwrite,
+        ),
+      );
+      if (!result) return false;
+      await registry.retire(affected);
+      const remaining = registry.sessions.filter(
+        (session) => !affected.includes(session.key),
+      );
+      registry.install(
+        remaining,
+        remaining.some((session) => session.key === registry.activeKey)
+          ? registry.activeKey
+          : (remaining[0]?.key ?? ''),
+      );
+      update(result.project);
+      for (const controller of registry.controllers.values())
+        if (/manifest changed/i.test(controller.files.failure?.message ?? ''))
+          controller.files.clearFailure();
+      if (!remaining.length) await openHome(result.project);
+    });
   const importBoards = () =>
     run(async () => {
       const current = live.current!;
@@ -307,6 +355,9 @@ function useProject() {
         if (live.current && !locked.current && !dialog)
           setDialog({ kind: 'settings' });
       }),
+      window.desktop.events.on('menu:save-all', () => {
+        if (live.current && !dialog) void run(() => registry.saveAll());
+      }),
       window.desktop.events.on('menu:close-tab', () => {
         if (live.current && registry.activeKey && !dialog)
           void run(() => registry.close(registry.activeKey));
@@ -344,6 +395,7 @@ function useProject() {
     run,
     update,
     apply,
+    resolveDefinition,
     openBoard,
     openProject,
     createProject,

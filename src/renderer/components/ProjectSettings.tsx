@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { projectNameSchema } from '../../shared/projectContract';
 import useProjectWorkspace from '../hooks/useProjectWorkspace';
 import FormDialog from './FormDialog';
+import ProjectDefinitionActions from './ProjectDefinitionActions';
 
 export default function ProjectSettings() {
   const workspace = useProjectWorkspace()!;
@@ -127,6 +128,7 @@ export default function ProjectSettings() {
           {workspace.error}
         </p>
       )}
+      <ProjectDefinitionActions message={workspace.error} />
     </FormDialog>
   );
 }

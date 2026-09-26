@@ -11,6 +11,7 @@ import type {
   ProjectAction,
   ProjectBoard,
   ProjectSnapshot,
+  ProjectManifest,
 } from '../shared/projectContract';
 import type {
   FileCandidate,
@@ -49,10 +50,13 @@ function subscribe<T>(channel: string, callback: (payload: T) => void) {
   const ready = listen<T>(channel, ({ payload }) => {
     if (active) callback(payload);
   });
-  return () => {
-    active = false;
-    void ready.then((stop) => stop()).catch(console.error);
-  };
+  return Object.assign(
+    () => {
+      active = false;
+      void ready.then((stop) => stop()).catch(console.error);
+    },
+    { ready },
+  );
 }
 
 const menuChannels = [
@@ -68,6 +72,7 @@ const menuChannels = [
   'menu:close-tab',
   'menu:reload-document',
   'menu:save',
+  'menu:save-all',
   'menu:save-as',
   'menu:export-svg',
   'menu:export-json',
@@ -115,6 +120,19 @@ const desktopHandler = {
       return result;
     },
     inspect: (sessionId: string) => projectCall('project:inspect', sessionId),
+    definition: async (sessionId: string) => {
+      const result = await native<
+        FileResult<{ manifest: ProjectManifest; fingerprint: string }>
+      >('project:definition', sessionId);
+      if (result.status === 'success') validateProjectManifest(result.manifest);
+      return result;
+    },
+    resolveDefinition: (
+      sessionId: string,
+      expected: string,
+      overwrite: boolean,
+    ) =>
+      projectCall('project:resolve-definition', sessionId, expected, overwrite),
     apply: (sessionId: string, expected: string, action: ProjectAction) =>
       projectCall('project:apply', sessionId, expected, action),
     close: (sessionId: string): Promise<FileResult<Record<string, never>>> =>
@@ -124,8 +142,16 @@ const desktopHandler = {
       boardId: string,
       expected: string,
       document: RecursiveDocument,
+      overwrite = false,
     ): Promise<FileResult<{ source: SourceFile }>> =>
-      native('project:write-board', sessionId, boardId, expected, document),
+      native(
+        'project:write-board',
+        sessionId,
+        boardId,
+        expected,
+        document,
+        overwrite,
+      ),
     readBoard: async (
       sessionId: string,
       boardId: string,
@@ -226,8 +252,10 @@ const desktopHandler = {
       native('automation:enable', enabled),
     onRequest: (callback: (request: unknown) => unknown) => {
       let enabled = false;
+      let disposed = false;
       let generation = 0;
       const state = (value: { enabled: boolean; generation: number }) => {
+        if (disposed || value.generation < generation) return;
         enabled = value.enabled;
         generation = value.generation;
       };
@@ -254,7 +282,16 @@ const desktopHandler = {
       };
       const stopState = subscribe('automation:state', state);
       const stopRequest = subscribe('automation:request', receive);
+      // A newly active session must learn the already-running server generation.
+      void Promise.all([stopState.ready, stopRequest.ready])
+        .then(() =>
+          native<{ enabled: boolean; generation: number }>('automation:status'),
+        )
+        .then(state)
+        .catch(() => {});
       return () => {
+        disposed = true;
+        enabled = false;
         stopState();
         stopRequest();
       };

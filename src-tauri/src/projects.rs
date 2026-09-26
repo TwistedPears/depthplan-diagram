@@ -314,6 +314,48 @@ impl Project {
         regular(&self.path)?;
         Ok(&self.path)
     }
+    pub fn recovery_context(&self, board_id: &str) -> Result<Value> {
+        if !self
+            .manifest
+            .boards
+            .iter()
+            .any(|board| board.id == board_id)
+        {
+            return Err("Unknown project board".into());
+        }
+        // Provenance remains available even if the source folder disappears.
+        Ok(
+            json!({"id":self.manifest.id,"name":self.manifest.name,"location":self.path,"boardId":board_id}),
+        )
+    }
+    pub fn read_definition(&self) -> Result<(Manifest, String)> {
+        self.check_location()?;
+        regular(&self.path)?;
+        let (manifest, fingerprint) = read_manifest(&self.path)?;
+        if manifest.id != self.manifest.id {
+            return Err("Project identity changed; open it as a different project".into());
+        }
+        Ok((manifest, fingerprint))
+    }
+    pub fn resolve_definition(&mut self, expected: &str, overwrite: bool) -> Result<()> {
+        let (manifest, fingerprint) = self.read_definition()?;
+        if fingerprint != expected {
+            return Err(CONFLICT.into());
+        }
+        if overwrite {
+            let previous = self.fingerprint.clone();
+            self.fingerprint = fingerprint;
+            let result = self.commit(self.manifest.clone(), &|_| Ok(()));
+            if result.is_err() && self.fingerprint == expected {
+                self.fingerprint = previous;
+            }
+            result
+        } else {
+            self.manifest = manifest;
+            self.fingerprint = fingerprint;
+            Ok(())
+        }
+    }
     pub fn open(path: &Path) -> Result<Self> {
         // Validate before taking ownership; failed opens never mutate current sessions.
         regular(path)?;

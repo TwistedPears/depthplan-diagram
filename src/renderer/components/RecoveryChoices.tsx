@@ -108,6 +108,15 @@ export default function RecoveryChoices({
               className="form-dialog-section"
             >
               <h3>{entry.title}</h3>
+              {entry.project && (
+                <p>
+                  Project: {entry.project.name}
+                  <br />
+                  {entry.project.location}
+                  <br />
+                  Board {entry.project.boardId}
+                </p>
+              )}
               <p>
                 {entry.sourcePath ?? 'Never saved to a file'}
                 <br />

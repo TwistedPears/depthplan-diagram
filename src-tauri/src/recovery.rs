@@ -13,6 +13,7 @@ struct Session {
     covered: i64,
     revision: i64,
     closed: bool,
+    project: Value,
 }
 impl Default for Session {
     fn default() -> Self {
@@ -20,6 +21,7 @@ impl Default for Session {
             covered: -1,
             revision: -1,
             closed: false,
+            project: Value::Null,
         }
     }
 }
@@ -69,6 +71,24 @@ fn checkpoint(v: &Value) -> Result<()> {
     }
     if v.get("source").is_none() {
         return Err("Invalid recovery source".into());
+    }
+    if !v["project"].is_null() {
+        let project = &v["project"];
+        let location = project["location"]
+            .as_str()
+            .ok_or("Invalid recovery project location")?;
+        if project["id"]
+            .as_str()
+            .is_none_or(|s| s.is_empty() || s.len() > 128)
+            || project["name"]
+                .as_str()
+                .is_none_or(|s| s.is_empty() || s.encode_utf16().count() > 120)
+            || project["boardId"] != v["documentId"]
+            || !Path::new(location).is_absolute()
+            || location.contains('\0')
+        {
+            return Err("Invalid recovery project provenance".into());
+        }
     }
     if !v["source"].is_null() {
         let source = &v["source"];
@@ -158,10 +178,21 @@ impl Recovery {
         } else {
             Value::Null
         };
-        let checkpoint_value = json!({"version":1,"instanceId":self.instance,"sessionId":session_id,"documentId":input["document"]["id"],"revision":rev,"capturedAt":files::now(),"source":source,"document":input["document"]});
+        let project = input
+            .get("project")
+            .filter(|v| !v.is_null())
+            .cloned()
+            .unwrap_or_else(|| {
+                self.sessions
+                    .get(&session_id)
+                    .map(|s| s.project.clone())
+                    .unwrap_or(Value::Null)
+            });
+        let checkpoint_value = json!({"version":1,"instanceId":self.instance,"sessionId":session_id,"documentId":input["document"]["id"],"revision":rev,"capturedAt":files::now(),"source":source,"document":input["document"],"project":project});
         checkpoint(&checkpoint_value)?;
         let bytes = serde_json::to_vec(&checkpoint_value).map_err(|e| e.to_string())?;
         let session = self.sessions.entry(session_id.clone()).or_default();
+        session.project = project;
         if session.closed || rev <= session.covered {
             return Ok(());
         }
@@ -279,7 +310,7 @@ impl Recovery {
                                 original: None,
                             },
                         );
-                        entries.push(json!({"id":id,"title":value["document"]["metadata"]["title"],"sourcePath":value["source"]["path"],"capturedAt":value["capturedAt"],"sessionId":value["sessionId"],"instanceId":value["instanceId"],"revision":value["revision"]}));
+                        entries.push(json!({"id":id,"title":value["document"]["metadata"]["title"],"sourcePath":value["source"]["path"],"capturedAt":value["capturedAt"],"sessionId":value["sessionId"],"instanceId":value["instanceId"],"revision":value["revision"],"project":value["project"]}));
                     }
                     Err(error) => {
                         let quarantine =
@@ -340,6 +371,7 @@ impl Recovery {
             checkpoint(&value)?;
             let session_id = Uuid::new_v4().to_string();
             let source = files.recover(&value["source"])?;
+            self.sessions.entry(session_id.clone()).or_default().project = value["project"].clone();
             self.adopted.insert(session_id.clone(), id.into());
             Ok(json!({"document":value["document"],"source":source,"sessionId":session_id}))
         })();
@@ -391,6 +423,43 @@ mod tests {
         request["revision"] = 3.into();
         recovery.write(&request, &files).unwrap();
         assert!(!path.exists());
+    }
+    #[test]
+    fn project_provenance_survives_restore_and_new_checkpoint_without_source_authority() {
+        let root = tempfile::tempdir().unwrap();
+        let mut files = FileStore::default();
+        let mut orphan = store(root.path(), true);
+        let document = files::fixture();
+        let provenance = json!({"id":"project-id","name":"Project","location":root.path().join("missing/project.depthproject"),"boardId":document["id"]});
+        orphan.write(&json!({"sessionId":Uuid::new_v4().to_string(),"revision":4,"document":document,"project":provenance}), &files).unwrap();
+        let mut recovery = store(root.path(), false);
+        let entry = recovery.discover().unwrap()["entries"][0].clone();
+        assert_eq!(entry["project"], provenance);
+        let candidate = recovery
+            .prepare(entry["id"].as_str().unwrap(), &mut files)
+            .unwrap();
+        assert!(candidate["source"].is_null());
+        assert_ne!(candidate["sessionId"], entry["sessionId"]);
+        recovery
+            .write(
+                &json!({"sessionId":candidate["sessionId"],"revision":0,"document":document}),
+                &files,
+            )
+            .unwrap();
+        let bytes = fs::read(
+            recovery
+                .directory
+                .join(format!("{}.json", candidate["sessionId"].as_str().unwrap())),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&bytes).unwrap()["project"],
+            provenance
+        );
+        assert!(recovery.discover().unwrap()["entries"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
     #[test]
     fn orphan_claims_are_exclusive_cancelable_and_retired_after_replacement() {

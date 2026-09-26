@@ -4,6 +4,7 @@ import { RecoveryScheduler } from '../utils/recoveryScheduler';
 
 export default function useRecovery(
   owner: ReturnType<typeof useDocumentState>,
+  project?: { sessionId: string; boardId: string },
 ) {
   const [status, setStatus] = useState('');
   const [scheduler] = useState(
@@ -16,6 +17,7 @@ export default function useRecovery(
         revision: owner.revision,
         document: owner.document,
         sourceId: owner.source?.id,
+        project,
       });
   }, [
     scheduler,
@@ -24,6 +26,7 @@ export default function useRecovery(
     owner.sessionId,
     owner.revision,
     owner.source,
+    project,
   ]);
   useEffect(() => () => scheduler.dispose(), [scheduler]);
   const saved = useCallback(
