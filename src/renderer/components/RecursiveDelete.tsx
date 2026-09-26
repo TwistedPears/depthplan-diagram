@@ -1,6 +1,7 @@
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import Icon from './Icon';
-import { useEffect, useRef, useState } from 'react';
+import FormDialog from './FormDialog';
+import { useEffect, useState } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import type { DocumentEdit } from '../../shared/documentTransactions';
 import {
@@ -44,10 +45,8 @@ export default function RecursiveDelete({
     active: () => !!pending,
     discard: () => setPending(null),
   });
-  const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     onBusyChange('delete-confirmation', !!pending);
-    if (pending) dialog.current!.showModal();
     return () => onBusyChange('delete-confirmation', false);
   }, [pending, onBusyChange]);
   useEffect(() => {
@@ -110,28 +109,14 @@ export default function RecursiveDelete({
         <Icon name="delete" />
       </button>
       {pending && (
-        <dialog
-          ref={dialog}
-          data-document-editor
-          aria-label="Delete subtree"
-          onCancel={(event) => {
-            event.preventDefault();
-            setPending(null);
-          }}
-        >
-          <h2>Delete selected objects?</h2>
-          <p>
-            {pending.count} objects, including {pending.descendants} descendants
-            ({pending.hidden} hidden), and {pending.connections.length} selected
-            connections will be deleted. You can Undo this action.
-          </p>
-          <button type="button" onClick={() => setPending(null)}>
-            Cancel
-          </button>
-          <button type="button" onClick={confirm}>
-            Delete subtree
-          </button>
-        </dialog>
+        <FormDialog
+          title="Delete selected objects?"
+          description={`${pending.count} objects, including ${pending.descendants} descendants (${pending.hidden} hidden), and ${pending.connections.length} selected connections will be deleted. You can Undo this action.`}
+          onCancel={() => setPending(null)}
+          onSubmit={confirm}
+          submitLabel="Delete subtree"
+          destructive
+        />
       )}
     </>
   );

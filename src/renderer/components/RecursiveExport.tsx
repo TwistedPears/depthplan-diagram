@@ -2,6 +2,7 @@ import {
   useEffect,
   useLayoutEffect,
   useImperativeHandle,
+  useId,
   useRef,
   useState,
   type Ref,
@@ -18,6 +19,8 @@ import {
   restrictExportScene,
 } from '../utils/recursiveExport';
 import useDocumentDraft from '../hooks/useDocumentDraft';
+import FormDialog from './FormDialog';
+import Icon from './Icon';
 export type RecursiveExportHandle = (() => void) & {
   capture: (request: {
     stamp: string;
@@ -52,7 +55,7 @@ export default function RecursiveExport({
   } | null>(null);
   const [scope, setScope] = useState<'selection' | 'whole'>('whole');
   const [format, setFormat] = useState<'svg' | 'png'>('svg');
-  const dialog = useRef<HTMLDialogElement>(null);
+  const formatHintId = useId();
   const rendered = useRef('');
   useLayoutEffect(() => {
     rendered.current = stamp;
@@ -109,12 +112,7 @@ export default function RecursiveExport({
       },
     }),
   );
-  useEffect(() => {
-    if (snapshot) dialog.current!.showModal();
-    return () => {
-      snapshot?.scene.destroy();
-    };
-  }, [snapshot]);
+  useEffect(() => () => void snapshot?.scene.destroy(), [snapshot]);
   if (!snapshot) return null;
   const exportImage = async () => {
     // Transfer ownership out of dialog cleanup before encoding awaits the PNG blob.
@@ -139,25 +137,22 @@ export default function RecursiveExport({
     }
   };
   return (
-    <dialog
-      ref={dialog}
-      data-document-editor
-      aria-label="Export image"
-      onCancel={(event) => {
-        event.preventDefault();
-        setSnapshot(null);
-      }}
+    <FormDialog
+      title="Export image"
+      description="Export the current depths, including offscreen content in the chosen scope."
+      onCancel={() => setSnapshot(null)}
+      onSubmit={() => void exportImage()}
+      submitLabel={
+        <>
+          <Icon name="file-export" /> Export
+        </>
+      }
     >
-      <h2>Export image</h2>
-      <p>
-        Export the current depths, including offscreen content in the chosen
-        scope.
-      </p>
       {!!(
         snapshot.selection.objects.size || snapshot.selection.connections.size
       ) && (
-        <label>
-          Scope
+        <label className="form-dialog-field">
+          <span>Scope</span>
           <select
             aria-label="Scope"
             value={scope}
@@ -170,23 +165,23 @@ export default function RecursiveExport({
           </select>
         </label>
       )}
-      <label>
-        Format
+      <label className="form-dialog-field">
+        <span>Format</span>
         <select
           aria-label="Format"
+          aria-describedby={formatHintId}
           value={format}
           onChange={(event) => setFormat(event.target.value as 'svg' | 'png')}
         >
           <option value="svg">SVG</option>
           <option value="png">PNG</option>
         </select>
+        <span className="form-dialog-hint" id={formatHintId}>
+          {format === 'svg'
+            ? 'Vector image. Stays sharp at any size.'
+            : 'Raster image. Ready to share and use in documents.'}
+        </span>
       </label>
-      <button type="button" onClick={() => setSnapshot(null)}>
-        Cancel
-      </button>
-      <button type="button" onClick={() => void exportImage()}>
-        Export
-      </button>
-    </dialog>
+    </FormDialog>
   );
 }

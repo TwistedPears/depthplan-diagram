@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { validLink } from '../../shared/recursiveDocument';
 import type { DocumentEdit } from '../../shared/documentTransactions';
 import { patchSelectionStyle } from '../../shared/editorProperties';
 import useDocumentDraft from '../hooks/useDocumentDraft';
+import FormDialog from './FormDialog';
 
 export default function SelectionLink({
   target,
@@ -15,7 +16,8 @@ export default function SelectionLink({
   onEdit: (edit: DocumentEdit) => void;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const errorId = useId();
   const [url, setUrl] = useState(value);
   const [error, setError] = useState('');
   const valid = url.trim() === '' || validLink(url.trim());
@@ -30,46 +32,16 @@ export default function SelectionLink({
     apply,
     discard: onClose,
   });
-  useEffect(() => {
-    dialog.current!.showModal();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
-      data-document-editor
-      aria-label="Item link"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          apply();
-        }}
-      >
-        <h2>Item link</h2>
-        <label>
-          URL{' '}
-          <input
-            aria-label="Item link URL"
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-          />
-        </label>
-        <p>
-          Use an http, https or mailto URL. Clear the field to remove the link.
-        </p>
-        {!valid && (
-          <p role="alert">
-            Enter an absolute URL without credentials or spaces.
-          </p>
-        )}
-        {error && <p role="alert">{error}</p>}
-        <button type="button" onClick={onClose}>
-          Cancel
-        </button>{' '}
+    <FormDialog
+      title="Item link"
+      description="Use an http, https or mailto URL. Clear the field to remove the link."
+      initialFocus={input}
+      onCancel={onClose}
+      onSubmit={apply}
+      submitLabel="Save link"
+      submitDisabled={!valid}
+      actions={
         <button
           type="button"
           disabled={!validLink(url.trim())}
@@ -80,11 +52,26 @@ export default function SelectionLink({
           }}
         >
           Open link
-        </button>{' '}
-        <button type="submit" disabled={!valid}>
-          Save link
         </button>
-      </form>
-    </dialog>
+      }
+    >
+      <label className="form-dialog-field">
+        <span>URL</span>
+        <input
+          ref={input}
+          aria-label="Item link URL"
+          aria-invalid={!valid}
+          aria-describedby={!valid ? errorId : undefined}
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+      </label>
+      {!valid && (
+        <p role="alert" id={errorId}>
+          Enter an absolute URL without credentials or spaces.
+        </p>
+      )}
+      {error && <p role="alert">{error}</p>}
+    </FormDialog>
   );
 }

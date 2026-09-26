@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Icon from './Icon';
+import FormDialog from './FormDialog';
 import type { AutomationStatus } from '../../shared/automationContract';
 import type useAutomation from '../hooks/useAutomation';
 
@@ -20,8 +20,11 @@ export default function AutomationControl({
   operation,
   onShowDetails,
 }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
+  useEffect(() => {
+    if (!status?.enabled) setDetailsOpen(false);
+  }, [status?.enabled]);
   const copy = async () => {
     try {
       await window.desktop.clipboard.writeText(codexConfiguration(status!));
@@ -59,7 +62,7 @@ export default function AutomationControl({
           onClick={() => {
             setCopyNotice('');
             onShowDetails();
-            dialog.current?.showModal();
+            setDetailsOpen(true);
           }}
         >
           MCP Details
@@ -76,29 +79,14 @@ export default function AutomationControl({
         </button>
       )}
       {status?.enabled &&
+        detailsOpen &&
         createPortal(
-          <dialog
-            ref={dialog}
+          <FormDialog
+            title="MCP Details"
+            description="Allow local MCP clients to edit diagrams, manage saved views and work with files in folders you approve."
             className="automation-dialog"
-            aria-labelledby="mcp-details-title"
-            closedby="any"
+            onCancel={() => setDetailsOpen(false)}
           >
-            <div className="automation-heading">
-              <h2 id="mcp-details-title">MCP Details</h2>
-              <button
-                type="button"
-                className="toolbar-button"
-                aria-label="Close"
-                title="Close MCP Details"
-                onClick={() => dialog.current?.close()}
-              >
-                <Icon name="xmark" />
-              </button>
-            </div>
-            <p>
-              Allow local MCP clients to edit diagrams, manage saved views and
-              work with files in folders you approve.
-            </p>
             {error && <p role="alert">{error}</p>}
             {operation && (
               <p role="status">
@@ -108,42 +96,47 @@ export default function AutomationControl({
                 </button>
               </p>
             )}
-            <p>
-              Approved folders allow MCP file reads and writes for this app run.
-            </p>
-            {(status.folders ?? []).map((grant) => (
-              <div key={grant.id}>
-                <code>{grant.path}</code>{' '}
-                <button
-                  type="button"
-                  disabled={changing}
-                  onClick={() => void folder(grant.id)}
-                  aria-label={`Revoke access to ${grant.path}`}
-                >
-                  Revoke
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              disabled={changing}
-              onClick={() => void folder()}
-            >
-              Approve folder…
-            </button>
+            <section className="form-dialog-section">
+              <h3>Approved folders</h3>
+              <p>
+                Approved folders allow MCP file reads and writes for this app
+                run.
+              </p>
+              {(status.folders ?? []).map((grant) => (
+                <div key={grant.id} className="automation-folder">
+                  <code>{grant.path}</code>
+                  <button
+                    type="button"
+                    disabled={changing}
+                    onClick={() => void folder(grant.id)}
+                    aria-label={`Revoke access to ${grant.path}`}
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                disabled={changing}
+                onClick={() => void folder()}
+              >
+                Approve folder…
+              </button>
+            </section>
             <p>
               Ready for local requests. This does not mean a client is
               connected.
             </p>
             {status.descriptor && (
-              <>
+              <section className="form-dialog-section">
+                <h3>Client setup</h3>
                 <p>
                   Add this entry to Codex config.toml, then restart its MCP
                   server. Replace an existing depthplan entry instead of adding
                   a duplicate.
                 </p>
-                <label>
-                  Codex configuration
+                <label className="form-dialog-field">
+                  <span>Codex configuration</span>
                   <textarea
                     readOnly
                     rows={7}
@@ -151,7 +144,7 @@ export default function AutomationControl({
                     onFocus={(event) => event.target.select()}
                   />
                 </label>
-                <button onClick={() => void copy()}>
+                <button type="button" onClick={() => void copy()}>
                   Copy Codex configuration
                 </button>
                 {copyNotice && <p role="status">{copyNotice}</p>}
@@ -167,17 +160,17 @@ export default function AutomationControl({
                   unsaved until you save. Finish active edits before retrying a
                   busy request.
                 </p>
-                <label>
-                  MCP executable
+                <label className="form-dialog-field">
+                  <span>MCP executable</span>
                   <input readOnly value={status.executable} />
                 </label>
-                <label>
-                  Descriptor
+                <label className="form-dialog-field">
+                  <span>Descriptor</span>
                   <input readOnly value={status.descriptor} />
                 </label>
-              </>
+              </section>
             )}
-          </dialog>,
+          </FormDialog>,
           document.body,
         )}
     </>
