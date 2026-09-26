@@ -78,6 +78,7 @@ const copyModifiers = (event: BindingModifiers): BindingModifiers => ({
 });
 
 export default function useConnectionEditing({
+  active,
   document,
   scene,
   camera,
@@ -92,6 +93,7 @@ export default function useConnectionEditing({
   onFinish,
   setPreview,
 }: {
+  active: boolean;
   document: RecursiveDocument;
   scene: ReturnType<typeof recursiveScene>;
   camera: Camera;
@@ -154,6 +156,7 @@ export default function useConnectionEditing({
   };
   useDocumentDraft({
     label: 'line or arrow edit',
+    canSuspend: () => !drawing.current && !gesture.current,
     active: () => !!(drawing.current || gesture.current || label),
     apply: label ? () => finishLabel(true) : undefined,
     discard: () => {
@@ -862,7 +865,16 @@ export default function useConnectionEditing({
         }}
         rows={Math.max(1, label.value.split('\n').length)}
         onChange={(event) => setLabel({ ...label, value: event.target.value })}
-        onBlur={() => finishLabel(true)}
+        onBlur={(event) => {
+          if (
+            active &&
+            !(
+              event.relatedTarget instanceof Element &&
+              event.relatedTarget.closest('[data-session-navigation]')
+            )
+          )
+            finishLabel(true);
+        }}
         onKeyDown={(event) => {
           event.stopPropagation();
           if (event.key === 'Escape') {

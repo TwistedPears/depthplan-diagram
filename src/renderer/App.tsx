@@ -9,29 +9,39 @@ import useMcpDrafts from './hooks/useMcpDrafts';
 import Icon from './components/Icon';
 import RecoveryChoices from './components/RecoveryChoices';
 import useRecovery from './hooks/useRecovery';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Activity,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import useDocumentSessions, {
+  DocumentSessions,
+  type BoardSession,
+} from './hooks/useDocumentSessions';
 import useDocumentHistoryActions from './hooks/useDocumentHistoryActions';
 import useDocumentState from './hooks/useDocumentState';
 import useDocumentFiles from './hooks/useDocumentFiles';
 import useDocumentTransitions from './hooks/useDocumentTransitions';
 import useDocumentOpenRequests from './hooks/useDocumentOpenRequests';
-import { DocumentDrafts } from './hooks/useDocumentDraft';
+import { DocumentDrafts, useHasDrafts } from './hooks/useDocumentDraft';
 import RecursiveCanvas from './components/RecursiveCanvas';
 import NamedViews from './components/NamedViews';
 import useAutomation from './hooks/useAutomation';
 import './App.css';
-import { createRecursiveDocument } from '../shared/recursiveDocument';
 import UnifiedToolbar from './components/UnifiedToolbar';
 import exportAsJSON from './utils/jsonExport';
 
 export default function App() {
   return (
-    <DocumentDrafts>
+    <DocumentSessions>
       <Workspace />
-    </DocumentDrafts>
+    </DocumentSessions>
   );
 }
-function Workspace() {
+export function Workspace() {
   const [appInstanceId, setAppInstanceId] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -47,12 +57,55 @@ function Workspace() {
       active = false;
     };
   }, []);
-  // Main application state
-  const [initialDocument] = useState(() =>
-    createRecursiveDocument(crypto.randomUUID(), 'Untitled Document'),
+  const registry = useDocumentSessions();
+  useEffect(() =>
+    window.desktop.transitions.onRequest((id) => {
+      void (async () => {
+        try {
+          const approved = await registry.closeAll();
+          await window.desktop.transitions.reply(id, approved);
+        } catch {
+          registry.release();
+          await window.desktop.transitions.reply(id, false);
+        }
+      })();
+    }),
   );
-  const owner = useDocumentState(initialDocument, appInstanceId);
+  return (
+    <>
+      {registry.sessions.map((session) => (
+        <DocumentDrafts
+          key={session.key}
+          active={session.key === registry.activeKey}
+        >
+          <BoardWorkspace
+            appInstanceId={appInstanceId}
+            session={session}
+            active={session.key === registry.activeKey}
+          />
+        </DocumentDrafts>
+      ))}
+    </>
+  );
+}
+function BoardWorkspace({
+  appInstanceId,
+  session,
+  active,
+}: {
+  appInstanceId: string | null;
+  session: BoardSession;
+  active: boolean;
+}) {
+  const registry = useDocumentSessions();
+  // Release the Konva stage before Activity defers updates to the hidden tree.
+  const [visible, setVisible] = useState(active);
+  useLayoutEffect(() => setVisible(active), [active]);
+  const owner = useDocumentState(session.document, appInstanceId, {
+    source: session.source,
+  });
   const recovery = useRecovery(owner);
+  const hasDrafts = useHasDrafts();
   const {
     document: currentDocument,
     sessionId,
@@ -116,6 +169,21 @@ function Workspace() {
     files,
     showStatus,
     recovery.leave,
+    active,
+  );
+  useLayoutEffect(() => {
+    registry.controllers.set(session.key, {
+      owner,
+      files,
+      transitions,
+      leave: recovery.leave,
+    });
+  });
+  useLayoutEffect(
+    () => () => {
+      registry.controllers.delete(session.key);
+    },
+    [registry.controllers, session.key],
   );
   const mcpWorkflows = useMcpWorkflows({
     owner,
@@ -133,13 +201,14 @@ function Workspace() {
     () => {
       if (!transitions.isPending() && !mcpWorkflows.activeOperation) redo();
     },
+    active,
   );
   const isLoading =
     exportLoading ||
     files.loading ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
-  useDocumentOpenRequests(transitions, isLoading, showStatus);
+  useDocumentOpenRequests(transitions, isLoading, showStatus, active);
   const handleNewDocument = () => {
     if (!isLoading) return transitions.request('new');
   };
@@ -177,21 +246,9 @@ function Workspace() {
 
   const handleSaveAs = () => handleSave(true);
 
-  useEffect(() =>
-    window.desktop.transitions.onRequest((id) => {
-      void transitions.request('close').then(async (approved) => {
-        try {
-          await window.desktop.transitions.reply(id, approved);
-        } catch {
-          transitions.release();
-          showStatus('Could not complete the close request. Please try again.');
-        }
-      });
-    }),
-  );
-
-  // Handle menu events
+  // Only the visible board subscribes to window/menu events.
   useEffect(() => {
+    if (!active) return;
     const removeNewListener = window.desktop.events.on(
       'menu:new',
       handleNewDocument,
@@ -232,44 +289,47 @@ function Workspace() {
     };
   }); // Rebind with current document and loading state.
 
-  const automation = useAutomation({
-    depthplan_get_access: mcpWorkflows.access,
-    depthplan_files: (input) => mcpWorkflows.start('files', input),
-    depthplan_export: (input) => mcpWorkflows.start('export', input),
-    depthplan_get_operation: mcpWorkflows.read,
-    depthplan_cancel_operation: mcpWorkflows.cancel,
-    depthplan_decide: mcpWorkflows.decide,
-    depthplan_get_recovery: mcpWorkflows.recovery,
-    depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
-    depthplan_get_drafts: mcpDrafts.list,
-    depthplan_resolve_draft: mcpDrafts.resolve,
-    depthplan_controls: (input) => editorCommand('controls', input),
-    depthplan_content_transfer: (input) => editorCommand('content', input),
-    depthplan_delete_preview: owner.editorQueries.deletePreview,
-    depthplan_edit: (input) => editorCommand('edit', input),
-    depthplan_bookmarks: (input) => {
-      const result = editorCommand('bookmarks', input);
-      if (result.ok && input.action.type === 'apply') {
-        const doc = owner.snapshot().document;
-        if (doc)
-          showStatus(
-            `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
-          );
-      }
-      return result;
+  const automation = useAutomation(
+    {
+      depthplan_get_access: mcpWorkflows.access,
+      depthplan_files: (input) => mcpWorkflows.start('files', input),
+      depthplan_export: (input) => mcpWorkflows.start('export', input),
+      depthplan_get_operation: mcpWorkflows.read,
+      depthplan_cancel_operation: mcpWorkflows.cancel,
+      depthplan_decide: mcpWorkflows.decide,
+      depthplan_get_recovery: mcpWorkflows.recovery,
+      depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
+      depthplan_get_drafts: mcpDrafts.list,
+      depthplan_resolve_draft: mcpDrafts.resolve,
+      depthplan_controls: (input) => editorCommand('controls', input),
+      depthplan_content_transfer: (input) => editorCommand('content', input),
+      depthplan_delete_preview: owner.editorQueries.deletePreview,
+      depthplan_edit: (input) => editorCommand('edit', input),
+      depthplan_bookmarks: (input) => {
+        const result = editorCommand('bookmarks', input);
+        if (result.ok && input.action.type === 'apply') {
+          const doc = owner.snapshot().document;
+          if (doc)
+            showStatus(
+              `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
+            );
+        }
+        return result;
+      },
+      depthplan_camera: (input) => editorCommand('camera', input),
+      depthplan_selection: (input) => editorCommand('selection', input),
+      depthplan_history: (input) => editorCommand('history', input),
+      depthplan_get_state: owner.editorQueries.getState,
+      depthplan_query: owner.editorQueries.query,
+      depthplan_search: owner.editorQueries.search,
+      depthplan_read_chunk: owner.editorQueries.readChunk,
+      depthplan_get_context: getContext,
+      depthplan_get_hierarchy: getHierarchy,
+      depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
+      depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
     },
-    depthplan_camera: (input) => editorCommand('camera', input),
-    depthplan_selection: (input) => editorCommand('selection', input),
-    depthplan_history: (input) => editorCommand('history', input),
-    depthplan_get_state: owner.editorQueries.getState,
-    depthplan_query: owner.editorQueries.query,
-    depthplan_search: owner.editorQueries.search,
-    depthplan_read_chunk: owner.editorQueries.readChunk,
-    depthplan_get_context: getContext,
-    depthplan_get_hierarchy: getHierarchy,
-    depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
-    depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
-  });
+    active,
+  );
 
   const renderToolbar = () => (
     <UnifiedToolbar
@@ -284,7 +344,13 @@ function Workspace() {
       currentDocument={currentDocument}
       hasSource={!!currentFilePath}
       documentStatus={
-        dirty ? 'Unsaved changes' : currentFilePath ? 'Saved' : 'New document'
+        hasDrafts
+          ? 'Draft not saved'
+          : dirty
+            ? 'Unsaved changes'
+            : currentFilePath
+              ? 'Saved'
+              : 'New document'
       }
       onReload={handleReloadFile}
       isLoading={isLoading}
@@ -297,115 +363,120 @@ function Workspace() {
     />
   );
   return (
-    <div className="workspace">
-      <div
-        inert={transitions.active || !!mcpWorkflows.activeOperation}
-        style={{ display: 'contents' }}
-      >
-        <RecoveryChoices
-          refresh={mcpWorkflows.recoveryVersion()}
-          onRestore={async (candidate) =>
-            transitions.request('restore', () => {
-              owner.replace(candidate.document, {
-                dirty: true,
-                source: candidate.source,
-                sessionId: candidate.sessionId,
-              });
-              showStatus('Recovered work — save to keep this document.');
-            })
-          }
-        />
-        {recovery.status && (
-          <div
-            role="status"
-            style={{
-              position: 'fixed',
-              bottom: 50,
-              left: 16,
-              zIndex: 2000,
-              background: '#fff3cd',
-              color: '#553d00',
-              padding: 12,
-            }}
-          >
-            {recovery.status}
-          </div>
-        )}
-        {statusMessage && (
-          <div role="status" className="workspace-notice">
-            {statusMessage}
-          </div>
-        )}
-
-        {/* Full screen canvas */}
-        {currentDocument && (
-          <>
-            <RecursiveCanvas
-              key={sessionId}
-              document={currentDocument}
-              stamp={editorStamp(owner)}
-              fitRef={owner.fitCanvas}
-              canvas={owner.canvas}
-              setCanvas={owner.setCanvas}
-              camera={camera}
-              setCamera={setCamera}
-              onEdit={transact}
-              onSelectDepth={selectDepth}
-              onBusyChange={setBusy}
-              exportRef={recursiveExport}
-              isBusy={isBusy}
-              onStatus={showStatus}
+    <Activity mode={visible ? 'visible' : 'hidden'}>
+      <div className="workspace" data-board-session={session.key}>
+        <div
+          inert={transitions.active || !!mcpWorkflows.activeOperation}
+          style={{ display: 'contents' }}
+        >
+          {!session.source && (
+            <RecoveryChoices
+              refresh={mcpWorkflows.recoveryVersion()}
+              onRestore={async (candidate) =>
+                transitions.request('restore', () => {
+                  owner.replace(candidate.document, {
+                    dirty: true,
+                    source: candidate.source,
+                    sessionId: candidate.sessionId,
+                  });
+                  showStatus('Recovered work — save to keep this document.');
+                })
+              }
             />
-            {renderToolbar()}
-            {transactionResult?.status === 'rejected' && (
-              <div
-                role="alert"
-                style={{
-                  position: 'absolute',
-                  top: 130,
-                  left: 16,
-                  background: 'white',
-                  padding: 8,
-                }}
-              >
-                {transactionResult.error}
-              </div>
-            )}
+          )}
+          {recovery.status && (
             <div
-              role="toolbar"
-              aria-label="Document history"
-              className="document-history"
+              role="status"
+              style={{
+                position: 'fixed',
+                bottom: 50,
+                left: 16,
+                zIndex: 2000,
+                background: '#fff3cd',
+                color: '#553d00',
+                padding: 12,
+              }}
             >
-              <NamedViews
+              {recovery.status}
+            </div>
+          )}
+          {statusMessage && (
+            <div role="status" className="workspace-notice">
+              {statusMessage}
+            </div>
+          )}
+
+          {/* Full screen canvas */}
+          {currentDocument && (
+            <>
+              <RecursiveCanvas
                 key={sessionId}
+                active={active}
                 document={currentDocument}
-                onCommand={changeNamedView}
+                stamp={editorStamp(owner)}
+                fitRef={owner.fitCanvas}
+                canvas={owner.canvas}
+                setCanvas={owner.setCanvas}
+                camera={camera}
+                setCamera={setCamera}
+                onEdit={transact}
+                onSelectDepth={selectDepth}
+                onBusyChange={setBusy}
+                exportRef={recursiveExport}
                 isBusy={isBusy}
-                onBusy={setBusy}
                 onStatus={showStatus}
               />
-              <button
-                type="button"
-                aria-label="Undo"
-                title="Undo"
-                onClick={undo}
-                disabled={!canUndo}
+              {renderToolbar()}
+              {transactionResult?.status === 'rejected' && (
+                <div
+                  role="alert"
+                  style={{
+                    position: 'absolute',
+                    top: 130,
+                    left: 16,
+                    background: 'white',
+                    padding: 8,
+                  }}
+                >
+                  {transactionResult.error}
+                </div>
+              )}
+              <div
+                role="toolbar"
+                aria-label="Document history"
+                className="document-history"
               >
-                <Icon name="rotate-left" />
-              </button>
-              <button
-                type="button"
-                aria-label="Redo"
-                title="Redo"
-                onClick={redo}
-                disabled={!canRedo}
-              >
-                <Icon name="rotate-right" />
-              </button>
-            </div>
-          </>
-        )}
+                <NamedViews
+                  key={sessionId}
+                  document={currentDocument}
+                  onCommand={changeNamedView}
+                  isBusy={isBusy}
+                  onBusy={setBusy}
+                  onStatus={showStatus}
+                />
+                <button
+                  type="button"
+                  aria-label="Undo"
+                  title="Undo"
+                  onClick={undo}
+                  disabled={!canUndo}
+                >
+                  <Icon name="rotate-left" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Redo"
+                  title="Redo"
+                  onClick={redo}
+                  disabled={!canRedo}
+                >
+                  <Icon name="rotate-right" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </Activity>
   );
 }

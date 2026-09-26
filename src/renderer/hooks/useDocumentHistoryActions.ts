@@ -13,10 +13,16 @@ export default function useDocumentHistoryActions(
   recursive: boolean,
   undo: () => void,
   redo: () => void,
+  enabled = true,
 ) {
   useEffect(() => {
+    if (!enabled) return;
     const menu = (direction: 'undo' | 'redo') => {
-      const editor = document.querySelector('[data-rich-editor]');
+      const editor = [
+        ...document.querySelectorAll<HTMLElement>('[data-rich-editor]'),
+      ].find(
+        (node) => !node.closest('[data-board-session][style*="display: none"]'),
+      );
       if (
         editor &&
         !(document.activeElement instanceof HTMLInputElement) &&
@@ -57,5 +63,5 @@ export default function useDocumentHistoryActions(
       unbindRedo();
       window.removeEventListener('keydown', keydown);
     };
-  }, [recursive, undo, redo]);
+  }, [recursive, undo, redo, enabled]);
 }

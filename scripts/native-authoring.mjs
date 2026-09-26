@@ -20,6 +20,10 @@ export async function authoring(driver, probe) {
       ...args,
     });
     assert.equal(reply.ok, true, JSON.stringify(reply));
+    // MCP acknowledges state before React paints selection controls and shapes.
+    await driver.js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
     return reply;
   };
   const edit = (...actions) => command('depthplan_edit', { actions });

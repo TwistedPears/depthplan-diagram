@@ -9,6 +9,7 @@ import {
 
 export default function useAutomation(
   handlers: Partial<Record<AutomationRequest['tool'], (input: any) => unknown>>,
+  active = true,
 ) {
   const [status, setStatus] = useState<AutomationStatus | null>(null);
   const [changing, setChanging] = useState(false);
@@ -32,6 +33,7 @@ export default function useAutomation(
     }
   }, []);
   useEffect(() => {
+    if (!active) return;
     void refresh();
     return window.desktop.automation.onRequest((raw) => {
       if (!enabled.current)
@@ -44,7 +46,7 @@ export default function useAutomation(
             unavailable('APP_UNAVAILABLE', 'Tool handler is not ready.'))
         : unavailable('INVALID_REQUEST', 'Invalid tool input.');
     });
-  }, [refresh]);
+  }, [refresh, active]);
   const toggle = async () => {
     const next = !status?.enabled;
     if (!next) enabled.current = false;

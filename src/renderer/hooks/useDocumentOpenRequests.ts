@@ -6,21 +6,24 @@ export default function useDocumentOpenRequests(
   transitions: ReturnType<typeof useDocumentTransitions>,
   busy: boolean,
   onStatus: (message: string) => void,
+  enabled = true,
 ) {
   const [requests, setRequests] = useState<string[]>([]);
   const handling = useRef(false);
   useEffect(
     () =>
-      window.desktop.fileSystem.onOpenRequested((id) => {
-        setRequests((pending) =>
-          pending.includes(id) ? pending : [...pending, id],
-        );
-      }),
-    [],
+      enabled
+        ? window.desktop.fileSystem.onOpenRequested((id) => {
+            setRequests((pending) =>
+              pending.includes(id) ? pending : [...pending, id],
+            );
+          })
+        : undefined,
+    [enabled],
   );
   useEffect(() => {
     const id = requests[0];
-    if (busy || handling.current || !id) return;
+    if (!enabled || busy || handling.current || !id) return;
     handling.current = true;
     void (async () => {
       try {

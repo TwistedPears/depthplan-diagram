@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useInsertionEffect,
   useLayoutEffect,
   useImperativeHandle,
   useId,
@@ -112,7 +112,8 @@ export default function RecursiveExport({
       },
     }),
   );
-  useEffect(() => () => void snapshot?.scene.destroy(), [snapshot]);
+  // Activity disconnects effects on a tab switch; retain the captured export until disposal.
+  useInsertionEffect(() => () => void snapshot?.scene.destroy(), [snapshot]);
   if (!snapshot) return null;
   const exportImage = async () => {
     // Transfer ownership out of dialog cleanup before encoding awaits the PNG blob.

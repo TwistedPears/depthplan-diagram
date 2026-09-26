@@ -61,7 +61,7 @@ export default function InlineObjectText({
       if (
         !host.current?.contains(target) &&
         !target.closest(
-          '#selection-controls, .selection-reopen, dialog, [role="dialog"]',
+          '#selection-controls, .selection-reopen, dialog, [role="dialog"], [data-session-navigation]',
         )
       )
         finishRef.current();

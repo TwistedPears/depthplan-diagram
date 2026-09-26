@@ -1,4 +1,4 @@
-import { createRef } from 'react';
+import { Activity, createRef } from 'react';
 import {
   act,
   fireEvent,
@@ -126,3 +126,36 @@ it.each(['Cancel', 'Close export image', 'Escape'])(
     close.mockRestore();
   },
 );
+
+it('retains the captured export across Activity switches and frees it on session close', () => {
+  const destroy = jest.fn();
+  jest
+    .mocked(captureRecursiveScene)
+    .mockReturnValue({ destroy } as unknown as Konva.Group);
+  const ref = createRef<RecursiveExportHandle>();
+  const ui = (active: boolean) => (
+    <Activity mode={active ? 'visible' : 'hidden'}>
+      <RecursiveExport
+        ref={ref}
+        stamp="test"
+        stage={() => ({}) as Konva.Stage}
+        document={recursiveFixture()}
+        selection={[]}
+        isBusy={() => false}
+        onStatus={() => {}}
+      />
+    </Activity>
+  );
+  const { rerender, unmount } = render(ui(true));
+  act(() => ref.current!());
+  fireEvent.change(screen.getByRole('combobox', { name: 'Format' }), {
+    target: { value: 'png' },
+  });
+  rerender(ui(false));
+  expect(destroy).not.toHaveBeenCalled();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  rerender(ui(true));
+  expect(screen.getByRole('combobox', { name: 'Format' })).toHaveValue('png');
+  unmount();
+  expect(destroy).toHaveBeenCalledTimes(1);
+});
