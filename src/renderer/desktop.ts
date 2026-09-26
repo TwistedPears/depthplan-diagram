@@ -63,6 +63,7 @@ const menuChannels = [
   'menu:new-project',
   'menu:open-project',
   'menu:close-project',
+  'menu:project-settings',
   'menu:project-board',
   'menu:close-tab',
   'menu:reload-document',
@@ -91,6 +92,7 @@ const desktopHandler = {
     create: (name: string, folder: string, document?: RecursiveDocument) =>
       projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
+    reveal: (sessionId: string) => native('project:reveal', sessionId),
     importBoards: async (
       sessionId: string,
       expected: string,

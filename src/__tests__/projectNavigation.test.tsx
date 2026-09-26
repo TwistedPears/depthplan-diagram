@@ -102,6 +102,7 @@ beforeEach(() => {
       open: jest.fn(async () => response()),
       close: jest.fn().mockResolvedValue({ status: 'success' }),
       inspect: jest.fn(async () => response()),
+      reveal: jest.fn().mockResolvedValue(undefined),
       create: jest.fn(async () => response()),
       readBoard: jest.fn(async (_session: string, id: string) => read(id)),
       writeBoard: jest.fn(
@@ -118,6 +119,10 @@ beforeEach(() => {
       apply: jest.fn(
         async (_session: string, _expected: string, action: ProjectAction) => {
           const members = project.manifest.boards;
+          if (action.kind === 'settings') {
+            const { kind: _kind, ...settings } = action;
+            Object.assign(project.manifest, settings);
+          }
           if (action.kind === 'removeBoard') {
             project.manifest.boards = members.filter(
               (b) => b.id !== action.boardId,
@@ -251,6 +256,90 @@ test('loads only selected boards, supports keyboard navigation, preserves dirty/
     { key: 'Escape' },
   );
   expect(screen.getByRole('textbox', { name: 'Find a board' })).toHaveValue('');
+});
+
+test('settings apply shared policy without touching boards; cancel, validation and failed persistence retain the correct values', async () => {
+  Element.prototype.scrollIntoView = jest.fn();
+  await setup();
+  act(() =>
+    controller('a').owner.transact(editObject('api', { name: 'Local edit' })),
+  );
+  const before = controller('a').owner.snapshot();
+  const settings = async () => {
+    await click('Menu');
+    await click('Project Settings…');
+  };
+  await settings();
+  fireEvent.change(screen.getByLabelText('Project name'), {
+    target: { value: 'Canceled' },
+  });
+  await click('Cancel');
+  expect(project.manifest.name).toBe('Architecture');
+  expect(window.desktop.projects.apply).not.toHaveBeenCalled();
+  await settings();
+  fireEvent.change(screen.getByLabelText('Project name'), {
+    target: { value: '../invalid' },
+  });
+  await click('Apply');
+  expect(screen.getByLabelText('Project name')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  expect(window.desktop.projects.apply).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Project name'), {
+    target: { value: 'Shared settings' },
+  });
+  fireEvent.change(screen.getByLabelText('Description'), {
+    target: { value: 'Portable description' },
+  });
+  fireEvent.change(screen.getByLabelText('Home board'), {
+    target: { value: 'b' },
+  });
+  fireEvent.click(
+    screen.getByLabelText('Automatically save accepted board changes'),
+  );
+  await click('Reveal in File Manager');
+  expect(window.desktop.projects.reveal).toHaveBeenCalledWith(
+    'project-session',
+  );
+  for (const error of ['Permission denied', 'Project manifest changed']) {
+    jest
+      .mocked(window.desktop.projects.apply)
+      .mockResolvedValueOnce({ status: 'error', error });
+    await click('Apply');
+    expect(screen.getByRole('alert')).toHaveTextContent(error);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+      block: 'nearest',
+    });
+    expect(screen.getByLabelText('Project name')).toHaveValue(
+      'Shared settings',
+    );
+    expect(project.manifest.name).toBe('Architecture');
+  }
+  await click('Apply');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(project.manifest).toMatchObject({
+    name: 'Shared settings',
+    description: 'Portable description',
+    homeBoardId: 'b',
+    autosave: false,
+  });
+  expect(controller('a').owner.snapshot()).toEqual(before);
+  expect(controller('a').owner.canUndo).toBe(true);
+  expect(window.desktop.projects.writeBoard).not.toHaveBeenCalled();
+  await settings();
+  expect(screen.getByLabelText('Project name')).toHaveValue('Shared settings');
+  expect(screen.getByLabelText('Home board')).toHaveValue('b');
+  expect(screen.getByLabelText('Project location')).toHaveValue(
+    '/project/project.depthproject',
+  );
+  await click('Cancel');
+  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
+  await click('Menu');
+  await click('Close Project');
+  await click('Menu');
+  await click('Open Project…');
+  expect(registry.activeKey).toBe(key('b'));
 });
 
 test('rename saves the exact board and retains undo; duplicate copies current content; failed removal leaves the session intact', async () => {

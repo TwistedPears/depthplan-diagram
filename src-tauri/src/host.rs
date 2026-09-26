@@ -397,6 +397,19 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
                 json!({"status":"success", "project":host.projects.lock().unwrap().get(id)?.snapshot(id)}),
             )
         }
+        "project:reveal" => {
+            let path = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .location()?
+                .to_path_buf();
+            app.opener()
+                .reveal_item_in_dir(path)
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
+        }
         "project:read-board" => {
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(string(arg(args, 0))?)?;
@@ -1035,6 +1048,7 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         ("menu:new-project", "New Project…", None),
         ("menu:open-project", "Open Project…", None),
         ("menu:close-project", "Close Project", None),
+        ("menu:project-settings", "Project Settings…", None),
         ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),

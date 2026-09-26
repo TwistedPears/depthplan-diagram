@@ -14,7 +14,7 @@ dependencies or second document authority are needed.
 | ------- | ----------------------------------------------------- | -------------------------------------------------- |
 | #10–#13 | Native documents, UX, project storage, board sessions | Closed on GitHub and included in base `c78bd1c`    |
 | #14     | Drawer, tabs, board management                        | Local tests, native smoke and finish review passed |
-| #15     | Settings and home fallback                            | Pending                                            |
+| #15     | Settings and home fallback                            | Local/native validation and finish review passed   |
 | #16     | Autosave, conflicts, recovery                         | Pending                                            |
 | #17     | Recent projects, native opening, local restoration    | Pending                                            |
 | #18     | Explicit MCP project/session targets                  | Pending                                            |

@@ -8,6 +8,7 @@ import useProjectWorkspace, {
   type ProjectDialog,
 } from '../hooks/useProjectWorkspace';
 import FormDialog from './FormDialog';
+import ProjectSettings from './ProjectSettings';
 import Icon from './Icon';
 import './ProjectNavigation.css';
 
@@ -46,6 +47,15 @@ export function ProjectMenu({
           <button
             disabled={busy}
             onClick={() => {
+              setDialog({ kind: 'settings' });
+              onAction();
+            }}
+          >
+            Project Settings…
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => {
               quickSwitch();
               onAction();
             }}
@@ -67,7 +77,11 @@ export function ProjectMenu({
   );
 }
 
-function ProjectForm({ action }: { action: ProjectDialog }) {
+function ProjectForm({
+  action,
+}: {
+  action: Exclude<ProjectDialog, { kind: 'settings' }>;
+}) {
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
   const board = workspace.project?.manifest.boards.find(
@@ -572,11 +586,15 @@ export default function ProjectNavigation() {
           <button onClick={() => workspace.setError('')}>Dismiss</button>
         </div>
       )}
-      {workspace.dialog && (
-        <ProjectForm
-          key={`${workspace.dialog.kind}:${workspace.dialog.boardId}`}
-          action={workspace.dialog}
-        />
+      {workspace.dialog?.kind === 'settings' ? (
+        <ProjectSettings />
+      ) : (
+        workspace.dialog && (
+          <ProjectForm
+            key={`${workspace.dialog.kind}:${workspace.dialog.boardId}`}
+            action={workspace.dialog}
+          />
+        )
       )}
     </>
   );

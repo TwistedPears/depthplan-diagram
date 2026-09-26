@@ -15,11 +15,17 @@ import {
 } from '../../shared/projectContract';
 import useDocumentSessions from './useDocumentSessions';
 
-export type ProjectDialog = {
-  kind:
-    'create' | 'createBoard' | 'renameBoard' | 'duplicateBoard' | 'removeBoard';
-  boardId?: string;
-};
+export type ProjectDialog =
+  | { kind: 'settings' }
+  | {
+      kind:
+        | 'create'
+        | 'createBoard'
+        | 'renameBoard'
+        | 'duplicateBoard'
+        | 'removeBoard';
+      boardId?: string;
+    };
 function success<T>(result: FileResult<T>): T | null {
   if (result.status === 'error') throw new Error(result.error);
   return result.status === 'success' ? result : null;
@@ -194,7 +200,7 @@ function useProject() {
     return result.project;
   };
   const manage = (
-    kind: ProjectDialog['kind'],
+    kind: Exclude<ProjectDialog['kind'], 'settings'>,
     name = '',
     path = '',
     boardId?: string,
@@ -297,6 +303,10 @@ function useProject() {
         if (live.current && !dialog) void standalone();
       }),
       window.desktop.events.on('menu:project-board', quickSwitch),
+      window.desktop.events.on('menu:project-settings', () => {
+        if (live.current && !locked.current && !dialog)
+          setDialog({ kind: 'settings' });
+      }),
       window.desktop.events.on('menu:close-tab', () => {
         if (live.current && registry.activeKey && !dialog)
           void run(() => registry.close(registry.activeKey));

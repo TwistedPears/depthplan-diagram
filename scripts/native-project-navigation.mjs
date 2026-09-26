@@ -21,6 +21,29 @@ export async function projectNavigation(driver) {
     if (!(await sync('return !!document.querySelector("#project-drawer")')))
       await click('Toggle project boards');
   };
+  const capture = async (name) => {
+    for (const [width, height] of [
+      [1440, 1000],
+      [1024, 728],
+      [900, 640],
+    ]) {
+      await request(`/session/${session}/window/rect`, { width, height });
+      await driver.js(
+        'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+      );
+      await writeFile(
+        path.join(profile, `${name}-${width}.png`),
+        Buffer.from(
+          await request(`/session/${session}/screenshot`, undefined, 'GET'),
+          'base64',
+        ),
+      );
+      assert.equal(
+        await sync('return document.documentElement.scrollWidth > innerWidth'),
+        false,
+      );
+    }
+  };
   const boardAction = async (name, action) => {
     await drawer();
     await until(() =>
@@ -96,7 +119,64 @@ export async function projectNavigation(driver) {
   assert.ok(
     (await current()).boards.some((board) => board.id === duplicate.id),
   );
+  const beforeSettings = await current();
+  const boardBytes = await Promise.all(
+    beforeSettings.boards.map((board) => readFile(path.join(root, board.path))),
+  );
+  await click('Menu');
+  await click('Project Settings…');
+  await fillName('Canceled name');
+  await click('Cancel');
+  assert.deepEqual(await current(), beforeSettings);
+  await click('Menu');
+  await click('Project Settings…');
+  await fillName('Project Settings Journey');
+  await sync(
+    `const textarea=document.querySelector('dialog textarea');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(textarea,'Shared across project locations');
+    textarea.dispatchEvent(new Event('input',{bubbles:true}));
+    const select=document.querySelector('dialog select'); select.value=arguments[0]; select.dispatchEvent(new Event('change',{bubbles:true}));
+    document.querySelector('dialog input[type=checkbox]').click();`,
+    [duplicate.id],
+  );
+  await capture('project-settings');
+  const manifestBytes = await readFile(actualPath);
+  await writeFile(
+    actualPath,
+    Buffer.concat([manifestBytes, Buffer.from('\n')]),
+  );
+  await click('Apply');
+  await until(() =>
+    sync('return !!document.querySelector("dialog [role=alert]")'),
+  );
+  await writeFile(
+    path.join(profile, 'project-settings-error-900.png'),
+    Buffer.from(
+      await request(`/session/${session}/screenshot`, undefined, 'GET'),
+      'base64',
+    ),
+  );
+  assert.equal(
+    await sync(`const alert=document.querySelector('dialog [role=alert]');
+    const field=alert.closest('.form-dialog-fields');
+    const a=alert.getBoundingClientRect(), b=field.getBoundingClientRect();
+    return a.bottom<=b.bottom+1 && a.top>=b.top-1;`),
+    true,
+  );
+  await writeFile(actualPath, manifestBytes);
+  await click('Apply');
+  await dialogGone();
   const persisted = await current();
+  assert.equal(persisted.name, 'Project Settings Journey');
+  assert.equal(persisted.homeBoardId, duplicate.id);
+  assert.equal(persisted.autosave, false);
+  assert.equal(persisted.description, 'Shared across project locations');
+  assert.deepEqual(
+    await Promise.all(
+      persisted.boards.map((board) => readFile(path.join(root, board.path))),
+    ),
+    boardBytes,
+  );
   await click('Menu');
   await click('Close Project');
   await until(() =>
@@ -107,28 +187,14 @@ export async function projectNavigation(driver) {
   await click('Open Project…');
   await until(() => sync('return !!document.querySelector("[role=tab]")'));
   assert.deepEqual(await current(), persisted);
+  assert.equal(
+    await sync(
+      'return document.querySelector("[role=tab][aria-selected=true]").textContent.trim()',
+    ),
+    duplicate.name,
+  );
   await drawer();
-  for (const [width, height] of [
-    [1440, 1000],
-    [1024, 728],
-    [900, 640],
-  ]) {
-    await request(`/session/${session}/window/rect`, { width, height });
-    await driver.js(
-      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
-    );
-    await writeFile(
-      path.join(profile, `project-${width}.png`),
-      Buffer.from(
-        await request(`/session/${session}/screenshot`, undefined, 'GET'),
-        'base64',
-      ),
-    );
-    assert.equal(
-      await sync('return document.documentElement.scrollWidth > innerWidth'),
-      false,
-    );
-  }
+  await capture('project');
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   await click('Menu');
   await click('Close Project');

@@ -3,6 +3,60 @@ fn create(dir: &Path) -> Project {
     Project::create(dir, "project", "Project", None, &|_| Ok(())).unwrap()
 }
 #[test]
+fn settings_failures_preserve_policy_and_boards_and_move_with_the_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = create(dir.path());
+    let board = project.manifest.boards[0].clone();
+    let bytes = fs::read(project.board_path(&board.id).unwrap()).unwrap();
+    let original = project.manifest.clone();
+    let settings = |home: &str| {
+        serde_json::from_value(json!({
+        "kind":"settings", "name":"New display name", "description":"Portable", "homeBoardId":home, "autosave":false
+    })).unwrap()
+    };
+    let expected = project.fingerprint.clone();
+    assert!(project
+        .apply(&expected, settings("missing"), None, &|_| Ok(()))
+        .is_err());
+    assert!(project
+        .apply(&expected, settings(&board.id), None, &|phase| {
+            if phase == "manifest-publish" {
+                Err("Storage unavailable".into())
+            } else {
+                Ok(())
+            }
+        })
+        .is_err());
+    assert_eq!(project.manifest, original);
+    let external = fs::read(&project.path).unwrap();
+    fs::write(&project.path, [external.as_slice(), b"\n"].concat()).unwrap();
+    assert!(project
+        .apply(&expected, settings(&board.id), None, &|_| Ok(()))
+        .is_err());
+    assert_eq!(project.manifest, original);
+    fs::write(&project.path, external).unwrap();
+    project
+        .apply(&expected, settings(&board.id), None, &|_| Ok(()))
+        .unwrap();
+    assert_eq!(
+        fs::read(project.board_path(&board.id).unwrap()).unwrap(),
+        bytes
+    );
+    assert_eq!(
+        project.location().unwrap(),
+        dir.path()
+            .join("project/project.depthproject")
+            .canonicalize()
+            .unwrap()
+    );
+    let saved = project.manifest.clone();
+    drop(project);
+    fs::rename(dir.path().join("project"), dir.path().join("moved")).unwrap();
+    let project = Project::open(&dir.path().join("moved/project.depthproject")).unwrap();
+    assert_eq!(project.manifest, saved);
+    assert!(!project.manifest.autosave);
+}
+#[test]
 fn board_saves_use_owned_project_and_reject_stale_identity_or_manifest() {
     let dir = tempfile::tempdir().unwrap();
     let mut project = create(dir.path());

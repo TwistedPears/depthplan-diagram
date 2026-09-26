@@ -309,6 +309,11 @@ impl Project {
         }
         Ok(())
     }
+    pub fn location(&self) -> Result<&Path> {
+        self.check_location()?;
+        regular(&self.path)?;
+        Ok(&self.path)
+    }
     pub fn open(path: &Path) -> Result<Self> {
         // Validate before taking ownership; failed opens never mutate current sessions.
         regular(path)?;
