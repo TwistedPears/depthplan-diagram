@@ -491,7 +491,14 @@ impl Project {
         }
         Ok(json!({"document": document, "fingerprint": files::fingerprint(&bytes)}))
     }
-    pub fn write_board(&self, id: &str, expected: &str, document: &Value) -> Result<String> {
+    pub fn write_board(
+        &self,
+        id: &str,
+        expected: &str,
+        document: &Value,
+        permit: &dyn Fn() -> Result<()>,
+    ) -> Result<String> {
+        permit()?;
         self.check(&self.fingerprint)?;
         validation::document(document)?;
         if document["id"] != id {
@@ -512,6 +519,7 @@ impl Project {
         if files::hash(&path)?.as_deref() != Some(expected) {
             return Err(files::SOURCE_CHANGED.into());
         }
+        permit()?;
         temporary.persist(&path).map_err(|e| e.to_string())?;
         durable_directory(path.parent().unwrap())?;
         Ok(files::fingerprint(&bytes))

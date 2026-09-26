@@ -29,7 +29,8 @@ import useDocumentOpenRequests from './hooks/useDocumentOpenRequests';
 import { DocumentDrafts, useHasDrafts } from './hooks/useDocumentDraft';
 import RecursiveCanvas from './components/RecursiveCanvas';
 import NamedViews from './components/NamedViews';
-import useAutomation from './hooks/useAutomation';
+import type useAutomation from './hooks/useAutomation';
+import useWorkspaceAutomation from './hooks/useWorkspaceAutomation';
 import './App.css';
 import UnifiedToolbar from './components/UnifiedToolbar';
 import exportAsJSON from './utils/jsonExport';
@@ -71,6 +72,7 @@ function SessionWorkspace() {
     };
   }, []);
   const registry = useDocumentSessions();
+  const automation = useWorkspaceAutomation(appInstanceId);
   useDocumentOpenRequests(
     projectWorkspace.busy ||
       !!projectWorkspace.dialog ||
@@ -105,6 +107,7 @@ function SessionWorkspace() {
           active={session.key === registry.activeKey}
         >
           <BoardWorkspace
+            automation={automation}
             appInstanceId={appInstanceId}
             session={session}
             active={session.key === registry.activeKey}
@@ -116,10 +119,12 @@ function SessionWorkspace() {
   );
 }
 function BoardWorkspace({
+  automation,
   appInstanceId,
   session,
   active,
 }: {
+  automation: ReturnType<typeof useAutomation>;
   appInstanceId: string | null;
   session: BoardSession;
   active: boolean;
@@ -207,16 +212,6 @@ function BoardWorkspace({
     recovery.leave,
     active,
   );
-  useLayoutEffect(() => {
-    registry.controllers.set(session.key, {
-      owner,
-      files,
-      transitions,
-      leave: recovery.leave,
-      hasDrafts,
-      autosave,
-    });
-  });
   const boardStatus = [
     files.failure
       ? files.failure.conflict
@@ -246,7 +241,8 @@ function BoardWorkspace({
     [registry.controllers, session.key],
   );
   const mcpWorkflows = useMcpWorkflows({
-    projectActive: !!session.project,
+    project: session.project,
+    isActive: () => registry.snapshot().activeKey === session.key,
     owner,
     files,
     transitions,
@@ -364,47 +360,56 @@ function BoardWorkspace({
     };
   }); // Rebind with current document and loading state.
 
-  const automation = useAutomation(
-    {
-      depthplan_get_access: mcpWorkflows.access,
-      depthplan_files: (input) => mcpWorkflows.start('files', input),
-      depthplan_export: (input) => mcpWorkflows.start('export', input),
-      depthplan_get_operation: mcpWorkflows.read,
-      depthplan_cancel_operation: mcpWorkflows.cancel,
-      depthplan_decide: mcpWorkflows.decide,
-      depthplan_get_recovery: mcpWorkflows.recovery,
-      depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
-      depthplan_get_drafts: mcpDrafts.list,
-      depthplan_resolve_draft: mcpDrafts.resolve,
-      depthplan_controls: (input) => editorCommand('controls', input),
-      depthplan_content_transfer: (input) => editorCommand('content', input),
-      depthplan_delete_preview: owner.editorQueries.deletePreview,
-      depthplan_edit: (input) => editorCommand('edit', input),
-      depthplan_bookmarks: (input) => {
-        const result = editorCommand('bookmarks', input);
-        if (result.ok && input.action.type === 'apply') {
-          const doc = owner.snapshot().document;
-          if (doc)
-            showStatus(
-              `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
-            );
-        }
-        return result;
-      },
-      depthplan_camera: (input) => editorCommand('camera', input),
-      depthplan_selection: (input) => editorCommand('selection', input),
-      depthplan_history: (input) => editorCommand('history', input),
-      depthplan_get_state: owner.editorQueries.getState,
-      depthplan_query: owner.editorQueries.query,
-      depthplan_search: owner.editorQueries.search,
-      depthplan_read_chunk: owner.editorQueries.readChunk,
-      depthplan_get_context: getContext,
-      depthplan_get_hierarchy: getHierarchy,
-      depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
-      depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
+  const handlers = {
+    depthplan_get_access: mcpWorkflows.access,
+    depthplan_files: (input) => mcpWorkflows.start('files', input),
+    depthplan_export: (input) => mcpWorkflows.start('export', input),
+    depthplan_get_operation: mcpWorkflows.read,
+    depthplan_cancel_operation: mcpWorkflows.cancel,
+    depthplan_decide: mcpWorkflows.decide,
+    depthplan_get_recovery: mcpWorkflows.recovery,
+    depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
+    depthplan_get_drafts: mcpDrafts.list,
+    depthplan_resolve_draft: mcpDrafts.resolve,
+    depthplan_controls: (input) => editorCommand('controls', input),
+    depthplan_content_transfer: (input) => editorCommand('content', input),
+    depthplan_delete_preview: owner.editorQueries.deletePreview,
+    depthplan_edit: (input) => editorCommand('edit', input),
+    depthplan_bookmarks: (input) => {
+      const result = editorCommand('bookmarks', input);
+      if (result.ok && input.action.type === 'apply') {
+        const doc = owner.snapshot().document;
+        if (doc)
+          showStatus(
+            `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
+          );
+      }
+      return result;
     },
-    active,
-  );
+    depthplan_camera: (input) => editorCommand('camera', input),
+    depthplan_selection: (input) => editorCommand('selection', input),
+    depthplan_history: (input) => editorCommand('history', input),
+    depthplan_get_state: owner.editorQueries.getState,
+    depthplan_query: owner.editorQueries.query,
+    depthplan_search: owner.editorQueries.search,
+    depthplan_read_chunk: owner.editorQueries.readChunk,
+    depthplan_get_context: getContext,
+    depthplan_get_hierarchy: getHierarchy,
+    depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
+    depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
+  } satisfies import('./hooks/useAutomation').AutomationHandlers;
+  useLayoutEffect(() => {
+    registry.controllers.set(session.key, {
+      owner,
+      files,
+      transitions,
+      leave: recovery.leave,
+      hasDrafts,
+      autosave,
+      handlers,
+      work: mcpWorkflows,
+    });
+  });
 
   const renderToolbar = () => (
     <UnifiedToolbar

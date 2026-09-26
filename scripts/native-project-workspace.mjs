@@ -107,7 +107,17 @@ export async function projectWorkspace(driver) {
     await current.click('Menu');
     await capture('project-start');
     await current.click('Menu');
-    const status = await current.native('automation:enable', true);
+    if (!(await current.native('automation:status')).enabled) {
+      await current.click('Menu');
+      await current.sync(
+        `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      );
+      await current.until(
+        async () => (await current.native('automation:status')).enabled,
+      );
+      await current.click('Menu');
+    }
+    const status = await current.native('automation:status');
     await current.native('test:open-files', [project.location]);
     await opened();
     probe = client(current.adapter, status.descriptor);

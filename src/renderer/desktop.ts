@@ -162,6 +162,7 @@ const desktopHandler = {
       expected: string,
       document: RecursiveDocument,
       overwrite = false,
+      lease?: FileLease,
     ): Promise<FileResult<{ source: SourceFile }>> =>
       native(
         'project:write-board',
@@ -170,15 +171,18 @@ const desktopHandler = {
         expected,
         document,
         overwrite,
+        lease,
       ),
     readBoard: async (
       sessionId: string,
       boardId: string,
+      lease?: FileLease,
     ): Promise<FileResult<{ board: ProjectBoard }>> => {
       const result = await native<FileResult<{ board: ProjectBoard }>>(
         'project:read-board',
         sessionId,
         boardId,
+        lease,
       );
       if (result.status === 'success') {
         validateRecursiveDocument(result.board.document);

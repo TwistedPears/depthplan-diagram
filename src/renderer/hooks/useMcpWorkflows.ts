@@ -27,7 +27,8 @@ import {
   EditorError,
 } from '../../shared/editorQueries';
 type Context = {
-  projectActive?: boolean;
+  project?: { sessionId: string; boardId: string };
+  isActive?: () => boolean;
   owner: ReturnType<typeof useDocumentState>;
   files: ReturnType<typeof useDocumentFiles>;
   transitions: ReturnType<typeof useDocumentTransitions>;
@@ -48,6 +49,13 @@ type Operation = {
   kind: string;
   status: 'running' | 'needs-decision' | 'completed' | 'canceled' | 'failed';
   cancelRequested: boolean;
+  target: {
+    appInstanceId: string | null;
+    sessionId: string;
+    documentId: string | null;
+    revision: number;
+    viewRevision: number;
+  };
   lease?: FileLease;
   decision?: Decision;
   detail?: unknown;
@@ -125,6 +133,8 @@ function workflows(current: () => Context, changed: () => void) {
   ) => {
     const context = current(),
       captured = snapshot();
+    await context.files.wait();
+    requirePermit(op);
     const api = window.desktop.mcpFiles;
     const lease = (op.lease = await api.lease());
     requirePermit(op);
@@ -195,16 +205,26 @@ function workflows(current: () => Context, changed: () => void) {
         );
         if (!observed) return { status: 'canceled' };
         requirePermit(op);
+        if (context.project && sourceId && observed.path === source?.path)
+          return window.desktop.projects.writeBoard(
+            context.project.sessionId,
+            context.project.boardId,
+            observed.fingerprint ?? '',
+            document,
+            false,
+            lease,
+          );
+        const copied = !!context.project;
         const result = await api.write({
           kind: 'save',
-          data: document,
+          data: copied ? { ...document, id: crypto.randomUUID() } : document,
           path: observed.path,
           expected: observed.fingerprint,
           lease,
         });
         if (!result.source)
           throw new Error('Save did not return a source record');
-        return { status: 'success', source: result.source };
+        return { status: 'success', source: result.source, copied };
       },
     };
     if (kind === 'files') {
@@ -217,15 +237,32 @@ function workflows(current: () => Context, changed: () => void) {
         );
         if (result.status === 'error') throw new Error(result.error);
         if (result.status !== 'success') return false;
-        return { source: snapshot().source, savedRevision: captured.revision };
+        return {
+          source: result.source,
+          copied: result.copied ?? false,
+          savedRevision: captured.revision,
+        };
       }
       const path = action.type === 'open' ? action.path : captured.source?.path;
       if (action.type !== 'new') {
         if (!path) throw new Error('This document has no file to reload');
-        access.read = async () => ({
-          status: 'success',
-          ...(await api.read(path, lease)),
-        });
+        access.read = async () => {
+          if (context.project) {
+            const result = await window.desktop.projects.readBoard(
+              context.project.sessionId,
+              context.project.boardId,
+              lease,
+            );
+            return result.status === 'success'
+              ? {
+                  status: 'success',
+                  document: result.board.document,
+                  source: result.board.source,
+                }
+              : result;
+          }
+          return { status: 'success', ...(await api.read(path, lease)) };
+        };
       }
       const accepted = await context.transitions.request(
         action.type,
@@ -343,8 +380,11 @@ function workflows(current: () => Context, changed: () => void) {
       }
       checkHandle(s, args.handle);
       if (
-        current().projectActive &&
-        (kind === 'files' ||
+        current().project &&
+        ((kind === 'files' &&
+          'action' in args &&
+          typeof args.action === 'object' &&
+          ['new', 'open'].includes(args.action.type)) ||
           (kind === 'recovery' &&
             'action' in args &&
             args.action === 'restore'))
@@ -361,6 +401,16 @@ function workflows(current: () => Context, changed: () => void) {
           'STALE_REVISION',
           'Refresh document and view state before starting',
         );
+      if (
+        kind === 'export' &&
+        'format' in args &&
+        args.format !== 'json' &&
+        current().isActive?.() === false
+      )
+        throw new EditorError(
+          'BUSY',
+          'Activate this board before exporting its canvas',
+        );
       if (active || current().owner.isBusy() || current().hasDrafts())
         throw new EditorError(
           'BUSY',
@@ -371,6 +421,13 @@ function workflows(current: () => Context, changed: () => void) {
         kind,
         status: 'running',
         cancelRequested: false,
+        target: {
+          appInstanceId: s.appInstanceId,
+          sessionId: s.sessionId,
+          documentId: s.document?.id ?? null,
+          revision: s.revision,
+          viewRevision: s.viewRevision,
+        },
       };
       active = op;
       operations.set(op.id, op);

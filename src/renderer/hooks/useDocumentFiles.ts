@@ -14,6 +14,8 @@ export type FileActionResult = {
   sessionId: string;
   revision: number;
   error?: string;
+  source?: SourceFile;
+  copied?: boolean;
 };
 export type FileAccess = {
   background?: boolean;
@@ -21,7 +23,7 @@ export type FileAccess = {
   write?: (
     document: RecursiveDocument,
     sourceId?: string,
-  ) => Promise<FileResult<{ source: SourceFile }>>;
+  ) => Promise<FileResult<{ source: SourceFile; copied?: boolean }>>;
   permit?: () => boolean;
 };
 /** Native file operations capture one session/revision; useDocumentTransitions owns prompts. */
@@ -91,16 +93,16 @@ export default function useDocumentFiles(
       }
       if (owner.snapshot().sessionId !== captured.sessionId)
         return result('stale');
-      if (project && saveAs) {
+      if (project && (saveAs || ('copied' in saved && saved.copied))) {
         onStatus(`Saved copy: ${saved.source.path}`);
-        return result('success');
+        return { ...result('success'), source: saved.source, copied: true };
       }
       owner.markSaved(captured.document, captured.sessionId, saved.source);
       setFailure(null);
       setSavedAt(Date.now());
       await recovery?.saved(captured.sessionId, captured.revision);
       onStatus(`Saved: ${saved.source.path.split(/[\\/]/).pop()}`);
-      return result('success');
+      return { ...result('success'), source: saved.source };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (owner.snapshot().sessionId === captured.sessionId)

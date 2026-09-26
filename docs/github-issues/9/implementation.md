@@ -17,7 +17,7 @@ dependencies or second document authority are needed.
 | #15     | Settings and home fallback                            | Local/native validation and finish review passed            |
 | #16     | Autosave, conflicts, recovery                         | Local/native crash journey and finish review passed         |
 | #17     | Recent projects, native opening, local restoration    | Native three-board restore journey and finish review passed |
-| #18     | Explicit MCP project/session targets                  | Pending                                                     |
+| #18     | Explicit MCP project/session targets                  | 505 Jest, native tests and complete bundled smoke passed    |
 | #19     | Integrated validation and documentation               | Pending                                                     |
 | #20     | Project-wide search                                   | Pending after core implementation                           |
 | #21     | Stable board/bookmark links                           | Pending after core implementation                           |

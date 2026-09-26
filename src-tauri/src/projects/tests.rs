@@ -14,7 +14,7 @@ fn definition_resolution_requires_the_observed_version_and_preserves_board_files
     fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
     let (_, observed) = project.read_definition().unwrap();
     assert!(project
-        .write_board(&id, "stale", &files::fixture())
+        .write_board(&id, "stale", &files::fixture(), &|| Ok(()))
         .is_err());
     fs::write(&project.path, serde_json::to_vec_pretty(&external).unwrap()).unwrap();
     assert!(project.resolve_definition(&observed, true).is_err());
@@ -98,20 +98,44 @@ fn board_saves_use_owned_project_and_reject_stale_identity_or_manifest() {
     let original = read["fingerprint"].as_str().unwrap();
     let mut edited = read["document"].clone();
     edited["metadata"]["title"] = "Accepted content".into();
-    let saved = project.write_board(&id, original, &edited).unwrap();
+    let before = fs::read(project.board_path(&id).unwrap()).unwrap();
+    let calls = std::cell::Cell::new(0);
+    assert!(project
+        .write_board(&id, original, &edited, &|| {
+            calls.set(calls.get() + 1);
+            if calls.get() == 2 {
+                Err("Access revoked".into())
+            } else {
+                Ok(())
+            }
+        })
+        .is_err());
+    assert_eq!(calls.get(), 2);
+    assert_eq!(fs::read(project.board_path(&id).unwrap()).unwrap(), before);
+    let saved = project
+        .write_board(&id, original, &edited, &|| Ok(()))
+        .unwrap();
     assert_eq!(
         project.read_board(&id).unwrap()["document"]["metadata"]["title"],
         "Accepted content"
     );
-    assert!(project.write_board(&id, original, &edited).is_err());
-    assert!(project.write_board("unknown", &saved, &edited).is_err());
+    assert!(project
+        .write_board(&id, original, &edited, &|| Ok(()))
+        .is_err());
+    assert!(project
+        .write_board("unknown", &saved, &edited, &|| Ok(()))
+        .is_err());
     edited["id"] = "wrong".into();
-    assert!(project.write_board(&id, &saved, &edited).is_err());
+    assert!(project
+        .write_board(&id, &saved, &edited, &|| Ok(()))
+        .is_err());
     edited["id"] = id.clone().into();
     let path = project.board_path(&id).unwrap();
     let bytes = fs::read(&path).unwrap();
     fs::write(&project.path, "{}").unwrap();
-    assert!(project.write_board(&id, &saved, &edited).is_err());
+    assert!(project
+        .write_board(&id, &saved, &edited, &|| Ok(()))
+        .is_err());
     assert_eq!(fs::read(&path).unwrap(), bytes);
     fs::write(
         &project.path,

@@ -423,7 +423,7 @@ export const editorTools = {
       'Assemble a rich-content JSON array larger than one request: begin with totalLength, append at UTF-16 offsets in chunks of at most 8192 characters, then reference contentTransfer in an edit_object action. Maximum 8 Mi characters, four transfers, five-minute expiry. Nothing changes until the atomic edit commits.',
   },
   depthplan_get_drafts: {
-    input: z.strictObject({}),
+    input: z.strictObject({ handle: handleSchema.optional() }),
     output: editorResult,
     readOnly: true,
     description:
@@ -476,7 +476,7 @@ export const editorTools = {
       'Undo or Redo one document history entry. Refresh document/view revisions first. Identical request retries do not repeat the history action.',
   },
   depthplan_get_state: {
-    input: z.strictObject({}),
+    input: z.strictObject({ handle: handleSchema.optional() }),
     output: editorResult,
     readOnly: true,
     description:

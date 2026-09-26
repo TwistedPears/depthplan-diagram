@@ -34,7 +34,17 @@ export async function projectPersistence(driver) {
   const read = async (board) =>
     JSON.parse(await readFile(path.join(root, board.path), 'utf8'));
   await native('project:close', project.sessionId);
-  const status = await native('automation:enable', true);
+  if (!(await driver.native('automation:status')).enabled) {
+    await driver.click('Menu');
+    await driver.sync(
+      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+    );
+    await driver.until(
+      async () => (await driver.native('automation:status')).enabled,
+    );
+    await driver.click('Menu');
+  }
+  const status = await driver.native('automation:status');
   const probe = client(driver.adapter, status.descriptor);
   await probe.initialize();
   let restored;

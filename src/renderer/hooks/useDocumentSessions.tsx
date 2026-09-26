@@ -22,6 +22,8 @@ import type useDocumentState from './useDocumentState';
 import type useDocumentFiles from './useDocumentFiles';
 import type useDocumentTransitions from './useDocumentTransitions';
 import ProjectCloseReview from '../components/ProjectCloseReview';
+import type { AutomationHandlers } from './useAutomation';
+import type useMcpWorkflows from './useMcpWorkflows';
 
 export type CloseReview = {
   keys: string[];
@@ -41,6 +43,8 @@ export type SessionController = {
   leave: (sessionId: string) => Promise<void>;
   hasDrafts?: boolean;
   autosave?: boolean;
+  handlers?: AutomationHandlers;
+  work?: ReturnType<typeof useMcpWorkflows>;
 };
 
 function useRegistry() {
@@ -92,13 +96,9 @@ function useRegistry() {
       !controller?.owner
         .busyReasons()
         .some((reason) =>
-          [
-            'canvas-gesture',
-            'connection-gesture',
-            'mcp-operation',
-            'closing',
-          ].includes(reason),
-        )
+          ['canvas-gesture', 'connection-gesture', 'closing'].includes(reason),
+        ) &&
+      controller?.work?.active()?.kind !== 'export'
     );
   };
   const show = (key: string) => {
@@ -196,6 +196,12 @@ function useRegistry() {
       const selected = current.current.sessions.filter((session) =>
         keys.includes(session.key),
       );
+      if (
+        selected.some((session) =>
+          controllers.current.get(session.key)?.work?.active(),
+        )
+      )
+        return false;
       if (!copyKey && selected.some((session) => session.project)) {
         await Promise.all(
           selected.map(async (session) => {

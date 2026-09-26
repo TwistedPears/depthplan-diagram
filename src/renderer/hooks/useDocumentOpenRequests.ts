@@ -6,21 +6,24 @@ export default function useDocumentOpenRequests(
   open: (id: string) => Promise<unknown>,
   onError: (message: string) => void,
 ) {
-  const [requests, setRequests] = useState<string[]>([]);
-  const handling = useRef(false);
+  const requests = useRef<string[]>([]);
+  const handling = useRef<string | null>(null);
+  const [, update] = useState(0);
   useEffect(
     () =>
       window.desktop.fileSystem.onOpenRequested((id) => {
-        setRequests((pending) =>
-          pending.includes(id) ? pending : [...pending, id],
-        );
+        if (handling.current !== id && !requests.current.includes(id)) {
+          requests.current.push(id);
+          update((version) => version + 1);
+        }
       }),
     [],
   );
   useEffect(() => {
-    const id = requests[0];
-    if (busy || handling.current || !id) return;
-    handling.current = true;
+    if (busy || handling.current) return;
+    const id = requests.current.shift();
+    if (!id) return;
+    handling.current = id;
     void (async () => {
       try {
         await open(id);
@@ -32,8 +35,8 @@ export default function useDocumentOpenRequests(
         } catch (error) {
           onError(`Could not release file open request: ${String(error)}`);
         }
-        handling.current = false;
-        setRequests((pending) => pending.filter((request) => request !== id));
+        handling.current = null;
+        update((version) => version + 1);
       }
     })();
   });

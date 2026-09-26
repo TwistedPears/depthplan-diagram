@@ -20,7 +20,10 @@ const page = {
   pageSize: z.number().int().min(1).max(API_PAGE_MAX).optional(),
   cursor: z.string().max(4096).optional(),
 };
-export const contextInput = z.strictObject(page);
+export const contextInput = z.strictObject({
+  ...page,
+  handle: handleSchema.optional(),
+});
 export const hierarchyInput = z.strictObject({
   handle: handleSchema,
   objectId: id,

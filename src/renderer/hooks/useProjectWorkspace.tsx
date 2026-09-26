@@ -1,3 +1,4 @@
+import type { FileLease } from '../../shared/mcpFileContract';
 import {
   createContext,
   useCallback,
@@ -143,7 +144,7 @@ function useProject() {
       scheduleRemember();
     }
   };
-  const openBoard = async (boardId: string) => {
+  const openBoard = async (boardId: string, lease?: FileLease) => {
     const current = live.current;
     if (!current) return false;
     const opened = await registry.open(
@@ -152,7 +153,11 @@ function useProject() {
         setLoadingBoard(boardId);
         try {
           const result = success(
-            await window.desktop.projects.readBoard(current.sessionId, boardId),
+            await window.desktop.projects.readBoard(
+              current.sessionId,
+              boardId,
+              lease,
+            ),
           );
           return result
             ? {

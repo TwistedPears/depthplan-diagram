@@ -654,12 +654,10 @@ test('restores local tabs/order, active board and cameras without source writes;
   );
   await click('Menu');
   await click('Close Project');
-  jest
-    .mocked(window.desktop.projects.workspace)
-    .mockResolvedValue({
-      status: 'success',
-      view: { ...view, tabs: [], active: null },
-    });
+  jest.mocked(window.desktop.projects.workspace).mockResolvedValue({
+    status: 'success',
+    view: { ...view, tabs: [], active: null },
+  });
   await click('Menu');
   await click('Open Project…');
   expect(registry.sessions).toHaveLength(0);
@@ -669,17 +667,15 @@ test('restores local tabs/order, active board and cameras without source writes;
 });
 
 test('skips removed local tabs and falls back to home; reopening the same native session preserves live work', async () => {
-  jest
-    .mocked(window.desktop.projects.workspace)
-    .mockResolvedValue({
-      status: 'success',
-      view: {
-        tabs: [{ boardId: 'removed', camera: { x: 0, y: 0, scale: 1 } }],
-        active: 'removed',
-        drawer: false,
-        window: null,
-      },
-    });
+  jest.mocked(window.desktop.projects.workspace).mockResolvedValue({
+    status: 'success',
+    view: {
+      tabs: [{ boardId: 'removed', camera: { x: 0, y: 0, scale: 1 } }],
+      active: 'removed',
+      drawer: false,
+      window: null,
+    },
+  });
   await setup();
   const owner = controller('a').owner.sessionId;
   act(() =>
@@ -690,4 +686,156 @@ test('skips removed local tabs and falls back to home; reopening the same native
   expect(controller('a').owner.sessionId).toBe(owner);
   expect(controller('a').owner.document!.objects.api.name).toBe('Keep local');
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
+});
+
+test('routes MCP edits, delayed saves and receipts to explicit owners across same-name tabs and closed sessions', async () => {
+  project.manifest.autosave = false;
+  let request!: (value: unknown) => unknown;
+  window.desktop.automation = {
+    ...window.desktop.automation,
+    status: async () => ({ enabled: true, descriptor: '', executable: '' }),
+    onRequest: (listener) => {
+      request = listener;
+      return () => {};
+    },
+  };
+  const lease = { id: 'lease', generation: 1 };
+  window.desktop.mcpFiles = {
+    onRevoked: noop,
+    lease: jest.fn().mockResolvedValue(lease),
+    check: jest.fn().mockResolvedValue(undefined),
+    release: jest.fn().mockResolvedValue(undefined),
+    inspect: jest.fn().mockResolvedValue({
+      path: '/project/b.depthplan',
+      fingerprint: 'external',
+    }),
+  } as unknown as typeof window.desktop.mcpFiles;
+  const call = async (tool: string, input = {}) => {
+    let result: any;
+    await act(async () => {
+      result = await request({ tool, input });
+    });
+    return result;
+  };
+  await setup();
+  const discovery = (await call('depthplan_get_project')).data.project;
+  expect(discovery.boards.map((b: any) => b.id)).toEqual(['a', 'b', 'c']);
+  const opened = await call('depthplan_open_board', {
+    handle: discovery.handle,
+    boardId: 'b',
+    requestId: 'open-b',
+  });
+  expect(opened.ok).toBe(true);
+  const b = opened.data.handle;
+  await call('depthplan_open_board', {
+    handle: discovery.handle,
+    boardId: 'c',
+    requestId: 'open-c',
+  });
+  expect(registry.activeKey).toBe(key('c'));
+  const state = (await call('depthplan_get_state', { handle: b })).data;
+  const edit = {
+    handle: b,
+    expectedRevision: state.revision,
+    expectedViewRevision: state.viewRevision,
+    requestId: 'edit-b',
+    actions: [{ type: 'edit_object', id: 'api', name: 'B only' }],
+  };
+  expect((await call('depthplan_edit', edit)).ok).toBe(true);
+  expect(controller('b').owner.document!.objects.api.name).toBe('B only');
+  expect(controller('c').owner.document!.objects.api.name).not.toBe('B only');
+  const next = (await call('depthplan_get_state', { handle: b })).data;
+  const input = {
+    handle: b,
+    expectedRevision: next.revision,
+    expectedViewRevision: next.viewRevision,
+    requestId: 'save-b',
+    action: { type: 'save' },
+  };
+  const started = await call('depthplan_files', input);
+  const operationId = started.data.operationId;
+  await waitFor(() =>
+    expect(controller('b').work?.activeOperation?.status).toBe(
+      'needs-decision',
+    ),
+  );
+  await act(async () => {
+    registry.activate(key('a'));
+  });
+  const receipt = await call('depthplan_get_operation', {
+    appInstanceId: 'app',
+    operationId,
+  });
+  expect(receipt.data.target.sessionId).toBe(b.sessionId);
+  expect((await call('depthplan_files', input)).data).toMatchObject({
+    operationId,
+    replayed: true,
+  });
+  expect(window.desktop.projects.writeBoard).not.toHaveBeenCalled();
+  const current = (await call('depthplan_get_state', { handle: b })).data;
+  expect(
+    (
+      await call('depthplan_decide', {
+        handle: b,
+        operationId,
+        decisionId: receipt.data.decision.id,
+        expectedRevision: current.revision,
+        expectedViewRevision: current.viewRevision,
+        requestId: 'overwrite-b',
+        choice: 'overwrite',
+      })
+    ).ok,
+  ).toBe(true);
+  await waitFor(() => expect(controller('b').work?.activeOperation).toBeNull());
+  expect(window.desktop.projects.writeBoard).toHaveBeenCalledWith(
+    'project-session',
+    'b',
+    'external',
+    expect.objectContaining({ id: 'b' }),
+    false,
+    lease,
+  );
+  expect(documents.b.objects.api.name).toBe('B only');
+  expect(documents.c.objects.api.name).not.toBe('B only');
+  await act(async () => {
+    expect(await registry.close(key('b'))).toBe(true);
+  });
+  expect((await call('depthplan_get_state', { handle: b })).error.code).toBe(
+    'STALE_SESSION',
+  );
+  expect(
+    (
+      await call('depthplan_get_operation', {
+        appInstanceId: 'app',
+        operationId,
+      })
+    ).data.status,
+  ).toBe('completed');
+  expect((await call('depthplan_edit', edit)).data.replayed).toBe(true);
+  expect(window.desktop.projects.writeBoard).toHaveBeenCalledTimes(1);
+  const reopened = await call('depthplan_open_board', {
+    handle: discovery.handle,
+    boardId: 'b',
+    requestId: 'reopen-b',
+  });
+  expect(reopened.data.handle.sessionId).not.toBe(b.sessionId);
+  expect(
+    (await call('depthplan_edit', { ...edit, requestId: 'stale-edit' })).error
+      .code,
+  ).toBe('STALE_SESSION');
+  const snapshot = controller('b').owner.snapshot();
+  act(() => {
+    const reply = controller('b').work!.start('export', {
+      handle: reopened.data.handle,
+      expectedRevision: snapshot.revision,
+      expectedViewRevision: snapshot.viewRevision,
+      requestId: 'block-export',
+      path: '/copy.json',
+      format: 'json',
+    });
+    expect(reply.ok).toBe(true);
+    expect(registry.activate(key('a'))).toBe(false);
+    controller('b').work!.cancelActive();
+  });
+  await waitFor(() => expect(controller('b').work?.active()).toBeNull());
 });

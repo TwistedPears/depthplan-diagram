@@ -510,7 +510,17 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(string(arg(args, 0))?)?;
             let id = string(arg(args, 1))?;
+            let lease = arg(args, 2);
+            let check = || {
+                if !lease.is_null() {
+                    project.check(&project.fingerprint)?;
+                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                }
+                Ok::<(), String>(())
+            };
+            check()?;
             let mut board = project.read_board(id)?;
+            check()?;
             board["source"] = json!(host.storage.lock().unwrap().files.remember(
                 project.board_path(id)?.to_string_lossy().into_owned(),
                 board["fingerprint"].as_str().map(str::to_string),
@@ -544,7 +554,13 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
                 project.check(&manifest)?;
             }
             let id = string(arg(args, 1))?;
-            let fingerprint = project.write_board(id, &expected, arg(args, 3))?;
+            let lease = arg(args, 5);
+            let fingerprint = project.write_board(id, &expected, arg(args, 3), &|| {
+                if !lease.is_null() {
+                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                }
+                Ok(())
+            })?;
             let source = host.storage.lock().unwrap().files.remember(
                 project.board_path(id)?.to_string_lossy().into_owned(),
                 Some(fingerprint),
