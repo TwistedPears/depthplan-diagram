@@ -11,3 +11,7 @@
 *.woff  binary
 *.woff2 binary
 *.gz    binary
+
+src-tauri/vendor/glib-0.18.5/** linguist-vendored
+# Keep the upstream license byte-for-byte, including its final blank line.
+src-tauri/vendor/glib-0.18.5/LICENSE whitespace=-blank-at-eof

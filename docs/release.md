@@ -104,20 +104,21 @@ extracted AppImage execution alone does not establish desktop acceptance.
 
 ## Open dependency findings
 
-The locked application graph retains these seven unresolved Rust warnings.
-Maintenance warnings and GLib unsoundness are distinct from vulnerability entries;
+The locked application graph retains six unresolved Rust maintenance warnings.
+The GLib iterator defect is backported as described below. Maintenance warnings
+are distinct from vulnerability entries;
 a successful audit exit does not accept them. Recheck the lockfile and RustSec
 for every candidate using the [audit procedure](development.md#dependency-audits-and-notices).
 
-| Advisory                                                                   | Affected locked package  | Platform/stage                                                      | Status                                                                                                       |
-| -------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| [RUSTSEC-2024-0370](https://rustsec.org/advisories/RUSTSEC-2024-0370.html) | proc-macro-error 1.0.4   | Linux-target macro compilation                                      | Unmaintained; both GTK macro consumers need an upstream change.                                              |
-| [RUSTSEC-2025-0081](https://rustsec.org/advisories/RUSTSEC-2025-0081.html) | unic-char-property 0.9.0 | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                                          |
-| [RUSTSEC-2025-0075](https://rustsec.org/advisories/RUSTSEC-2025-0075.html) | unic-char-range 0.9.0    | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                                          |
-| [RUSTSEC-2025-0080](https://rustsec.org/advisories/RUSTSEC-2025-0080.html) | unic-common 0.9.0        | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                                          |
-| [RUSTSEC-2025-0100](https://rustsec.org/advisories/RUSTSEC-2025-0100.html) | unic-ucd-ident 0.9.0     | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                                          |
-| [RUSTSEC-2025-0098](https://rustsec.org/advisories/RUSTSEC-2025-0098.html) | unic-ucd-version 0.9.0   | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                                          |
-| [RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) | glib 0.18.5              | Linux application runtime dependency                                | Unsound string iterator; fixed from 0.20, outside the current constraint. App reachability remains unproven. |
+| Advisory                                                                   | Affected locked package  | Platform/stage                                                      | Status                                                                                    |
+| -------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [RUSTSEC-2024-0370](https://rustsec.org/advisories/RUSTSEC-2024-0370.html) | proc-macro-error 1.0.4   | Linux-target macro compilation                                      | Unmaintained; both GTK macro consumers need an upstream change.                           |
+| [RUSTSEC-2025-0081](https://rustsec.org/advisories/RUSTSEC-2025-0081.html) | unic-char-property 0.9.0 | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                       |
+| [RUSTSEC-2025-0075](https://rustsec.org/advisories/RUSTSEC-2025-0075.html) | unic-char-range 0.9.0    | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                       |
+| [RUSTSEC-2025-0080](https://rustsec.org/advisories/RUSTSEC-2025-0080.html) | unic-common 0.9.0        | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                       |
+| [RUSTSEC-2025-0100](https://rustsec.org/advisories/RUSTSEC-2025-0100.html) | unic-ucd-ident 0.9.0     | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                       |
+| [RUSTSEC-2025-0098](https://rustsec.org/advisories/RUSTSEC-2025-0098.html) | unic-ucd-version 0.9.0   | All target OS families, runtime and compiler macro dependency paths | Unmaintained; blocked by the URLPattern constraint.                                       |
+| [RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) | glib 0.18.5 (vendored)   | Linux application runtime dependency                                | Upstream iterator fix backported; see the [vendor record](../src-tauri/vendor/README.md). |
 
 Representative paths from DepthPlan's [Cargo lockfile](../src-tauri/Cargo.lock):
 
@@ -146,29 +147,25 @@ Unicode identifier semantics. Compile success alone is insufficient for an acces
 control dependency. Verify the full locked graph against Rust 1.94.1 when such an
 integration exists; the URLPattern edition alone does not prove toolchain support.
 
-**GLib:** GTK 0.18 requires `glib ^0.18`; the affected resolved copy is 0.18.5.
-Automation additionally includes GLib 0.21.5 through its WebDriver dependency;
-that newer copy does not remove the application copy. GTK 0.19 / GLib 0.22 provide
-a newer upstream family, but Tauri's GTK `^0.18` constraint prevents a compatible
-lockfile-only replacement. The framework/Linux integration must move together.
-
-In GLib 0.18.5, `Variant::array_iter_str` constructs `VariantStrIter`; iterator
-methods reach `impl_get`, which passes an immutable pointer reference as a mutable
-C out-argument. This is the confirmed upstream defect. A bounded literal search
-of resolved Linux normal-dependency Rust sources found implementation/tests but
-no DepthPlan or downstream caller. That does **not** prove unreachability: generated
-code, build-only packages, native code and target execution remain outside that
-search. Further investigation needs a Linux release build, generated-code analysis
-and runtime coverage of dialogs, menus, clipboard, WebKit and lifecycle.
+**GLib:** GTK 0.18 requires `glib ^0.18`. The application now patches that crate
+with a vendored copy of 0.18.5 containing the upstream mutable out-pointer fix for
+RUSTSEC-2024-0429. All Linux dependency paths use that copy; automation's separate
+0.21.5 copy is unchanged. The [vendor record](../src-tauri/vendor/README.md) contains
+provenance, the exact change, regression commands and the removal condition.
+Linux `npm run test:native` runs optimized tests to exercise the defect under the
+compiler conditions that exposed it. A local path dependency can disappear from
+registry-based audit results; that alone is not proof of a fix or confirmation
+that GitHub has closed the alert. No advisory is ignored or dismissed.
 
 **Macro maintenance:** both glib-macros and gtk3-macros must stop depending on
 proc-macro-error. Fixing one leaves the other. Newer GTK/GLib macro lines remove
 it but are outside current constraints; a compatible released backport to both
 consumers or released framework integration is required.
 
-No compatible released fix is established for this graph. Do not force upgrades
-with local forks, aliases, patches or prereleases as part of routine dependency
-refresh. A release owner must choose to defer release or explicitly disposition
+The GLib security backport is a targeted exception to routine dependency refresh.
+No compatible released fix is established for the remaining maintenance findings.
+Do not force upgrades with local forks, aliases, patches or prereleases as part
+of routine dependency refresh. A release owner must choose to defer release or explicitly disposition
 remaining risk for the declared platform scope. No advisory ignore or blanket
 acceptance is implied. Dependency changes require the complete build/test/audit/
 license/native/capacity validation applicable to the resulting candidate.

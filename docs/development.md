@@ -83,6 +83,8 @@ node scripts/check-licenses.cjs
 For Clippy without bundle resources, use
 `TAURI_CONFIG='{"bundle":{"active":false,"externalBin":[],"resources":[]}}'`.
 Linux smoke needs a display, or `xvfb-run --auto-servernum npm run smoke:ci`.
+Linux `test:native` uses release mode and includes the GLib string-iterator
+regression for the [security backport](../src-tauri/vendor/README.md).
 Automation uses disposable profiles/files and prints its evidence directory.
 The suite covers real native persistence/recovery/MCP plus editor input. It does
 not replace real-dialog, desktop-lifecycle or supported-client acceptance on the

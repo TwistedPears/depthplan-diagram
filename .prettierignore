@@ -16,3 +16,6 @@ src-tauri/target
 src-tauri/generated
 src-tauri/gen
 src-tauri/binaries
+
+# Preserve the upstream vendored crate verbatim.
+src-tauri/vendor/glib-0.18.5
