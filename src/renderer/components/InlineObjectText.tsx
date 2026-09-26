@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import type {
   Geometry,
   RecursiveDocument,
@@ -9,12 +9,16 @@ import {
 } from '../../shared/documentTransactions';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import RichTextEditor from './RichTextEditor';
-import { objectContentBounds } from '../../shared/objectContentBounds';
+import {
+  objectContentBounds,
+  type TextExclusion,
+} from '../../shared/objectContentBounds';
 
 export default function InlineObjectText({
   document,
   objectId,
   hasChildren,
+  exclusion,
   geometry,
   camera,
   toolbarTarget,
@@ -24,6 +28,7 @@ export default function InlineObjectText({
   document: RecursiveDocument;
   objectId: string;
   hasChildren: boolean;
+  exclusion?: TextExclusion;
   geometry: Geometry;
   camera: { x: number; y: number; scale: number };
   toolbarTarget: HTMLElement | null;
@@ -104,12 +109,19 @@ export default function InlineObjectText({
     >
       <div
         className="inline-object-text-body"
-        style={{
-          left: body.x + geometry.width / 2,
-          top: body.y + geometry.height / 2,
-          width: Math.max(40, body.width),
-          height: Math.max(24, body.height),
-        }}
+        data-wrap={exclusion ? '' : undefined}
+        style={
+          {
+            left: body.x + geometry.width / 2,
+            top: body.y + geometry.height / 2,
+            width: Math.max(40, body.width),
+            height: Math.max(24, body.height),
+            '--text-wrap-side': exclusion?.side,
+            '--text-wrap-width': `${exclusion?.width ?? 0}px`,
+            '--text-wrap-top': `${exclusion?.top ?? 0}px`,
+            '--text-wrap-bottom': `${exclusion?.bottom ?? 0}px`,
+          } as CSSProperties
+        }
       >
         <RichTextEditor
           content={initial.current}

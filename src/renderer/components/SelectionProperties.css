@@ -231,6 +231,17 @@
   color: #334155;
   caret-color: var(--ink);
 }
+.inline-object-text-body[data-wrap] .ProseMirror::before {
+  content: '';
+  float: var(--text-wrap-side);
+  width: var(--text-wrap-width);
+  height: var(--text-wrap-bottom);
+  shape-outside: inset(var(--text-wrap-top) 0 0);
+  pointer-events: none;
+}
+.rich-editor-inline .code-editor {
+  display: flow-root;
+}
 .recursive-selection-toolbar:has(.properties-panel) {
   width: min(360px, calc(100vw - 36px));
 }

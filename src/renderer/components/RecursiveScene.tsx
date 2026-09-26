@@ -12,7 +12,10 @@ import {
 } from '../../shared/connectionGeometry';
 import RecursiveRichContent from './RecursiveRichContent';
 import ObjectOutline from './ObjectOutline';
-import { objectContentBounds } from '../../shared/objectContentBounds';
+import {
+  objectContentBounds,
+  type TextExclusion,
+} from '../../shared/objectContentBounds';
 
 // Position and child layout changes do not rebuild unchanged shape contents.
 const ObjectContent = memo(function ObjectContent({
@@ -21,6 +24,7 @@ const ObjectContent = memo(function ObjectContent({
   height,
   expanded,
   hasChildren,
+  exclusion,
   editingText,
   onError,
 }: {
@@ -29,6 +33,7 @@ const ObjectContent = memo(function ObjectContent({
   height: number;
   expanded: boolean;
   hasChildren: boolean;
+  exclusion?: TextExclusion;
   editingText: boolean;
   onError: (message: string) => void;
 }) {
@@ -80,6 +85,7 @@ const ObjectContent = memo(function ObjectContent({
         !editingText && (
           <RecursiveRichContent
             {...body}
+            exclusion={exclusion}
             content={object.content}
             onError={onError}
           />
@@ -96,6 +102,7 @@ export default memo(function RecursiveScene({
   onError,
   renderBoundaryPoints,
   renderChildrenToggle,
+  textExclusions,
   editingTextId,
   liftedIds,
   editingConnectionLabel,
@@ -106,6 +113,7 @@ export default memo(function RecursiveScene({
   onError: (message: string) => void;
   renderBoundaryPoints?: (id: string) => ReactNode;
   renderChildrenToggle?: (id: string) => ReactNode;
+  textExclusions?: ReadonlyMap<string, TextExclusion>;
   editingTextId?: string | null;
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
@@ -187,6 +195,7 @@ export default memo(function RecursiveScene({
           height={height}
           expanded={expanded}
           hasChildren={scene.hierarchy.children.has(id)}
+          exclusion={textExclusions?.get(id)}
           editingText={editingTextId === id}
           onError={onError}
         />

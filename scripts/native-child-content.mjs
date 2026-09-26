@@ -54,7 +54,7 @@ export async function childContent(driver, probe) {
         const owner = toggle.getParent();
         const badge = toggle.findOne('Circle') || toggle.findOne('Rect');
         const box = badge.getClientRect({relativeTo: owner});
-        const content = owner.getChildren().filter(n => n.hasName('object-label') || n.hasName('object-content'));
+        const content = owner.getChildren().flatMap(n => n.hasName('object-label') ? [n] : n.hasName('object-content') ? n.getChildren() : []);
         for (const node of content) {
           const b = node.getClientRect({relativeTo: owner});
           if (b.width > 0 && b.height > 0 && box.x < b.x+b.width && box.x+box.width > b.x && box.y < b.y+b.height && box.y+box.height > b.y)
@@ -111,7 +111,7 @@ export async function childContent(driver, probe) {
             type: 'paragraph',
             runs: [
               {
-                text: 'Full width rich content fills this object and must remain readable.',
+                text: 'Full width rich content fills this object and must remain readable. The first line flows beside the icon and the following lines regain the full width of the object.',
               },
             ],
           },
@@ -156,6 +156,59 @@ export async function childContent(driver, probe) {
           [0.38, 1].includes(scale)
         )
           await capture(`child-text-${rotation}-${scale}`);
+        if (type === 'rectangle' && rotation === 0 && scale === 1) {
+          const wrap =
+            await sync(`const group=window.Konva.stages[0].findOne('#object-a').findOne('.object-content');
+            return {top:group.y(), lines:group.find('Text').map(n=>({x:n.x(),y:n.y(),width:n.width()}))};`);
+          assert.equal(wrap.top, -22, 'body retains its original top inset');
+          assert.equal(wrap.lines[0].y, 0, 'text begins beside the icon');
+          assert(
+            wrap.lines.some(
+              (line) => line.y > 0 && line.width > wrap.lines[0].width + 10,
+            ),
+            'lower lines use the full width',
+          );
+          await command('depthplan_selection', {
+            action: 'set',
+            objects: ['a'],
+            connections: [],
+          });
+          const beforeEdit = await state();
+          await click('Edit text');
+          const editor =
+            await sync(`const body=document.querySelector('.inline-object-text-body'), prose=body.querySelector('.ProseMirror');
+            const text=prose.querySelector('p').firstChild, range=document.createRange(), boxes=[];
+            for(let i=0;i<text.textContent.length;i++){range.setStart(text,i);range.setEnd(text,i+1);const b=range.getBoundingClientRect();boxes.push({x:b.x,y:b.y,right:b.right});}
+            const b=body.getBoundingClientRect();
+            return {top:body.style.top, float:getComputedStyle(prose,'::before').float, limit:b.right-parseFloat(body.style.getPropertyValue('--text-wrap-width')), boxes};`);
+          assert.equal(editor.top, '28px');
+          assert.equal(editor.float, 'right');
+          assert(
+            editor.boxes
+              .filter((b) => b.y === editor.boxes[0].y)
+              .every((b) => b.right <= editor.limit + 1),
+            'editor wraps beside the icon',
+          );
+          assert(
+            editor.boxes.some(
+              (b) => b.y > editor.boxes[0].y && b.right > editor.limit + 4,
+            ),
+            'editor restores full width below the icon',
+          );
+          await capture('child-text-inline-wrap');
+          await sync(
+            `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));`,
+          );
+          await until(() =>
+            sync('return !document.querySelector(".inline-object-text")'),
+          );
+          assert.equal(
+            (await state()).revision,
+            beforeEdit.revision,
+            'wrapping never edits the rich content',
+          );
+          await command('depthplan_selection', { action: 'clear' });
+        }
       }
     }
     await save();
@@ -167,7 +220,7 @@ export async function childContent(driver, probe) {
     false,
     'a rotated rich-content collision uses the selection fallback',
   );
-  // Unnamed rich content reserves the same header; leaf content keeps its spacing.
+  // Unnamed rich content starts at the original inset and flows around the icon.
   await edit({ type: 'edit_object', id: 'a', name: '' });
   await camera(1);
   await check();
@@ -239,6 +292,6 @@ export async function childContent(driver, probe) {
   await capture('child-content-tour-038');
   await save();
   console.log(
-    `PASS children content: long/unnamed titles and rich text, four shapes, six rotations, five zooms, shrinking hit area, selection fallback and tour bookmark. Evidence: ${profile}`,
+    `PASS children content: canvas/editor text wrapping, long/unnamed titles, four shapes, six rotations, five zooms, shrinking hit area, selection fallback and tour bookmark. Evidence: ${profile}`,
   );
 }

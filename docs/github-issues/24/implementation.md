@@ -9,34 +9,46 @@ bug at 100%: the 33 × 33 control crossed both the title and the first body line
 The dot also retained an invisible 12px pointer target. At the tour's 38% Modules
 bookmark, the MCP parent's dot still touched the Private local service card.
 
-The scoped fix shares camera-independent title/body bounds between painting and
-inline editing, reserves the Children slot, and uses the same header allowance
-when fitting newly expanded parents. Leaf spacing is retained. The dot now uses
-its visible stroke for hit testing. Dots smaller than 4px use the selection
-fallback because native hit testing is unreliable at that size. When the current
-upright placement intersects text or a visible child subtree, the inline control is omitted; the existing
-selection Reveal/Hide action remains available, including Ctrl-click collapse-all.
-Subtree bounds are accumulated once per scene change and reused during zooming.
+The fix shares title/body bounds between painting and inline editing. Body text
+starts at its original inset: lines beside the Children control use the available
+space, then regain the full width below it. The existing canvas line layout takes
+a local exclusion rectangle; the inline editor uses a CSS float and shape-outside
+with the same rectangle. Unwrapped code rows move below the control when needed.
+List markers follow their first line, including when narrow space moves it down.
+
+The title keeps its control allowance, and newly expanded parents retain the
+44-unit header for child cards. The dot uses its visible stroke for hit testing.
+Dots smaller than 4px use the selection fallback because native hit testing is
+unreliable at that size. If the upright control intersects the title or a visible
+child subtree, or leaves less than 24 units for body text, it is omitted. The
+existing selection Reveal/Hide action remains available, including Ctrl-click
+collapse-all. Subtree bounds are accumulated once per scene change and reused
+during zooming.
 
 Saved geometry, bookmarks, remembered manual layouts, and document data are not
 rewritten to make room for controls. Rotation retains the recent visual upper-right
-policy wherever there is room. Text layout and exports do not depend on zoom.
+policy wherever there is room. Wrapping follows the visible control as zoom or
+rotation changes. Exports preserve the current canvas text layout and omit the
+control. Unchanged exclusion dimensions reuse the measured text layout.
 No dependencies, document migrations, or alternative placement search were added.
 
 Regression coverage is in `scripts/native-child-content.mjs`, integrated into
 `npm run smoke:ci`, plus the existing expansion and rotation probes. It covers the
 tour bookmark, long/unnamed text, four shape types, 25/38/50/100/200% zoom, direct
 and nested rotations, collapsed/expanded states, small frames, collision fallback,
-visible hit regions, and navigation without document/history changes. Expansion
-unit coverage checks that children remain below the 44-unit header.
+visible hit regions, inline-editor character bounds, and navigation/editing
+without document/history changes. Text-layout unit coverage checks both sides,
+styled prose, quote rules, lists, code, and restoration of full line width below
+the icon. Expansion coverage checks that children remain below the 44-unit header.
 
 Validation passed on macOS:
 
-- `npm test -- --runInBand`: 56 suites, 462 tests.
+- `npm test -- --runInBand`: 56 suites, 464 tests.
 - `npm run typecheck`, `npm run lint`, `npm run format:check`.
 - `npm run build:automation` and the complete `npm run smoke:ci` suite, including
   disclosure, native hits, nested rotation, persistence, Undo/Redo, and SVG/PNG.
-- Native before/after screenshots inspected for the long-title fixture and tour.
+- Native screenshots inspected for the canvas and inline-editor wrapping, plus
+  the long-title fixture and tour.
 - Final ponytail-review: **Lean already. Ship.** Shared hierarchy data and geometry
   helpers are reused; no further simplifications remain.
 

@@ -202,3 +202,118 @@ it('paints adjacent words together without crossing wraps, marks, links or shapi
   expect(layout.pieces.some((p) => p.text === '日本語')).toBe(true);
   expect(JSON.stringify(blocks)).toBe(before);
 });
+
+it('wraps beside an icon and returns to full width below it without shifting the first line', () => {
+  const blocks: RichBlock[] = [
+    {
+      type: 'paragraph',
+      runs: [
+        {
+          text: 'one two three four five six seven eight nine ten eleven twelve',
+        },
+      ],
+    },
+  ];
+  const original = JSON.stringify(blocks);
+  for (const side of ['left', 'right'] as const) {
+    const layout = layoutRichContent(
+      blocks,
+      100,
+      (text) => text.length * 5,
+      Infinity,
+      { side, width: 40, top: 0, bottom: 20 },
+    );
+    expect(layout.pieces[0].y).toBe(0);
+    for (const piece of layout.pieces.filter((p) => p.y < 20)) {
+      if (side === 'left') expect(piece.x).toBeGreaterThanOrEqual(40);
+      else expect(piece.x + piece.width).toBeLessThanOrEqual(60);
+    }
+    expect(
+      layout.pieces.some((p) => p.y >= 20 && p.x === 0 && p.width > 60),
+    ).toBe(true);
+  }
+  expect(JSON.stringify(blocks)).toBe(original);
+});
+
+it('keeps styled prose, list markers, quote rules and unwrapped code clear of the icon', () => {
+  const blocks: RichBlock[] = [
+    {
+      type: 'paragraph',
+      align: 'right',
+      runs: [{ text: 'small ' }, { text: 'large text', marks: { size: 24 } }],
+    },
+    {
+      type: 'quote',
+      blocks: [
+        {
+          type: 'list',
+          ordered: false,
+          items: [
+            [
+              {
+                type: 'paragraph',
+                runs: [
+                  { text: 'one two three four five six seven eight nine ten' },
+                ],
+              },
+            ],
+          ],
+        },
+      ],
+    },
+    {
+      type: 'code',
+      language: 'plaintext',
+      wrap: false,
+      text: 'long unwrapped source line',
+    },
+  ];
+  for (const side of ['left', 'right'] as const) {
+    const exclusion = { side, width: 70, top: 20, bottom: 95 };
+    const layout = layoutRichContent(
+      blocks,
+      180,
+      (text, style) => (Array.from(text).length * style.size) / 2,
+      Infinity,
+      exclusion,
+    );
+    for (const piece of layout.pieces) {
+      if (piece.y < 95 && piece.y + piece.style.size > 20) {
+        if (side === 'left') expect(piece.x).toBeGreaterThanOrEqual(70);
+        else expect(piece.x + piece.width).toBeLessThanOrEqual(110);
+      }
+    }
+    for (const rule of layout.rules)
+      if (side === 'left' && rule.y < 95 && rule.y + rule.height > 20)
+        expect(rule.x).toBeGreaterThan(70);
+    expect(layout.pieces.map((p) => p.text).join('')).toContain(
+      'one two three four five six seven eight nine ten',
+    );
+  }
+  const shortCode = layoutRichContent(
+    [
+      { type: 'code', language: 'plaintext', text: 'x' },
+      { type: 'paragraph', runs: [{ text: 'next' }] },
+    ],
+    100,
+    (text) => text.length * 5,
+    Infinity,
+    { side: 'right', width: 40, top: 20, bottom: 80 },
+  );
+  expect(shortCode.pieces.find((p) => p.text === 'next')!.y).toBeCloseTo(21.6);
+  const narrowList = layoutRichContent(
+    [
+      {
+        type: 'list',
+        ordered: false,
+        items: [[{ type: 'paragraph', runs: [{ text: 'item' }] }]],
+      },
+    ],
+    64,
+    (text) => text.length * 5,
+    Infinity,
+    { side: 'right', width: 40, top: 0, bottom: 40 },
+  );
+  expect(narrowList.pieces[0].y).toBe(40);
+  expect(narrowList.pieces[1].y).toBe(40);
+});

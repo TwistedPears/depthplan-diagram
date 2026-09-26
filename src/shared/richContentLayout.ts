@@ -1,5 +1,6 @@
 import { codeRuns } from './codePresentation';
 import type { RichBlock, TextRun } from './recursiveDocument';
+import type { TextExclusion } from './objectContentBounds';
 export type TextStyle = Required<
   Pick<NonNullable<TextRun['marks']>, 'font' | 'size' | 'color'>
 > &
@@ -26,10 +27,17 @@ export function layoutRichContent(
   width: number,
   measure: (text: string, style: TextStyle) => number,
   height = Infinity,
+  exclusion?: TextExclusion,
 ) {
   const pieces: TextPiece[] = [],
     rules: ContentRule[] = [];
   let y = 0;
+  const besideIcon = (top: number, lineHeight: number) =>
+    exclusion && top < exclusion.bottom && top + lineHeight > exclusion.top;
+  const leftInset = (top: number, lineHeight: number) =>
+    besideIcon(top, lineHeight) && exclusion?.side === 'left'
+      ? exclusion.width
+      : 0;
   const paragraph = (
     runs: TextRun[],
     left: number,
@@ -37,7 +45,25 @@ export function layoutRichContent(
     align = 'left',
     wrap = true,
   ) => {
-    const available = Math.max(1, width - left);
+    // A later large mark must not grow a line back into the icon.
+    const bandHeight =
+      runs.reduce(
+        (size, run) => Math.max(size, run.marks?.size ?? style.size),
+        style.size,
+      ) * 1.3;
+    let available = width - left,
+      lineLeft = left;
+    const fitLine = () => {
+      const blocked = besideIcon(y, bandHeight);
+      available = width - left - (blocked ? exclusion!.width : 0);
+      if (blocked && (!wrap || available <= 0)) {
+        y = exclusion!.bottom;
+        available = width - left;
+      }
+      lineLeft = left + leftInset(y, bandHeight);
+      available = Math.max(1, available);
+    };
+    fitLine();
     let line: TextPiece[] = [],
       x = 0,
       lineHeight = style.size * 1.3;
@@ -71,6 +97,7 @@ export function layoutRichContent(
       const s = { ...style, ...run.marks };
       for (const token of run.text.match(/\r\n|\r|\n|[^\S\r\n]+|[^\s]+/gu) ??
         []) {
+        if (!line.length) fitLine();
         if (y >= height) return;
         if (/^[\r\n]+$/.test(token)) {
           flush(true);
@@ -90,8 +117,15 @@ export function layoutRichContent(
         for (const text of parts) {
           if (y >= height) return;
           const w = parts.length === 1 ? tokenWidth : measure(text, s);
-          if (wrap && x > 0 && x + w > available) flush(false);
-          line.push({ text, x: left + x, y, width: w, style: s });
+          if (wrap && x > 0 && x + w > available) {
+            flush(false);
+            fitLine();
+          }
+          if (wrap && x === 0 && w > available && besideIcon(y, bandHeight)) {
+            y = exclusion!.bottom;
+            fitLine();
+          }
+          line.push({ text, x: lineLeft + x, y, width: w, style: s });
           x += w;
           lineHeight = Math.max(lineHeight, s.size * 1.3);
         }
@@ -106,23 +140,37 @@ export function layoutRichContent(
       if (block.type === 'list') {
         block.items.forEach((item, at) => {
           const text = block.ordered ? `${(block.start ?? 1) + at}.` : '•';
-          pieces.push({
+          const start = pieces.length,
+            top = y;
+          visit(item, left + 24);
+          const markerY = pieces[start]?.y ?? top;
+          pieces.splice(start, 0, {
             text,
-            x: left,
-            y,
+            x: left + leftInset(markerY, defaultTextStyle.size * 1.3),
+            y: markerY,
             width: measure(text, defaultTextStyle),
             style: defaultTextStyle,
           });
-          visit(item, left + 24);
         });
       } else if (block.type === 'quote') {
         const start = y;
         visit(block.blocks, left + 16);
-        rules.push({
-          x: left + 3,
-          y: start,
-          height: Math.max(0, y - start - 6),
-        });
+        const end = Math.max(start, y - 6);
+        const cuts = [
+          start,
+          ...(exclusion?.side === 'left'
+            ? [exclusion.top, exclusion.bottom].filter(
+                (at) => at > start && at < end,
+              )
+            : []),
+          end,
+        ];
+        for (let at = 1; at < cuts.length; at++)
+          rules.push({
+            x: left + 3 + leftInset(cuts[at - 1], cuts[at] - cuts[at - 1]),
+            y: cuts[at - 1],
+            height: cuts[at] - cuts[at - 1],
+          });
       } else if (block.type === 'code') {
         let column = 0;
         const runs = codeRuns(block.text, block.language).map((run) => ({

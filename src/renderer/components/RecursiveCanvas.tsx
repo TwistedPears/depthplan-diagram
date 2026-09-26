@@ -106,7 +106,10 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
-import { objectContentBounds } from '../../shared/objectContentBounds';
+import {
+  objectContentBounds,
+  type TextExclusion,
+} from '../../shared/objectContentBounds';
 
 const transformHandles = [-1, 0, 1].flatMap((x) =>
   [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
@@ -830,6 +833,7 @@ export default memo(function RecursiveCanvas({
       title: string;
     }
   >();
+  const textExclusions = new Map<string, TextExclusion>();
   for (const [id, geometry] of scene.world) {
     const children = scene.hierarchy.children.get(id) ?? [];
     const box = bounds.objects.get(id);
@@ -930,16 +934,28 @@ export default memo(function RecursiveCanvas({
     // ponytail: conservative boxes can hide clear slots; use ink bounds if needed.
     if (
       (object.name && title.width > 0 && intersectsBounds(control, title)) ||
-      (!expanded &&
-        object.content.length > 0 &&
-        body.height > 10 &&
-        intersectsBounds(control, body)) ||
       children.some((child) => {
         const box = subtreeBounds.get(child);
         return box && intersectsBounds(worldControl, box);
       })
     )
       continue;
+    if (intersectsBounds(control, body)) {
+      const leftSpace = Math.max(0, control.x - body.x - 2);
+      const rightSpace = Math.max(
+        0,
+        body.x + body.width - control.x - control.width - 2,
+      );
+      // Keep a readable column; cramped objects retain the selection fallback.
+      if (object.content.length && Math.max(leftSpace, rightSpace) < 24)
+        continue;
+      textExclusions.set(id, {
+        side: leftSpace >= rightSpace ? 'right' : 'left',
+        width: Math.max(0, body.width - Math.max(leftSpace, rightSpace)),
+        top: Math.max(0, control.y - body.y - 2),
+        bottom: Math.max(0, control.y + control.height - body.y + 2),
+      });
+    }
     const icon =
       children.length > 1 || scene.hierarchy.children.has(children[0])
         ? 'square-stack-3'
@@ -1235,6 +1251,7 @@ export default memo(function RecursiveCanvas({
             editingTextId={textEditing}
             editingConnectionLabel={connector.labelId}
             scene={scene}
+            textExclusions={textExclusions}
             scale={camera.scale}
             onError={setMoveError}
             renderBoundaryPoints={renderBoundaryPoints}
@@ -1542,6 +1559,7 @@ export default memo(function RecursiveCanvas({
           document={document}
           objectId={textEditing}
           hasChildren={scene.hierarchy.children.has(textEditing)}
+          exclusion={textExclusions.get(textEditing)}
           geometry={scene.world.get(textEditing)!}
           camera={camera}
           toolbarTarget={textToolbar}
