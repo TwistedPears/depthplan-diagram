@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Projects v1 — wireframe review</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        font:
+          15px -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        color: #243148;
+        background: #e9edf4;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 10px;
+      }
+      a {
+        color: #2056bd;
+      }
+      .review-controls {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: end;
+        margin: 18px 0;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+      }
+      select {
+        padding: 9px;
+        font: inherit;
+        border: 1px solid #aab7cc;
+        border-radius: 6px;
+        background: white;
+      }
+      select:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #245bcf;
+        outline-offset: 3px;
+      }
+      #note {
+        max-width: 1000px;
+        line-height: 1.5;
+        min-height: 44px;
+      }
+      .viewport {
+        overflow: hidden;
+        border: 1px solid #b7c2d2;
+        border-radius: 10px;
+        box-shadow: 0 6px 24px #23355314;
+        background: white;
+      }
+      iframe {
+        border: 0;
+        display: block;
+        transform-origin: top left;
+        background: white;
+      }
+      .refs {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+      }
+      .refs figure {
+        margin: 0;
+        max-width: 220px;
+      }
+      .refs img {
+        width: 100%;
+        border: 1px solid #bec9d8;
+      }
+      .refs figcaption {
+        font-size: 13px;
+        margin-top: 6px;
+      }
+      .footnote {
+        font-size: 13px;
+        color: #4e5f77;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Projects v1 — supplemental wireframes</h1>
+    <p>
+      Review artifact for issue #11. These states extend the approved images;
+      they do not implement application behavior.
+    </p>
+    <p>
+      <a href="specification.md">Behavior specification</a> ·
+      <a href="validation.md">Design walkthrough</a>
+    </p>
+    <div class="review-controls">
+      <label>State<select id="state"></select></label
+      ><label
+        >Application viewport<select id="size">
+          <option value="1440,1000">Wide · 1440 × 1000</option>
+          <option value="1024,728">Default · 1024 × 728</option>
+          <option value="900,640">Compact · 900 × 640</option>
+        </select></label
+      >
+    </div>
+    <p id="note"></p>
+    <div class="viewport" id="viewport">
+      <iframe id="preview" title="Selected project UI wireframe"></iframe>
+    </div>
+    <p class="footnote">
+      Application controls are illustrative. Use the State and Application
+      viewport selectors above to review the sheet. The frame scales to fit this
+      page; its internal responsive layout uses the selected application
+      dimensions. Exact icons and typography remain implementation details.
+    </p>
+    <div class="refs">
+      <figure>
+        <a
+          href="../../design/project-ui-concepts-2026-09-26/01-project-drawer.png"
+          ><img
+            src="../../design/project-ui-concepts-2026-09-26/01-project-drawer.png"
+            alt="Approved floating project drawer concept"
+        /></a>
+        <figcaption>Project drawer</figcaption>
+      </figure>
+      <figure>
+        <a
+          href="../../design/project-ui-concepts-2026-09-26/02-focused-workspace.png"
+          ><img
+            src="../../design/project-ui-concepts-2026-09-26/02-focused-workspace.png"
+            alt="Approved focused canvas and board tabs"
+        /></a>
+        <figcaption>Focused workspace</figcaption>
+      </figure>
+      <figure>
+        <a
+          href="../../design/project-ui-concepts-2026-09-26/03-project-settings.png"
+          ><img
+            src="../../design/project-ui-concepts-2026-09-26/03-project-settings.png"
+            alt="Generated project settings concept"
+        /></a>
+        <figcaption>Settings baseline; location added above</figcaption>
+      </figure>
+      <figure>
+        <a
+          href="../../design/project-ui-concepts-2026-09-26/04-project-creation.png"
+          ><img
+            src="../../design/project-ui-concepts-2026-09-26/04-project-creation.png"
+            alt="Single-board to new project creation flow"
+        /></a>
+        <figcaption>Optional project creation</figcaption>
+      </figure>
+    </div>
+    <script>
+      const appStyles =
+        '\n*{box-sizing:border-box}body{margin:0;font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#253249;background:#f5f7fb}button,input,select,textarea{font:inherit}button{min-height:36px;padding:7px 12px;border:1px solid #d5dce8;border-radius:7px;background:white;color:inherit}button:disabled{opacity:.45}button.primary{background:#2e60d8;color:white;border-color:#2e60d8}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #275fdb;outline-offset:2px}.app{position:relative;width:100vw;height:100vh;overflow:hidden;background-image:radial-gradient(#b9cde8 .8px,transparent .8px);background-size:34px 34px}.titlebar{height:36px;padding:9px 16px;background:#f6f7f9;font-size:12px}.lights{color:#697586;margin-right:18px}.floating{background:white;border:1px solid #e2e7ef;border-radius:11px;box-shadow:0 3px 10px #2234520d}.identity{position:absolute;left:24px;top:58px;width:280px;padding:10px 14px;display:flex;gap:12px;align-items:center}.identity small{display:block;color:#566780;margin-top:3px}.tools{position:absolute;top:58px;left:50%;transform:translateX(-50%);padding:6px;display:flex;gap:4px;white-space:nowrap}.tools button{border:0;font-size:18px;min-width:35px;padding:4px}.tools .selected{background:#2e60d8;color:white}.actions{position:absolute;right:24px;top:60px;display:flex;gap:8px}.tabs{position:absolute;top:120px;left:50%;transform:translateX(-50%);padding:4px;display:flex;gap:4px;max-width:480px}.tabs button{border:0;white-space:nowrap}.tabs .active{color:#245bcf;border-bottom:3px solid #245bcf;border-radius:0}.short-tabs{display:none}.bottom-left,.bottom-right{position:absolute;bottom:20px;padding:6px;display:flex;gap:7px;align-items:center}.bottom-left{left:24px}.bottom-right{right:24px}.bottom-left button,.bottom-right button{border:0}.drawer{position:absolute;left:24px;top:122px;width:280px;padding:14px;max-height:calc(100vh - 208px);overflow:auto}.drawer h2{font-size:12px;color:#566780;margin:0 0 12px;display:flex;justify-content:space-between}.drawer input{width:100%;padding:9px;border:1px solid #d5dce8;border-radius:6px;margin-bottom:10px}.board{display:flex;justify-content:space-between;align-items:center;padding:12px 9px;border-radius:5px;gap:8px}.board.selected{background:#edf2ff;border-left:3px solid #2e60d8}.board small{display:block;font-size:11px;color:#616d81;margin-top:4px}.drawer footer{border-top:1px solid #e2e7ef;margin-top:12px;padding-top:9px;display:grid;gap:6px}.drawer footer button{text-align:left;border:0}.center{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);text-align:center;width:min(480px,calc(100% - 40px))}.center h1{font-size:25px;margin:15px 0}.center p{line-height:1.5;color:#596980}.diagram{display:flex;gap:28px;align-items:center;justify-content:center}.node{background:white;border:1.5px solid #5b6c84;padding:23px 25px;border-radius:6px;white-space:nowrap}.menu{position:absolute;left:24px;top:122px;width:270px;padding:8px;z-index:3}.menu button{display:block;width:100%;text-align:left;border:0}.menu hr{border:0;border-top:1px solid #e1e6ef}.menu .chosen{background:#edf2ff;color:#245bcf}.shade{position:absolute;inset:36px 0 0;background:#18283e44;display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}.modal{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;background:white;border:1px solid #e0e6ee;border-radius:13px;box-shadow:0 14px 40px #14274222}.modal header{padding:22px 24px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.modal h1{font-size:22px;margin:0}.modal header p{color:#596980;line-height:1.45;margin:8px 0 0}.modal .content{overflow:auto;padding:6px 24px 18px;min-height:0}.modal footer{border-top:1px solid #e1e6ef;padding:14px 24px;display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}.field{display:grid;gap:7px;margin:13px 0}.field input,.field textarea,.field select{width:100%;border:1px solid #ccd6e5;border-radius:6px;background:white;padding:9px}.field textarea{height:62px;resize:none}.inline{display:flex;gap:8px;align-items:center}.inline input{min-width:0}.hint{font-size:12px;color:#58677d;line-height:1.45}.toggle{display:flex;align-items:center;gap:10px;margin-top:20px}.status{padding:10px 12px;background:#fff6e5;border:1px solid #ead9af;border-radius:6px;font-size:13px;line-height:1.45}.error{background:#fff1f0;border-color:#e7c4c0;color:#77342e}.item{padding:13px 0;border-bottom:1px solid #e1e6ef}.item:last-child{border:0}.item strong{display:block;margin-bottom:5px}.item .inline{margin-top:9px;flex-wrap:wrap}.choice{display:block;margin:12px 0}.choice input{margin-right:8px}.empty-icon{font-size:32px;color:#2e60d8}.subtle{color:#596980}.close-list{display:grid;gap:9px}.close-list .item{border:1px solid #e1e6ef;border-radius:7px;padding:12px}.callout{position:absolute;left:50%;top:210px;transform:translateX(-50%);max-width:500px}.draft{outline:2px solid #2e60d8;padding:20px;text-align:left;line-height:1.6}.draft small{display:block;color:#855818;margin-top:10px}\n@media(max-width:1099px){.identity{width:275px}.tools{top:117px}.tabs{top:174px}.long-tabs{display:none}.short-tabs{display:flex}.drawer{top:224px;max-height:calc(100vh - 300px)}.menu{top:117px;max-height:calc(100vh - 194px);overflow:auto}.center{top:55%}.modal header{padding:16px 20px 9px}.modal .content{padding:4px 20px 12px}.modal footer{padding:12px 20px}.modal h1{font-size:21px}.callout{top:226px}.bottom-left,.bottom-right{bottom:16px}.diagram{gap:15px}.node{padding:20px 16px}.drawer+.center{left:65%;width:340px}.center.floating{top:238px;transform:translateX(-50%);max-height:calc(100vh - 314px);overflow:auto}}\n';
+      const scenes = {
+        startup: {
+          label: '01 · Blank canvas and project entry',
+          project: false,
+          note: 'Startup stays a single board. Project actions extend the existing menu; choosing one uses this same window.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>01 · Blank canvas and project entry</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Untitled Document</strong><small>Not yet saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><main class="center"><div class="empty-icon">▢</div><h1>Start with the big picture.</h1><p>Draw your first shape. Add detail as your ideas take shape.</p><button class="primary">＋ Draw a shape</button></main><nav class="menu floating" aria-label="Application menu"><button>New board</button><button>Open board…</button><button>Open recent ›</button><hr><button>Save</button><button>Save as…</button><hr><button class="chosen">New project…</button><button>Open project…</button><button>Recent projects ›</button></nav><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        project: {
+          label: '02 · Project widget and tabs',
+          project: true,
+          note: 'Wide: floating board drawer and open tabs. Compact: overlay drawer, active tab and Open boards overflow. Full names remain available to assistive technology.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>02 · Project widget and tabs</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><aside class="drawer floating" aria-label="Project boards"><h2>BOARDS <span>＋ ···</span></h2><input aria-label="Find a board" placeholder="Find a board…"><div class="board selected"><span>⌂ Overview<small>Saved</small></span><span>···</span></div><div class="board"><span>▤ API Services<small>Saved</small></span><span>···</span></div><div class="board"><span>▤ Data Model<small>Saved</small></span><span>···</span></div><footer><button>＋ New board</button><button>↓ Import board…</button><button>⚙ Project settings</button></footer></aside><main class="center"><div class="diagram"><div class="node">Web app</div><span>→</span><div class="node">API</div><span>→</span><div class="node">Data</div></div></main><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        create: {
+          label: '03 · Create project',
+          project: false,
+          note: 'The selected blank-board default is optional; copying the current board is explicit. Validate before replacing the standalone workspace.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>03 · Create project</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Untitled Document</strong><small>Not yet saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="shade"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><header><div><h1 id="dialog-title">Create project</h1><p>Group related boards in a local folder.</p></div><button aria-label="Close dialog">×</button></header><div class="content"><label class="field">Project name<input value="Platform Architecture"></label><div class="field"><label for="location">Location</label><div class="inline"><input id="location" value="Documents / DepthPlan"><button>Choose…</button></div><span class="hint">A new project folder will be created here.</span></div><p>First board</p><label class="choice"><input type="radio" name="first" checked>Start with a blank board</label><label class="choice"><input type="radio" name="first">Copy current board into project</label><p class="hint">Your original board file stays where it is.</p></div><footer><button>Cancel</button><button class="primary">Create project</button></footer></section></div><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        settings: {
+          label: '04 · Settings, including location',
+          project: true,
+          note: 'Adds the location/Reveal control missing from the generated concept. Form body scrolls at compact heights; explicit footer stays reachable.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>04 · Settings, including location</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><div class="shade"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><header><div><h1 id="dialog-title">Project settings</h1><p>Manage this project’s details and saving.</p></div><button aria-label="Close dialog">×</button></header><div class="content"><label class="field">Project name<input value="Platform Architecture"></label><label class="field">Description<textarea>System overview, services, and deployment.</textarea></label><label class="field">Home board<select><option>Overview</option><option>None</option></select></label><label class="toggle"><input type="checkbox" checked>Autosave boards</label><p class="hint">Saves applied edits. Unfinished drafts are not saved.<br>Autosave is not a backup or version history.</p><div class="item"><strong>Location</strong><p class="hint">Documents / DepthPlan / Platform Architecture</p><button>Reveal in File Manager</button></div><p class="hint">Open tabs and canvas views stay on this device.</p></div><footer><button>Cancel</button><button class="primary">Save changes</button></footer></section></div><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        conflict: {
+          label: '05 · Board conflict',
+          project: true,
+          note: 'Automatic writes pause for this board. Overwrite requires a second explicit, version-bound confirmation. A manifest conflict uses equivalent project-specific language and guards removed/repathed boards.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>05 · Board conflict</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><div class="shade"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><header><div><h1 id="dialog-title">Board changed outside DepthPlan</h1><p>API Services has a newer version on disk.</p></div><button aria-label="Close dialog">×</button></header><div class="content"><div class="status">Your local changes are still open. Autosave is paused for this board.</div><div class="item"><strong>Reload from disk</strong><span class="hint">Review unfinished drafts and unsaved changes before replacing this session.</span><div class="inline"><button>Reload from disk…</button></div></div><div class="item"><strong>Preserve your local changes</strong><span class="hint">Save an independent copy. The project board is not silently replaced.</span><div class="inline"><button>Save a copy…</button></div></div><div class="item"><strong>Replace the disk version</strong><span class="hint">Requires confirmation; another external edit cancels that permission.</span><div class="inline"><button>Overwrite…</button></div></div></div><footer><button class="primary">Keep editing</button></footer></section></div><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        close: {
+          label: '06 · Aggregate close failures',
+          project: true,
+          note: 'Each affected board is named. Keep open is the safe default. No session disappears until all work is saved or explicitly discarded; discard is per board and never preselected.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>06 · Aggregate close failures</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><div class="shade"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><header><div><h1 id="dialog-title">Before closing this project</h1><p>2 boards need attention. Your workspace is still open.</p></div><button aria-label="Close dialog">×</button></header><div class="content"><div class="close-list"><div class="item"><strong>Overview · Saved</strong><span class="hint">No action needed.</span></div><div class="item"><strong>API Services · Save failed</strong><div class="status error">The project folder is unavailable.</div><div class="inline"><button>Retry</button><button>Save a copy…</button><button>Review discard…</button></div></div><div class="item"><strong>Data Model · Draft not saved</strong><span class="hint">Applied changes are saved. Resolve the unfinished form.</span><div class="inline"><button>Review draft…</button></div></div></div></div><footer><button class="primary">Keep open</button><button>Retry saves</button></footer></section></div><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        unavailable: {
+          label: '07 · Loading or missing member',
+          project: true,
+          note: 'A loading row uses text and a progress indicator. A missing/corrupt row offers Retry/Restore-file guidance/Remove; healthy boards remain available. A whole-folder failure routes to save failures and recovery.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>07 · Loading or missing member</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><aside class="drawer floating" aria-label="Project boards"><h2>BOARDS <span>＋ ···</span></h2><input aria-label="Find a board" placeholder="Find a board…"><div class="board selected"><span>⌂ Overview<small>Saved</small></span><span>···</span></div><div class="board"><span>⚠ API Services<small>File missing</small></span><span>···</span></div><div class="board"><span>◌ Data Model<small>Loading…</small></span><span>···</span></div><footer><button>＋ New board</button><button>↓ Import board…</button><button>⚙ Project settings</button></footer></aside><main class="center floating" style="padding:24px"><h1>Board file unavailable</h1><p>API Services could not be found at<br><strong>boards/API Services.depthplan</strong>.</p><p class="hint">Other boards are still available. Restore the file at this location, or remove its project entry.</p><div class="inline" style="justify-content:center;flex-wrap:wrap"><button class="primary">Retry</button><button>Restore file help</button><button>Remove from project…</button></div></main><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        recovery: {
+          label: '08 · Applied-edit recovery',
+          project: false,
+          note: 'Restore opens a fresh dirty session with source autosave paused until a safe destination decision. Skip retains the candidate. Drafts and undo history are explicitly excluded.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>08 · Applied-edit recovery</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Untitled Document</strong><small>Not yet saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="shade"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><header><div><h1 id="dialog-title">Recover board changes</h1><p>Recovered snapshots contain applied edits only.</p></div><button aria-label="Close dialog">×</button></header><div class="content"><div class="item"><strong>API Services</strong><p class="hint">Platform Architecture · 10:42 AM<br>Documents / DepthPlan / Platform Architecture</p><div class="status">The source folder is unavailable.</div></div><p>Restore these edits, then choose where to save them.</p><p class="hint">Unfinished text, unapplied forms, and undo history are not included.</p><button>Discard recovery…</button></div><footer><button>Skip for now</button><button class="primary">Restore changes</button></footer></section></div><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        empty: {
+          label: '09 · Empty project',
+          project: true,
+          empty: true,
+          note: 'Removing the last member is valid and does not delete the board files. Closing the final tab uses a similar neutral canvas with an additional Open a board action.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>09 · Empty project</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>No boards</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button disabled aria-label="Save active board">Save</button><button disabled class="primary">Export</button></div><aside class="drawer floating"><h2>BOARDS</h2><p class="hint">No boards in this project.</p><footer><button>＋ New board</button><button>↓ Import board…</button><button>⚙ Project settings</button></footer></aside><main class="center"><div class="empty-icon">▤</div><h1>Add your first board</h1><p>Create a new board or copy an existing diagram into this project.</p><button class="primary">New board</button> <button>Import board…</button></main><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        draft: {
+          label: '10 · Retained draft and board actions',
+          project: true,
+          note: 'Returning to a board restores its unfinished draft. The row menu supplies keyboard alternatives for reordering. Save All belongs in the project menu and never silently applies explicit drafts.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>10 · Retained draft and board actions</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Draft not saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><aside class="drawer floating" aria-label="Project boards"><h2>BOARDS <span>＋ ···</span></h2><input aria-label="Find a board" placeholder="Find a board…"><div class="board selected"><span>⌂ Overview<small>Draft not saved</small></span><span>···</span></div><div class="board"><span>▤ API Services<small>Saved</small></span><span>···</span></div><div class="board"><span>▤ Data Model<small>Saved</small></span><span>···</span></div><footer><button>＋ New board</button><button>↓ Import board…</button><button>⚙ Project settings</button></footer></aside><main class="center"><div class="floating draft">Service boundaries and ownership…<small>Draft not saved · Applied changes saved</small><p><button>Apply</button> <button>Cancel draft</button></p></div></main><nav class="menu floating" aria-label="Board actions" style="left:24px;top:auto;bottom:96px"><button>Rename…</button><button>Duplicate…</button><button>Move up</button><button>Move down</button><hr><button>Remove from project…</button></nav><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+        projectmenu: {
+          label: '11 · Project menu and Save All',
+          project: true,
+          note: 'Save targets the active board. Save All targets applied changes in open project boards. New/Open/Recent/Settings/Close stay in the same existing menu surface.',
+          html: '<!doctype html><html lang="en"><meta charset="utf-8"><title>11 · Project menu and Save All</title><style>APP_STYLES</style><body><div class="app"><div class="titlebar"><span class="lights">● ● ●</span><strong>DepthPlan</strong></div><div class="identity floating"><button aria-label="Toggle project drawer">☰</button><div><strong>Platform Architecture</strong><small>Overview · Saved</small></div></div><div class="tools floating" aria-label="Drawing tools"><button aria-label="Pan">♧</button><button class="selected" aria-label="Select">↖</button><button aria-label="Rectangle">□</button><button aria-label="Diamond">◇</button><button aria-label="Ellipse">○</button><button aria-label="Frame">▣</button><button aria-label="Line">—</button><button aria-label="Arrow">→</button><button aria-label="Search objects">⌕</button></div><div class="actions"><button aria-label="Save active board">Save</button><button class="primary">Export</button></div><div class="tabs floating long-tabs"><button class="active">Overview ×</button><button>API Services ×</button><button>Data Model ×</button></div><div class="tabs floating short-tabs"><button class="active">Overview ×</button><button>Open boards ▾</button></div><nav class="menu floating" aria-label="Project menu"><button>New board</button><button>Import board…</button><button>Open board in project…</button><hr><button>Save</button><button>Save a copy…</button><button class="chosen">Save all</button><hr><button>New project…</button><button>Open project…</button><button>Recent projects ›</button><button>Project settings</button><button>Close project</button></nav><div class="bottom-left floating"><button>♧ Bookmarks</button><button aria-label="Undo">↶</button><button aria-label="Redo">↷</button></div><div class="bottom-right floating"><button aria-label="Fit">⛶</button><button aria-label="Zoom out">−</button><span>100%</span><button aria-label="Zoom in">＋</button></div></div></body></html>',
+        },
+      };
+      const state = document.querySelector('#state');
+      const size = document.querySelector('#size');
+      const frame = document.querySelector('#preview');
+      const viewport = document.querySelector('#viewport');
+      Object.entries(scenes).forEach(([key, scene]) =>
+        state.add(new Option(scene.label, key)),
+      );
+      function fit() {
+        const [width, height] = size.value.split(',').map(Number);
+        const scale = Math.min(
+          1,
+          (document.documentElement.clientWidth - 50) / width,
+        );
+        frame.style.width = width + 'px';
+        frame.style.height = height + 'px';
+        frame.style.transform = `scale(${scale})`;
+        viewport.style.width = width * scale + 'px';
+        viewport.style.height = height * scale + 'px';
+      }
+      function render() {
+        const scene = scenes[state.value];
+        console.assert(
+          scene && scene.html.includes('<title>'),
+          'Selected scene must have a complete document',
+        );
+        document.querySelector('#note').textContent = scene.note;
+        frame.srcdoc = scene.html.replace('APP_STYLES', appStyles);
+        fit();
+      }
+      state.addEventListener('change', render);
+      size.addEventListener('change', fit);
+      window.addEventListener('resize', fit);
+      render();
+    </script>
+  </body>
+</html>
