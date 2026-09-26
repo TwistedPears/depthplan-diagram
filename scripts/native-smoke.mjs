@@ -11,6 +11,7 @@ import { expansion } from './native-expansion.mjs';
 import { connectors } from './native-connectors.mjs';
 import { rotation } from './native-rotation.mjs';
 import { childContent } from './native-child-content.mjs';
+import { projects } from './native-projects.mjs';
 const {
   adapter,
   profile,
@@ -36,6 +37,7 @@ try {
     ),
   );
   const instance = await native('app:instance-id');
+  await projects({ native, dialogs, profile });
   assert.match(instance, /^[a-f0-9-]{36}$/);
   assert.equal((await native('automation:status')).enabled, false);
   probe = client(adapter, path.join(profile, 'missing.json'));

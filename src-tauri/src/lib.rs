@@ -2,6 +2,7 @@ mod files;
 mod host;
 pub mod mcp;
 mod png_export;
+mod projects;
 mod recovery;
 mod validation;
 pub fn run() {

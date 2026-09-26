@@ -2,6 +2,7 @@ use crate::png_export::PngExport;
 use crate::{
     automation::{self, Folders, Service},
     files::{self, FileStore, Result, Source},
+    projects::{Action, Project, Projects},
     recovery::Recovery,
     validation,
 };
@@ -68,6 +69,7 @@ pub struct Host {
     folders: Folders,
     closing: Mutex<Closing>,
     png: Mutex<Option<PngExport>>,
+    projects: Mutex<Projects>,
 }
 fn string(value: &Value) -> Result<&str> {
     value.as_str().ok_or("Expected text".into())
@@ -146,6 +148,9 @@ fn select(app: &AppHandle, kind: &str, name: &str) -> Result<Option<PathBuf>> {
         "folder" => dialog.blocking_pick_folder(),
         "open" => dialog
             .add_filter("DepthPlan documents", &["depthplan", "json"])
+            .blocking_pick_file(),
+        "project-open" => dialog
+            .add_filter("DepthPlan project", &["depthproject"])
             .blocking_pick_file(),
         "document-save" => dialog
             .add_filter("DepthPlan document", &["depthplan"])
@@ -302,6 +307,81 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
 fn arg(args: &[Value], i: usize) -> &Value {
     args.get(i).unwrap_or(&Value::Null)
 }
+fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value> {
+    let host = app.state::<Host>();
+    match method {
+        "project:open" => {
+            let Some(path) = select(app, "project-open", "")? else {
+                return Ok(json!({"status":"canceled"}));
+            };
+            let project = Project::open(&path)?;
+            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().insert(project)}))
+        }
+        "project:create" => {
+            let name = string(arg(args, 0))?;
+            let folder = string(arg(args, 1))?;
+            let document = args.get(2).filter(|v| !v.is_null()).cloned();
+            let Some(parent) = select(app, "folder", "")? else {
+                return Ok(json!({"status":"canceled"}));
+            };
+            let project = Project::create(&parent, folder, name, document, &|_| Ok(()))?;
+            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().insert(project)}))
+        }
+        "project:close" => {
+            host.projects
+                .lock()
+                .unwrap()
+                .0
+                .remove(string(arg(args, 0))?);
+            Ok(json!({"status":"success"}))
+        }
+        "project:inspect" => {
+            let id = string(arg(args, 0))?;
+            Ok(
+                json!({"status":"success", "project":host.projects.lock().unwrap().get(id)?.snapshot(id)}),
+            )
+        }
+        "project:read-board" => {
+            let mut projects = host.projects.lock().unwrap();
+            let board = projects
+                .get(string(arg(args, 0))?)?
+                .read_board(string(arg(args, 1))?)?;
+            Ok(json!({"status":"success", "board":board}))
+        }
+        "project:apply" => {
+            let id = string(arg(args, 0))?;
+            let expected = string(arg(args, 1))?;
+            let action: Action =
+                serde_json::from_value(arg(args, 2).clone()).map_err(|e| e.to_string())?;
+            // Reject forged/stale handles before showing an import dialog.
+            host.projects.lock().unwrap().get(id)?;
+            let imported = if matches!(action, Action::ImportBoard { .. }) {
+                let Some(path) = select(app, "open", "")? else {
+                    return Ok(json!({"status":"canceled"}));
+                };
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_lowercase();
+                if !name.ends_with(".depthplan") && !name.ends_with(".depthplan.json") {
+                    return Err("Import requires a .depthplan or .depthplan.json document".into());
+                }
+                Some(
+                    serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
+                        .map_err(|e| e.to_string())?,
+                )
+            } else {
+                None
+            };
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            project.apply(expected, action, imported, &|_| Ok(()))?;
+            Ok(json!({"status":"success", "project":project.snapshot(id)}))
+        }
+        _ => Err("Unknown project operation".into()),
+    }
+}
 fn mcp_path(host: &Host, path: &str, lease: &Value) -> Result<PathBuf> {
     host.service.lock().unwrap().check(lease)?;
     let target = host.folders.resolve(path)?;
@@ -319,6 +399,10 @@ fn io_command(
     let b = arg(args, 1);
     if method.starts_with("file:") {
         return Ok(file_operation(app, method, args)
+            .unwrap_or_else(|error| json!({"status":"error","error":error})));
+    }
+    if method.starts_with("project:") {
+        return Ok(project_operation(app, method, args)
             .unwrap_or_else(|error| json!({"status":"error","error":error})));
     }
     match method {
@@ -1019,6 +1103,7 @@ pub fn run() {
                 folders: Folders::default(),
                 closing: Mutex::new(Closing::default()),
                 png: Mutex::new(None),
+                projects: Mutex::new(Projects::default()),
             });
             create_window(app.handle())?;
             menu(app.handle())?;
@@ -1071,6 +1156,7 @@ pub fn run() {
                     let host = app.state::<Host>();
                     *host.png.lock().unwrap() = None;
                     host.storage.lock().unwrap().files.clear();
+                    host.projects.lock().unwrap().0.clear();
                     let _ = host.service.lock().unwrap().disable();
                 }
                 _ => {}

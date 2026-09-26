@@ -59,6 +59,7 @@ pub fn write_atomic(
     expected: Option<Option<&str>>,
     before: &dyn Fn() -> Result<()>,
 ) -> Result<()> {
+    let _project_writer = crate::projects::lock_for_file(path)?;
     let temporary = PathBuf::from(format!("{}.{}.tmp", path.display(), Uuid::new_v4()));
     let result = (|| {
         before()?;
