@@ -1229,7 +1229,12 @@ export async function expansion(driver, probe) {
     await dialogs('open', file);
     await click('Menu');
     await click('Open');
-    await until(async () => (await state()).source?.path === file);
+    await until(async () => {
+      const current = await state();
+      return (
+        current.source?.path === file && current.canvas.viewport.height > 0
+      );
+    });
     for (const scale of [1, 0.25]) {
       await command('depthplan_camera', {
         action: {

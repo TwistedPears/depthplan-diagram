@@ -242,11 +242,14 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(
-    async () =>
-      (await state()).source?.path === file &&
-      !(await state()).busyReasons.length,
-  );
+  await until(async () => {
+    const current = await state();
+    return (
+      current.source?.path === file &&
+      current.canvas.viewport.height > 0 &&
+      !current.busyReasons.length
+    );
+  });
   await select(id);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -404,7 +407,10 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(async () => !(await state()).canUndo);
+  await until(async () => {
+    const current = await state();
+    return !current.canUndo && current.canvas.viewport.height > 0;
+  });
   await select(inside);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
@@ -531,7 +537,10 @@ export async function connectors(driver, probe) {
   await dialogs('open', file);
   await click('Menu');
   await click('Open');
-  await until(async () => !(await state()).canUndo);
+  await until(async () => {
+    const current = await state();
+    return !current.canUndo && current.canvas.viewport.height > 0;
+  });
   await select(direct);
   await js(
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
