@@ -100,10 +100,15 @@ const report = {
     switchP95Ms: 250,
     hostMiB: 350,
     webKitMiB: 1536,
+    searchMs: 5000,
+    searchFrameGapMs: 250,
+    cancelMs: 250,
   },
   cold: [],
   opens: [],
   switches: [],
+  searches: [],
+  cancellations: [],
   memory: [],
   passed: false,
 };
@@ -209,6 +214,67 @@ try {
       4,
       'Switches must reuse live owners',
     );
+    await driver.click('Menu');
+    await driver.click('Search Project…');
+    const searchStart = performance.now();
+    await driver.sync(`
+      const input=document.querySelector('dialog input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'object-0000000');
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    `);
+    await driver.sync(`
+      window.searchFrameGap=0;window.searchMeasuring=true;let last=performance.now();
+      const frame=now=>{window.searchFrameGap=Math.max(window.searchFrameGap,now-last);last=now;if(window.searchMeasuring)requestAnimationFrame(frame)};
+      requestAnimationFrame(frame);document.querySelector('dialog form').requestSubmit();
+    `);
+    await driver.until(() =>
+      driver.sync(
+        'return document.querySelector("dialog")?.textContent.includes("Search complete.")',
+      ),
+    );
+    const frameGap = await driver.sync(
+      'window.searchMeasuring=false;return window.searchFrameGap',
+    );
+    report.searches.push({ ms: performance.now() - searchStart, frameGap });
+    assert.equal(
+      await driver.sync(
+        'return document.querySelectorAll(".project-search-results button").length',
+      ),
+      100,
+    );
+    assert.equal(
+      await driver.sync(
+        'return document.querySelectorAll("[role=tab]").length',
+      ),
+      5,
+    );
+    assert.equal(
+      await driver.sync(
+        'return document.querySelectorAll(".konvajs-content").length',
+      ),
+      1,
+    );
+    await driver.sync(`
+      const input=document.querySelector('dialog input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'nothing-matches');
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    `);
+    report.cancellations.push(
+      await driver.js(`new Promise(resolve=>{
+      document.querySelector('dialog form').requestSubmit();
+      requestAnimationFrame(()=>{
+        const start=performance.now();
+        [...document.querySelectorAll('dialog button')].find(b=>b.textContent==='Stop search').click();
+        requestAnimationFrame(()=>resolve(performance.now()-start));
+      });
+    })`),
+    );
+    assert(
+      await driver.sync(
+        'return document.querySelector("dialog").textContent.includes("Search stopped.")',
+      ),
+    );
+    await driver.click('Close');
     await sample();
     clearInterval(timer);
     await pending;
@@ -243,6 +309,18 @@ try {
   assert(
     report.peakWebKitMiB <= report.budgets.webKitMiB,
     `WebKit RSS ${report.peakWebKitMiB}`,
+  );
+  assert(
+    report.searches.every(
+      (x) =>
+        x.ms <= report.budgets.searchMs &&
+        x.frameGap <= report.budgets.searchFrameGapMs,
+    ),
+    JSON.stringify(report.searches),
+  );
+  assert(
+    report.cancellations.every((ms) => ms <= report.budgets.cancelMs),
+    JSON.stringify(report.cancellations),
   );
   assert.deepEqual(
     await Promise.all(boards.map((b) => hash(path.join(root, b.path)))),

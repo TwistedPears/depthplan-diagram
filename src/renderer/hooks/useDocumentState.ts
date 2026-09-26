@@ -24,7 +24,11 @@ import {
   queryDocumentHierarchy,
 } from '../../shared/depthQueries';
 import { createDepthCommands } from '../../shared/depthCommands';
-import { selectRootDepth } from '../../shared/recursiveLayouts';
+import {
+  revealObject,
+  selectRootDepth,
+  setChildrenExpanded,
+} from '../../shared/recursiveLayouts';
 import type { Camera } from '../../shared/recursiveCamera';
 import type { SourceFile } from '../../shared/fileContract';
 import {
@@ -247,6 +251,10 @@ export default function useDocumentState(
   );
   const live = useRef(state);
   const fitCanvas = useRef<(() => void) | null>(null);
+  const focusCanvas = useRef<
+    | ((target: { collection: 'objects' | 'connections'; id: string }) => void)
+    | null
+  >(null);
   const busySources = useRef(new Set<string>());
   const instance = useRef(appInstanceId);
   instance.current = appInstanceId;
@@ -343,6 +351,42 @@ export default function useDocumentState(
     },
     [dispatch],
   );
+  const focusEntity = (
+    collection: 'objects' | 'connections' | 'bookmarks',
+    id: string,
+  ) => {
+    if (isBusy())
+      throw new Error('Finish the current edit or gesture before navigating.');
+    const doc = live.current.document;
+    if (!doc) throw new Error('No document is open.');
+    if (collection === 'bookmarks') {
+      const result = changeNamedView({ type: 'apply', id });
+      if (result.status === 'rejected') throw new Error(result.error);
+      return;
+    }
+    if (!Object.hasOwn(doc[collection], id))
+      throw new Error('Search target no longer exists.');
+    const result = transact((draft) => {
+      if (collection === 'objects') revealObject(id)(draft);
+      else {
+        const connection = draft.connections[id];
+        if (connection.ownerId !== null) {
+          revealObject(connection.ownerId)(draft);
+          setChildrenExpanded(connection.ownerId, true)(draft);
+        }
+        for (const endpoint of [connection.start, connection.end])
+          if (endpoint.kind !== 'free') revealObject(endpoint.objectId)(draft);
+      }
+    });
+    if (result?.status === 'rejected') throw new Error(result.error);
+    setCanvas((canvas) => ({
+      ...canvas,
+      tool: 'pointer',
+      selected: [`${collection === 'objects' ? 'object' : 'connection'}-${id}`],
+      selectedPoint: null,
+    }));
+    focusCanvas.current?.({ collection, id });
+  };
   const replace = useCallback(
     (
       update: RecursiveDocument | null,
@@ -447,10 +491,12 @@ export default function useDocumentState(
     editorQueries,
     editorCommand,
     fitCanvas,
+    focusCanvas,
     setCanvas,
     getContext,
     getHierarchy,
     changeNamedView,
+    focusEntity,
     setCamera,
     selectDepth,
     setDepth,

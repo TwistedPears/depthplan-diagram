@@ -131,3 +131,25 @@ recovery storage and never changes the manifest or board merely to remember a vi
 separately from live session handles. Opening a project grants no MCP folder
 access. Explicit saves, reloads, exports and unopened-board reads require local
 grants. Edits to loaded content follow the user's normal autosave policy.
+
+## Search project content
+
+Choose **Menu → Search Project…** to search every board's object names and rich
+text/code, connection labels and bookmark names, including hidden descendants.
+This is separate from the drawer's board-name filter. Open boards contribute
+accepted in-memory content, including unsaved changes; unopened boards are read
+and validated from disk without opening tabs or canvases. Unapplied drafts are
+not accepted content.
+
+Results group by board in project order and list objects, connections and
+bookmarks in stable ID order. Board paths and entity IDs distinguish duplicate
+names. Search stops at 500 results; narrow the query for more specific matches.
+**Stop search** retains partial results and ignores pending reads. Unreadable
+boards are reported alongside healthy matches. A single native read completes
+before its result can be ignored; no persistent search index is created.
+
+Tab to a result and press Enter to open and reveal its exact target. Searching
+itself does not change content, Undo history, selection or camera. Explicit reveal
+or bookmark application follows normal editor semantics and may add an Undo
+step. If membership, a live revision or an unopened source changed, repeat the
+search; stale results never select an entity by a similar name.

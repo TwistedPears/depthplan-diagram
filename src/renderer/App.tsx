@@ -503,6 +503,7 @@ function BoardWorkspace({
                 document={currentDocument}
                 stamp={editorStamp(owner)}
                 fitRef={owner.fitCanvas}
+                focusRef={owner.focusCanvas}
                 canvas={owner.canvas}
                 setCanvas={owner.setCanvas}
                 camera={camera}

@@ -14,6 +14,7 @@ import ProjectSettings from './ProjectSettings';
 import ProjectSaveIssue from './ProjectSaveIssue';
 import ProjectDefinitionActions from './ProjectDefinitionActions';
 import RecentProjects from './RecentProjects';
+import ProjectSearch from './ProjectSearch';
 import Icon from './Icon';
 import './ProjectNavigation.css';
 
@@ -80,6 +81,15 @@ export function ProjectMenu({
           <button
             disabled={busy}
             onClick={() => {
+              setDialog({ kind: 'search' });
+              onAction();
+            }}
+          >
+            Search Project…
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => {
               void standalone();
               onAction();
             }}
@@ -106,7 +116,7 @@ function ProjectForm({
 }: {
   action: Exclude<
     ProjectDialog,
-    { kind: 'settings' | 'saveIssue' | 'recents' }
+    { kind: 'settings' | 'saveIssue' | 'recents' | 'search' }
   >;
 }) {
   const workspace = useProjectWorkspace()!;
@@ -294,7 +304,12 @@ export default function ProjectNavigation({
                   <Icon name="bars" />
                 </summary>
                 <div className="project-empty-menu dropdown-menu">
-                  <ProjectMenu />
+                  <ProjectMenu
+                    onAction={() => {
+                      emptyMenu.current?.removeAttribute('open');
+                      emptyMenu.current?.querySelector('summary')?.focus();
+                    }}
+                  />
                   <AutomationControl
                     automation={automation}
                     onShowDetails={() => {
@@ -652,7 +667,9 @@ export default function ProjectNavigation({
           <button onClick={() => workspace.setError('')}>Dismiss</button>
         </div>
       )}
-      {workspace.dialog?.kind === 'saveIssue' ? (
+      {workspace.dialog?.kind === 'search' ? (
+        <ProjectSearch />
+      ) : workspace.dialog?.kind === 'saveIssue' ? (
         <ProjectSaveIssue boardId={workspace.dialog.boardId} />
       ) : workspace.dialog?.kind === 'settings' ? (
         <ProjectSettings />

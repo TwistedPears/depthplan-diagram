@@ -879,3 +879,227 @@ test('empty projects retain local MCP controls and project/access discovery with
     await request({ tool: 'depthplan_get_access', input: {} }),
   ).toMatchObject({ ok: true, data: { folders: [] } });
 });
+
+async function searchProject(query: string) {
+  if (!screen.queryByRole('dialog', { name: 'Search Project' })) {
+    await click('Menu');
+    await click('Search Project…');
+  }
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search content' }), {
+    target: { value: query },
+  });
+  fireEvent.submit(
+    screen
+      .getByRole('dialog', { name: 'Search Project' })
+      .querySelector('form')!,
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Stop search' }),
+    ).not.toBeInTheDocument(),
+  );
+}
+
+test('project search uses accepted dirty owners and unopened hidden content, labels and bookmarks without mounting canvases or editing', async () => {
+  project.manifest.autosave = false;
+  documents.b.objects.endpoint.content = [
+    { type: 'code', language: 'sql', text: 'needle query' },
+  ];
+  documents.c.objects.endpoint.content = [
+    {
+      type: 'paragraph',
+      runs: [{ text: 'needle query', marks: { bold: true } }],
+    },
+  ];
+  documents.b.connections.wire = {
+    id: 'wire',
+    ownerId: null,
+    kind: 'line',
+    z: 0,
+    start: { kind: 'free', x: 0, y: 0 },
+    end: { kind: 'free', x: 100, y: 100 },
+    label: 'needle label',
+  };
+  documents.b.namedViews = {
+    bookmark: {
+      id: 'bookmark',
+      name: 'needle bookmark',
+      rootDepths: { app: 2, payments: 0 },
+    },
+  };
+  await setup();
+  act(() => {
+    controller('a').owner.transact(
+      editObject('api', { name: 'needle unsaved' }),
+    );
+  });
+  const before = controller('a').owner.snapshot();
+  await searchProject('needle');
+  expect(
+    screen.getByRole('dialog', { name: 'Search Project' }),
+  ).toHaveTextContent('5 results · 3 of 3 boards searched');
+  expect(controller('a').owner.snapshot()).toEqual(before);
+  expect(registry.sessions).toHaveLength(1);
+  expect(screen.getAllByTestId('drawing-surface')).toHaveLength(1);
+  expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(3);
+  const group = screen.getByRole('region', { name: 'Same name, b.depthplan' });
+  expect(
+    within(group).getByRole('button', { name: /Connection · needle label/ }),
+  ).toBeInTheDocument();
+  expect(
+    within(group).getByRole('button', { name: /Bookmark · needle bookmark/ }),
+  ).toBeInTheDocument();
+  const target = within(group).getByRole('button', {
+    name: /Object · endpoint/,
+  });
+  target.focus();
+  expect(target).toHaveFocus();
+  await act(async () => {
+    fireEvent.click(target);
+  });
+  expect(registry.activeKey).toBe(key('b'));
+  expect(controller('b').owner.snapshot().canvas.selected).toEqual([
+    'object-endpoint',
+  ]);
+  expect(controller('b').owner.snapshot().document!.rootDepths.app).toBe(2);
+  expect(controller('b').owner.snapshot().canUndo).toBe(true);
+  expect(
+    screen.queryByRole('dialog', { name: 'Search Project' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('tab', { name: /Same name, b.depthplan/ }),
+  ).toHaveFocus();
+  expect(controller('a').owner.snapshot()).toEqual(before);
+});
+
+test('project search rejects stale accepted revisions and changed unopened fingerprints without selecting another same-name result', async () => {
+  project.manifest.autosave = false;
+  await setup();
+  await searchProject('endpoint');
+  act(() => {
+    controller('a').owner.transact(editObject('api', { name: 'later' }));
+  });
+  const a = screen.getByRole('region', { name: 'Overview, a.depthplan' });
+  await act(async () => {
+    fireEvent.click(within(a).getByRole('button'));
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Board changed since this search',
+  );
+  expect(controller('a').owner.snapshot().canvas.selected).toEqual([]);
+  (window.desktop.projects.readBoard as jest.Mock).mockImplementation(
+    async (_session, id) => {
+      const value = read(id);
+      value.board.source.fingerprint = 'changed';
+      value.board.fingerprint = 'changed';
+      return value;
+    },
+  );
+  const b = screen.getByRole('region', { name: 'Same name, b.depthplan' });
+  await act(async () => {
+    fireEvent.click(within(b).getByRole('button'));
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Board changed since this search',
+  );
+  expect(registry.activeKey).toBe(key('a'));
+  expect(controller('b').owner.snapshot().canvas.selected).toEqual([]);
+});
+
+test('project search reports missing boards/nonmatches and ignores a canceled pending read', async () => {
+  await setup();
+  (window.desktop.projects.readBoard as jest.Mock).mockImplementation(
+    async (_session, id) =>
+      id === 'b' ? { status: 'error', error: 'Board unavailable' } : read(id),
+  );
+  await searchProject('no matches');
+  expect(
+    screen.getByRole('dialog', { name: 'Search Project' }),
+  ).toHaveTextContent('0 results · 3 of 3 boards searched. Partial results');
+  expect(
+    screen.getByRole('region', { name: 'Unreadable boards' }),
+  ).toHaveTextContent('Board unavailable');
+  let release!: (value: ReturnType<typeof read>) => void;
+  (window.desktop.projects.readBoard as jest.Mock).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search content' }), {
+    target: { value: 'endpoint' },
+  });
+  fireEvent.submit(
+    screen
+      .getByRole('dialog', { name: 'Search Project' })
+      .querySelector('form')!,
+  );
+  await waitFor(() => expect(release).toBeDefined());
+  await click('Stop search');
+  await act(async () => {
+    release(read('b'));
+  });
+  expect(
+    screen.getByRole('dialog', { name: 'Search Project' }),
+  ).toHaveTextContent('Search stopped. These are partial results');
+  expect(
+    screen.queryByRole('region', { name: 'Same name, b.depthplan' }),
+  ).not.toBeInTheDocument();
+  expect(registry.sessions).toHaveLength(1);
+});
+
+test('project search activates connection and bookmark identities with existing navigation semantics', async () => {
+  documents.b.connections.wire = {
+    id: 'wire',
+    ownerId: null,
+    kind: 'line',
+    z: 0,
+    start: { kind: 'free', x: 0, y: 0 },
+    end: { kind: 'free', x: 100, y: 100 },
+    label: 'unique needle',
+  };
+  documents.b.namedViews = {
+    bookmark: {
+      id: 'bookmark',
+      name: 'unique view',
+      rootDepths: { app: 2, payments: 0 },
+    },
+  };
+  project.manifest.autosave = false;
+  await setup();
+  await searchProject('unique needle');
+  await click('Connection · unique needle unique needle wire');
+  expect(controller('b').owner.snapshot().canvas.selected).toEqual([
+    'connection-wire',
+  ]);
+  expect(controller('b').owner.snapshot().dirty).toBe(false);
+  await searchProject('unique view');
+  await click('Bookmark · unique view unique view bookmark');
+  expect(controller('b').owner.snapshot().document!.rootDepths.app).toBe(2);
+  expect(controller('b').owner.snapshot().canUndo).toBe(true);
+});
+
+test('project search caps results and stops reading further boards', async () => {
+  for (let i = 0; i < 501; i++) {
+    const id = `bounded-${String(i).padStart(3, '0')}`;
+    documents.b.objects[id] = {
+      ...clone(documents.b.objects.payments),
+      id,
+      name: id,
+    };
+    documents.b.rootDepths[id] = 0;
+    documents.b.layouts[id] = { 0: { [id]: documents.b.objects[id].geometry } };
+  }
+  await setup();
+  await searchProject('bounded');
+  expect(
+    screen.getByRole('dialog', { name: 'Search Project' }),
+  ).toHaveTextContent('Stopped at 500 results');
+  expect(
+    screen
+      .getByRole('region', { name: 'Same name, b.depthplan' })
+      .querySelectorAll('button'),
+  ).toHaveLength(500);
+  expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(2);
+  expect(registry.sessions).toHaveLength(1);
+});

@@ -129,10 +129,13 @@ export function entityCollection(
 }
 
 /** Yield compact matches without retaining document content or a search index. */
-function* searchItems(
+export function* searchItems(
   doc: RecursiveDocument,
-  args: z.infer<typeof searchInput>,
-  offset: number,
+  args: Pick<
+    z.infer<typeof searchInput>,
+    'query' | 'collection' | 'rootId' | 'subtreeId'
+  >,
+  offset = 0,
 ) {
   const hierarchy = indexHierarchy(doc.objects);
   const { visible, expanded } = recursiveVisibility(doc, hierarchy);

@@ -1,4 +1,5 @@
 import { projectAcceptance } from './native-project-acceptance.mjs';
+import { projectSearch } from './native-project-search.mjs';
 import { projectMcp } from './native-project-mcp.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
@@ -531,6 +532,7 @@ try {
   await projectNavigation(resumed);
   await projectMcp(resumed);
   await projectAcceptance(resumed);
+  await projectSearch(resumed);
   await projectWorkspace(resumed);
   resumed = await launchNative(profile);
   await projectPersistence(resumed);

@@ -18,6 +18,7 @@ import {
 import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
+  | { kind: 'search' }
   | { kind: 'recents' }
   | { kind: 'settings' }
   | { kind: 'saveIssue'; boardId: string }
@@ -324,7 +325,10 @@ function useProject() {
     return result.project;
   };
   const manage = (
-    kind: Exclude<ProjectDialog['kind'], 'settings' | 'saveIssue' | 'recents'>,
+    kind: Exclude<
+      ProjectDialog['kind'],
+      'settings' | 'saveIssue' | 'recents' | 'search'
+    >,
     name = '',
     path = '',
     boardId?: string,

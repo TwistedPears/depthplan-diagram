@@ -297,3 +297,11 @@ counts and reproduction information; failed fixtures remain for investigation.
 `npm run stress -- --cleanup run-XXXXXX` removes only that owned document and
 rejects redirected directories. It does not delete unrelated files. Keep generated
 fixtures and run records out of the repository's release documentation.
+
+The project capacity scenario also searches all 100 boards three times, expecting
+100 stable results, five existing owners and one canvas. It records full-search
+latency (5,000 ms ceiling), animation-frame gaps and cancellation latency (250 ms
+each). `native-project-search.mjs` covers hidden unopened targets, duplicate board
+names, search immutability, explicit reveal/Undo, focus and unchanged source files.
+Its focused semantic-button activation is WebView evidence; the embedded driver's
+synthetic keyboard actions do not implement native Enter button defaults.

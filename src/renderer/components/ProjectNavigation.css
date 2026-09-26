@@ -281,3 +281,21 @@
     right: 30px;
   }
 }
+
+.project-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.project-search-results button {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.project-search-results small {
+  color: var(--muted);
+}

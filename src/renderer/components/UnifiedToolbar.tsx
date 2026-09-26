@@ -87,6 +87,7 @@ function UnifiedToolbar({
 
   const closeDropdown = useCallback(() => {
     setOpenDropdown(null);
+    menuButton.current?.focus();
   }, []);
 
   // Keep MCP access available while document operations make the canvas inert.
