@@ -15,6 +15,7 @@ export default function useDocumentTransitions(
   files: ReturnType<typeof useDocumentFiles>,
   onStatus: (message: string) => void,
   leave?: (sessionId: string) => Promise<void>,
+  enabled = true,
 ) {
   const pending = useRef(false),
     drafts = useDrafts();
@@ -22,6 +23,7 @@ export default function useDocumentTransitions(
   const lastResult = useRef<FileActionResult | null>(null);
   const pointerHeld = useRef(false);
   useEffect(() => {
+    if (!enabled) return;
     const down = (event: PointerEvent) => {
       pointerHeld.current = event.target instanceof HTMLCanvasElement;
     };
@@ -36,7 +38,7 @@ export default function useDocumentTransitions(
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', up, true);
     };
-  }, []);
+  }, [enabled]);
   const resolveDrafts = async (access: TransitionAccess) => {
     for (;;) {
       const entry = [...(drafts?.values() ?? [])].find((item) =>
@@ -109,7 +111,7 @@ export default function useDocumentTransitions(
     owner.setBusy('closing', false);
   };
   const request = async (
-    kind: 'new' | 'open' | 'reload' | 'close' | 'restore',
+    kind: 'new' | 'open' | 'reload' | 'close' | 'prepare-close' | 'restore',
     install?: () => void,
     access: TransitionAccess = {},
   ) => {
@@ -124,11 +126,11 @@ export default function useDocumentTransitions(
     owner.setBusy('transition', true);
     let closing = false;
     try {
-      if (kind === 'close' || kind === 'restore') {
+      if (kind === 'close' || kind === 'prepare-close' || kind === 'restore') {
         if (!(await guard(access))) return false;
         if (access.permit?.() === false) return false;
         owner.setBusy('closing', true);
-        await leave?.(owner.snapshot().sessionId);
+        if (kind !== 'prepare-close') await leave?.(owner.snapshot().sessionId);
         if (kind === 'restore') {
           owner.setBusy('closing', false);
           install!();
@@ -162,6 +164,12 @@ export default function useDocumentTransitions(
     request,
     release,
     isPending: () => pending.current,
+    canDeactivate: () =>
+      !pointerHeld.current &&
+      [...(drafts?.values() ?? [])].every(
+        (entry) =>
+          !entry.current.active() || entry.current.canSuspend?.() !== false,
+      ),
     lastResult: () => lastResult.current,
   };
 }

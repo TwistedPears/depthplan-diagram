@@ -37,7 +37,7 @@ export default function RecursiveProperties({
   const initialValues = useRef<FormData | null>(null);
   useEffect(() => {
     const node = dialog.current!;
-    initialValues.current = new FormData(node.querySelector('form')!);
+    initialValues.current ??= new FormData(node.querySelector('form')!);
   }, []);
   const object = target.startsWith('object-')
     ? document.objects[target.slice(7)]

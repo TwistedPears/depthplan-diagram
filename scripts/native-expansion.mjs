@@ -53,6 +53,11 @@ export async function expansion(driver, probe) {
     } else await driver.click(label);
   };
   const pointer = async (type, point, ctrlKey = true) => {
+    // Geometry/listening update before Konva repaints its hit canvas.
+    if (type === 'mousedown')
+      await js(
+        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      );
     await sync(
       `const [type,p,ctrlKey]=arguments;
       document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{

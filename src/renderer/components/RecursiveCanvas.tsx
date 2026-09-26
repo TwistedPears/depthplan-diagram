@@ -17,6 +17,7 @@ import {
   useRef,
   useCallback,
   type Ref,
+  type ComponentProps,
   type Dispatch,
   type SetStateAction,
   type MouseEvent as ReactMouseEvent,
@@ -129,7 +130,9 @@ export default memo(function RecursiveCanvas({
   setCanvas,
   fitRef,
   stamp,
+  active = true,
 }: {
+  active?: boolean;
   fitRef: Ref<() => void>;
   canvas: CanvasState;
   setCanvas: Dispatch<SetStateAction<CanvasState>>;
@@ -283,6 +286,7 @@ export default memo(function RecursiveCanvas({
     onStatus,
   });
   const connector = useConnectionEditing({
+    active,
     document,
     scene,
     camera,
@@ -421,6 +425,7 @@ export default memo(function RecursiveCanvas({
   }, [onBusyChange, cancelConnector]);
   useDocumentDraft({
     label: 'canvas gesture or connector',
+    canSuspend: () => false,
     active: () => !!(gesture.current || draw || marquee || bridge),
     discard: () => {
       cancelDrag();
@@ -1051,7 +1056,8 @@ export default memo(function RecursiveCanvas({
       role="region"
       aria-label={`${document.metadata.title}, recursive diagram`}
     >
-      <Stage
+      <ActiveStage
+        active={active}
         ref={stageRef}
         listening={!animating}
         width={size.width}
@@ -1441,7 +1447,7 @@ export default memo(function RecursiveCanvas({
               );
             })()}
         </Layer>
-      </Stage>
+      </ActiveStage>
       {(rotationHover || gesture.current?.rotate) && (
         <div className="connection-editing-hint" role="status">
           {gesture.current?.rotate
@@ -1977,3 +1983,11 @@ export default memo(function RecursiveCanvas({
     </div>
   );
 });
+
+// Keep form/draft state in Activity, but release the inactive drawing surface.
+function ActiveStage({
+  active,
+  ...props
+}: ComponentProps<typeof Stage> & { active: boolean }) {
+  return active ? <Stage {...props} /> : null;
+}

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, type EditorState } from 'prosemirror-state';
 import PropertyColorPalette from './PropertyColorPalette';
 import Icon from './Icon';
 import { defaultTextStyle } from '../../shared/richContentLayout';
@@ -68,6 +68,7 @@ export default function RichTextEditor({
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const initial = useRef(content);
+  const retained = useRef<EditorState | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
   const [error, setError] = useState('');
@@ -79,7 +80,7 @@ export default function RichTextEditor({
   useLayoutEffect(() => {
     const state = richEditorState(initial.current);
     const editor = new EditorView(host.current!, {
-      state,
+      state: retained.current ?? state,
       nodeViews: { code: codeNodeView },
       attributes: {
         role: 'textbox',
@@ -140,9 +141,10 @@ export default function RichTextEditor({
     view.current = editor;
     reflectSelection();
     if (focusOnMount) {
-      editor.dispatch(
-        editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)),
-      );
+      if (!retained.current)
+        editor.dispatch(
+          editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)),
+        );
       editor.focus();
     }
     const history = (event: Event) => {
@@ -156,6 +158,7 @@ export default function RichTextEditor({
     host.current!.addEventListener('editor-history', history);
     const node = host.current!;
     return () => {
+      retained.current = editor.state;
       node.removeEventListener('editor-history', history);
       view.current = null;
       editor.destroy();
