@@ -5,7 +5,10 @@ const child = spawnSync(
     ...(process.argv.includes('--test')
       ? ['test', '--lib']
       : ['build', '--features', 'automation,custom-protocol', '--bins']),
-    ...(process.argv.includes('--release') ? ['--release'] : []),
+    ...((process.argv.includes('--test') && process.platform === 'linux') ||
+    process.argv.includes('--release')
+      ? ['--release']
+      : []),
     '--manifest-path',
     'src-tauri/Cargo.toml',
     '--locked',
