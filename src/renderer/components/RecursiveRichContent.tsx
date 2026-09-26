@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { Group, Text, Line } from 'react-konva';
 import { type RichBlock, validLink } from '../../shared/recursiveDocument';
 import { layoutRichContent, textFont } from '../../shared/richContentLayout';
+import type { TextExclusion } from '../../shared/objectContentBounds';
 let context: CanvasRenderingContext2D | null = null;
 export default memo(function RecursiveRichContent({
   content,
@@ -9,6 +10,7 @@ export default memo(function RecursiveRichContent({
   y,
   width,
   height,
+  exclusion,
   onError,
 }: {
   content: RichBlock[];
@@ -16,8 +18,15 @@ export default memo(function RecursiveRichContent({
   y: number;
   width: number;
   height: number;
+  exclusion?: TextExclusion;
   onError: (message: string) => void;
 }) {
+  const {
+    side,
+    width: exclusionWidth = 0,
+    top = 0,
+    bottom = 0,
+  } = exclusion ?? {};
   const layout = useMemo(() => {
     context ??= document.createElement('canvas').getContext('2d')!;
     return layoutRichContent(
@@ -28,8 +37,9 @@ export default memo(function RecursiveRichContent({
         return context!.measureText(text).width;
       },
       height,
+      side ? { side, width: exclusionWidth, top, bottom } : undefined,
     );
-  }, [content, width, height]);
+  }, [content, width, height, side, exclusionWidth, top, bottom]);
   return (
     <Group
       name="object-content"

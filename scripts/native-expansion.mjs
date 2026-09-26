@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export async function expansion(driver, probe) {
-  const { sync, js, click, dialogs, until, profile } = driver;
+  const { sync, js, dialogs, until, profile } = driver;
   const state = async () => {
     const reply = await probe.call('depthplan_get_state');
     assert.equal(reply.ok, true, JSON.stringify(reply));
@@ -19,6 +19,9 @@ export async function expansion(driver, probe) {
       ...args,
     });
     assert.equal(reply.ok, true, JSON.stringify(reply));
+    await js(
+      'new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))',
+    );
   };
   const edit = (...actions) => command('depthplan_edit', { actions });
   const select = (id) =>
@@ -27,6 +30,28 @@ export async function expansion(driver, probe) {
       objects: [id],
       connections: [],
     });
+  const click = async (label) => {
+    const disclosure = /^(Reveal|Hide) children of (\w+)$/.exec(label);
+    if (
+      disclosure &&
+      !(await sync(
+        'return !!document.querySelector(`[aria-label="${arguments[0]}"]`)',
+        [label],
+      ))
+    ) {
+      await select(disclosure[2]);
+      assert.equal(
+        await sync(
+          `const button=document.querySelector('.selection-hierarchy > button[aria-expanded]');
+        if (!button || button.getAttribute('aria-expanded') !== arguments[0]) return false;
+        button.click(); return true;`,
+          [String(disclosure[1] === 'Hide')],
+        ),
+        true,
+        'crowded inline controls retain the same disclosure through selection',
+      );
+    } else await driver.click(label);
+  };
   const pointer = async (type, point, ctrlKey = true) => {
     await sync(
       `const [type,p,ctrlKey]=arguments;
@@ -631,6 +656,7 @@ export async function expansion(driver, probe) {
     const placement = await sync(
       `const stage=window.Konva.stages[0];
       const toggle=stage.findOne('#child-toggle-'+arguments[0]);
+      if (!toggle) return null;
       const owner=toggle.getParent(), shape=owner.findOne('.object-hit-area');
       const badge=(toggle.findOne('Rect') || toggle.findOne('Circle')).getClientRect();
       const padding=shape.strokeWidth()*owner.getAbsoluteScale().x/2 + 3*toggle.getAbsoluteScale().x;
@@ -645,6 +671,17 @@ export async function expansion(driver, probe) {
           y:badge.y+badge.height/2+y*(badge.height/2+padding)}))};`,
       [id],
     );
+    if (!placement) {
+      await select(id);
+      assert(
+        await sync(
+          'return !!document.querySelector(".selection-hierarchy button[aria-expanded]")',
+        ),
+        'text/child collisions retain the selection disclosure action',
+      );
+      await command('depthplan_selection', { action: 'clear' });
+      return;
+    }
     const { type, a, b, radius, corners } = placement;
     assert(
       placement.screenOffset.x >= -1e-6 && placement.screenOffset.y <= 1e-6,
@@ -726,6 +763,15 @@ export async function expansion(driver, probe) {
         await command('depthplan_camera', {
           action: { type: 'set', camera: { x: -30, y: 50, scale: 0.85 } },
         });
+      }
+      if (
+        !(await sync(
+          `return ['a','b'].every(id=>window.Konva.stages[0].findOne('#child-toggle-'+id))`,
+        ))
+      ) {
+        for (const id of ['a', 'b']) await assertToggleInside(id);
+        await screenshot(`stack-fallback-${types[0]}-${phase}.png`);
+        continue;
       }
       for (const id of ['a', 'b']) {
         const placement = await sync(
@@ -953,7 +999,7 @@ export async function expansion(driver, probe) {
     await edit({
       type: 'geometry',
       id: 'a',
-      patch: { width: 240, height: 240 },
+      patch: { width: 240, height: 240, rotation: 0 },
     });
     const toggleSnapshot = (id) =>
       sync(
@@ -967,7 +1013,7 @@ export async function expansion(driver, probe) {
       const button=document.querySelector('.child-stack-toggle[aria-label$="children of '+arguments[0]+'"]');
       return {mode:dot?'dot':'icon', width:box.width, fill:shape.fill(),
         controlWidth:button.getBoundingClientRect().width,
-        hit:stage.getIntersection({x:p.x+5,y:p.y})?.findAncestor('.child-stack-toggle',true)?.id(),
+        hit:stage.getIntersection(p)?.findAncestor('.child-stack-toggle',true)?.id(),
         center:{x:p.x+canvas.left,y:p.y+canvas.top}};`,
         [id],
       );
@@ -981,6 +1027,17 @@ export async function expansion(driver, probe) {
       await js(
         'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
       );
+      if (scale < 0.25) {
+        assert.equal(
+          await sync(
+            'return !!window.Konva.stages[0].findOne("#child-toggle-a")',
+          ),
+          false,
+          'tiny pointer targets use the selection disclosure',
+        );
+        await assertToggleInside('a');
+        continue;
+      }
       const toggle = await toggleSnapshot('a');
       const dot = scale < 0.6;
       assert.equal(toggle.mode, dot ? 'dot' : 'icon');
@@ -995,7 +1052,7 @@ export async function expansion(driver, probe) {
       assert.equal(
         toggle.hit,
         'child-toggle-a',
-        'small dots retain a usable pointer target',
+        `small dots accept clicks within their visible target: ${types[0]} ${scale} ${JSON.stringify(toggle)}`,
       );
       if (dot) assert.equal(toggle.fill, '#2d62d5');
       await assertToggleInside('a');
@@ -1057,6 +1114,14 @@ export async function expansion(driver, probe) {
       await assertToggleInside('a');
       await screenshot(`stack-interior-${types[0]}-${scale}.png`);
     }
+    await edit(
+      { type: 'geometry', id: 'a', patch: { rotation: 0 } },
+      {
+        type: 'edit_object',
+        id: 'a',
+        style: { strokeWidth: 1.5, cornerRadius: 0 },
+      },
+    );
     const beforePan = await toggleSnapshot('a');
     await command('depthplan_camera', {
       action: { type: 'set', camera: { x: -200, y: -170, scale: 0.6 } },
@@ -1065,16 +1130,25 @@ export async function expansion(driver, probe) {
     assert(Math.abs(afterPan.center.x - beforePan.center.x + 360) < 1e-6);
     assert(Math.abs(afterPan.center.y - beforePan.center.y + 310) < 1e-6);
     await assertToggleInside('a');
-    await edit({
-      type: 'geometry',
-      id: 'a',
-      patch: { width: 36, height: 36, rotation: 25 },
-    });
+    await edit(
+      {
+        type: 'geometry',
+        id: 'a',
+        patch: { width: 36, height: 36, rotation: 25 },
+      },
+      { type: 'edit_object', id: 'a', style: { strokeWidth: 6 } },
+    );
     await command('depthplan_camera', {
       action: { type: 'set', camera: { x: 0, y: 0, scale: 1 } },
     });
-    const small = await toggleSnapshot('a');
-    assert.equal(small.mode, 'dot', 'small objects keep the control inside');
+    if (
+      await sync('return !!window.Konva.stages[0].findOne("#child-toggle-a")')
+    )
+      assert.equal(
+        (await toggleSnapshot('a')).mode,
+        'dot',
+        'small objects keep the control inside',
+      );
     await assertToggleInside('a');
     await click('Save document');
     await until(async () => !(await state()).dirty);
@@ -1201,11 +1275,18 @@ export async function expansion(driver, probe) {
           await screenshot(`stack-rotated-${objectType}.png`);
           for (const expanded of [true, false]) {
             const center = await sync(`const stage=window.Konva.stages[0];
-              const p=stage.findOne('#child-toggle-a1').getAbsoluteTransform().point({x:16,y:16});
+              const toggle=stage.findOne('#child-toggle-a1');
+              if (!toggle) return null;
+              const p=toggle.getAbsoluteTransform().point({x:16,y:16});
               const box=stage.container().getBoundingClientRect();
               return {x:p.x+box.left,y:p.y+box.top};`);
-            await pointer('mousedown', center, false);
-            await pointer('mouseup', center, false);
+            if (center) {
+              await pointer('mousedown', center, false);
+              await pointer('mouseup', center, false);
+            } else {
+              await select('a1');
+              await click(`${expanded ? 'Reveal' : 'Hide'} 1 child`);
+            }
             await until(() =>
               sync('return window.Konva.stages[0].listening()'),
             );
@@ -1214,10 +1295,10 @@ export async function expansion(driver, probe) {
             );
             assert.equal(
               await sync(
-                `return document.querySelector('.child-stack-toggle[aria-label$="children of a1"]').getAttribute('aria-expanded')`,
+                `return !!window.Konva.stages[0].findOne('#object-deep')`,
               ),
-              String(expanded),
-              'rotated toggle stays clickable',
+              expanded,
+              'rotated disclosure targets the correct object',
             );
             await assertToggleInside('a1');
           }

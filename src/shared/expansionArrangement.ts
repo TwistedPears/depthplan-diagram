@@ -2,9 +2,10 @@ import type { Geometry, RecursiveDocument } from './recursiveDocument';
 import { indexHierarchy, toWorldGeometry } from './recursiveHierarchy';
 import { geometryBounds, unionBounds, type Bounds } from './recursiveCamera';
 import { recursiveVisibility } from './recursiveVisibility';
+import { CHILD_CONTROL_SPACE } from './objectContentBounds';
 
 const GAP = 24;
-const TITLE_SPACE = 36;
+const TITLE_SPACE = CHILD_CONTROL_SPACE + 4;
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const overlaps = (a: Bounds, b: Bounds) =>
   a.x < b.x + b.width + GAP &&

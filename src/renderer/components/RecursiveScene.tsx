@@ -12,6 +12,10 @@ import {
 } from '../../shared/connectionGeometry';
 import RecursiveRichContent from './RecursiveRichContent';
 import ObjectOutline from './ObjectOutline';
+import {
+  objectContentBounds,
+  type TextExclusion,
+} from '../../shared/objectContentBounds';
 
 // Position and child layout changes do not rebuild unchanged shape contents.
 const ObjectContent = memo(function ObjectContent({
@@ -19,6 +23,8 @@ const ObjectContent = memo(function ObjectContent({
   width,
   height,
   expanded,
+  hasChildren,
+  exclusion,
   editingText,
   onError,
 }: {
@@ -26,6 +32,8 @@ const ObjectContent = memo(function ObjectContent({
   width: number;
   height: number;
   expanded: boolean;
+  hasChildren: boolean;
+  exclusion?: TextExclusion;
   editingText: boolean;
   onError: (message: string) => void;
 }) {
@@ -49,23 +57,19 @@ const ObjectContent = memo(function ObjectContent({
           ? [2, 4]
           : [],
   };
-  const inset =
-    object.type === 'ellipse' ? 0.15 : object.type === 'diamond' ? 0.25 : 0;
-  const textX = Math.max(6, width * inset),
-    textY = Math.max(4, height * inset);
-  const textWidth = Math.max(1, width - textX * 2),
-    textHeight = Math.max(1, height - textY * 2);
-  const titleHeight = object.name ? 24 : 0;
+  const { title, body } = objectContentBounds(
+    object,
+    width,
+    height,
+    hasChildren,
+  );
   return (
     <>
       <ObjectOutline object={object} geometry={geometry} {...shapeProps} />
-      {object.name && (
+      {object.name && title.width > 0 && title.height > 0 && (
         <Text
           name="object-label"
-          x={-width / 2 + textX}
-          y={-height / 2 + textY}
-          width={textWidth}
-          height={Math.min(20, textHeight)}
+          {...title}
           text={object.name}
           fontSize={13}
           fill="#0f172a"
@@ -76,13 +80,12 @@ const ObjectContent = memo(function ObjectContent({
       )}
       {!expanded &&
         object.content.length > 0 &&
-        textHeight > titleHeight + 10 &&
+        body.width > 0 &&
+        body.height > 10 &&
         !editingText && (
           <RecursiveRichContent
-            x={-width / 2 + textX}
-            y={-height / 2 + textY + titleHeight}
-            width={textWidth}
-            height={textHeight - titleHeight}
+            {...body}
+            exclusion={exclusion}
             content={object.content}
             onError={onError}
           />
@@ -99,6 +102,7 @@ export default memo(function RecursiveScene({
   onError,
   renderBoundaryPoints,
   renderChildrenToggle,
+  textExclusions,
   editingTextId,
   liftedIds,
   editingConnectionLabel,
@@ -109,6 +113,7 @@ export default memo(function RecursiveScene({
   onError: (message: string) => void;
   renderBoundaryPoints?: (id: string) => ReactNode;
   renderChildrenToggle?: (id: string) => ReactNode;
+  textExclusions?: ReadonlyMap<string, TextExclusion>;
   editingTextId?: string | null;
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
@@ -189,6 +194,8 @@ export default memo(function RecursiveScene({
           width={width}
           height={height}
           expanded={expanded}
+          hasChildren={scene.hierarchy.children.has(id)}
+          exclusion={textExclusions?.get(id)}
           editingText={editingTextId === id}
           onError={onError}
         />
