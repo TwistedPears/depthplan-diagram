@@ -207,7 +207,7 @@ export async function connectors(driver, probe) {
     document.objects.b.boundaryPoints,
   );
   handle = await endHandle();
-  // Hosted macOS can clamp a requested 900px window to a 677px viewport.
+  // Hosted macOS can clamp the window below its requested height.
   // Stay clear of both the bottom toolbar and the diamond's snap radius.
   const free = await sync(
     'return {x:Math.min(1200,innerWidth-40),y:Math.min(720,innerHeight-130)}',
@@ -539,12 +539,11 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await endHandle(), { x: 808, y: 420 });
   handle = await endHandle();
   await pointer('mousedown', handle.x, handle.y);
-  await pointer('mousemove', 1120, 650);
-  await pointer('mouseup', 1120, 650);
+  await pointer('mousemove', free.x, free.y);
+  await pointer('mouseup', free.x, free.y);
   assert.deepEqual((await save()).connections[direct].end, {
     kind: 'free',
-    x: 1120,
-    y: 650,
+    ...free,
   });
   await click('Undo');
   assert.deepEqual((await save()).connections[direct], attachment);

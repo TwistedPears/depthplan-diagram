@@ -79,6 +79,10 @@ TAURI_CONFIG='{"bundle":{"active":false,"externalBin":[],"resources":[]}}' \
   cargo run --manifest-path src-tauri/Cargo.toml --locked --example runtime_handle_stress
 ```
 
+The application's `build.rs` also embeds Common Controls v6 in examples, which
+Tauri's normal binary resource handling does not cover. Without it, the Windows
+loader exits before this regression runs ([Tauri #11028](https://github.com/tauri-apps/tauri/issues/11028)).
+
 The native integration suite also requires a clean process exit after authoring.
 Keep both checks. Remove this crate and its Cargo patch when a compatible
 published Tauri runtime passes them without the patch. Review upstream changes
