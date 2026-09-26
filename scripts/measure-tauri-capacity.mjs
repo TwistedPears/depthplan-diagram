@@ -6,7 +6,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
-import { launchNative } from './native-driver.mjs';
+import { clickToPaint, launchNative } from './native-driver.mjs';
 import client from './mcp/native-client.cjs';
 
 // Full capacity matrix with fixed generator settings, repetitions and budgets.
@@ -242,12 +242,8 @@ for (const [name, settings] of Object.entries(cases)) {
     driver.js(
       'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))',
     );
-  const button = (label) =>
-    `Array.from(document.querySelectorAll('button')).find(b=>b.getAttribute('aria-label')===${JSON.stringify(label)}||b.textContent.trim()===${JSON.stringify(label)}||b.title===${JSON.stringify(label)})`;
   const click = async (label, metric) => {
-    const ms = await driver.js(
-      `new Promise((resolve,reject)=>{const b=${button(label)};if(!b||b.disabled)return reject(new Error('Missing/disabled button '+${JSON.stringify(label)}));const start=performance.now();b.click();requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(performance.now()-start)))})`,
-    );
+    const ms = await clickToPaint(driver, label);
     if (metric) record(metric, ms);
   };
   const fill = (selector, value) =>

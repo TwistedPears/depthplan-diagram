@@ -39,10 +39,15 @@ export async function authoring(driver, probe) {
     ...document,
     metadata: { ...document.metadata, modified: null },
   });
-  const bookmarkOrder = () =>
-    sync(
+  const bookmarkOrder = async () => {
+    // MCP acknowledges state before React finishes rendering the bookmark list.
+    await driver.js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
+    return sync(
       `return [...document.querySelectorAll('.bookmark-item')].map(button=>button.dataset.bookmarkId)`,
     );
+  };
 
   for (const [name, view, route] of [
     ['depthplan_application_tour', 'implementation', 'dispatch-to-guard'],

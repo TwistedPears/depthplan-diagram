@@ -3,6 +3,13 @@ import { spawn } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+export const clickToPaint = (driver, label) =>
+  driver.js(
+    'new Promise((resolve,reject)=>{const label=arguments[0];const b=Array.from(document.querySelectorAll("button")).find(b=>b.getAttribute("aria-label")===label||b.textContent.trim()===label||b.title===label);if(!b||b.disabled)return reject(new Error("Missing/disabled button "+label));const start=performance.now();b.click();requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(performance.now()-start)))})',
+    [label],
+  );
+
 export async function launchNative(existingProfile, fileArguments = []) {
   const binary = path.resolve(
     process.env.DEPTHPLAN_EXECUTABLE ||
