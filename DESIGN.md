@@ -260,7 +260,9 @@ Ordinary movement has no parent highlight. A 400ms hover over a different shape 
 
 ### Panels and Dialogs
 
-Bookmarks, depth, alignment, automation, and properties reuse white bordered containers. Keep contextual panels anchored to their controls and let long contents scroll. Detailed Properties stays within the selection sidebar, with bounded height and reachable Apply and Cancel actions. Other dialogs use the dialog spacing token. Preserve the distinction between local document operations and optional local automation in visible copy.
+Bookmarks, depth, alignment, automation, and properties reuse white bordered containers. Keep contextual panels anchored to their controls and let long contents scroll. Detailed Properties stays within the selection sidebar, with bounded height and reachable Apply and Cancel actions. Preserve the distinction between local document operations and optional local automation in visible copy.
+
+All app modal dialogs use `FormDialog`: a titled header with a short description and close button, stacked full-width fields, and a separated action footer. Export Image, Rename Bookmark, Item Link, Delete Subtree, Recovery, and MCP Details share this layout. Standard dialogs are 440px wide; MCP Details uses 560px and Recovery uses 660px, all bounded by the viewport. Long content scrolls between the header and footer so actions remain reachable. Primary actions use Instrument Blue; destructive confirmation uses Error Red. Keep validation and operation errors inside the dialog. Busy recovery operations disable dismissal. The native dialog handles modal focus and Escape; close it before unmounting to restore focus to its opener. Rename and link dialogs focus their first field. Native file pickers and system save/discard prompts retain their platform styling.
 
 ## Do's and Don'ts
 

@@ -1,6 +1,7 @@
 import { flushSync } from 'react-dom';
 import useDocumentDraft from '../hooks/useDocumentDraft';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import FormDialog from './FormDialog';
 import type {
   RecoveryCandidate,
   RecoveryEntry,
@@ -21,7 +22,6 @@ export default function RecoveryChoices({
     active: () => open,
     discard: () => setOpen(false),
   });
-  const dialog = useRef<HTMLDialogElement>(null);
   const discover = useCallback(
     async (show = true) => {
       try {
@@ -48,10 +48,6 @@ export default function RecoveryChoices({
     setOpen(false);
     void discover(false);
   }, [discover]);
-  useEffect(() => {
-    if (open) dialog.current?.showModal();
-    else dialog.current?.close();
-  }, [open]);
   const choose = async (entry: RecoveryEntry, restore: boolean) => {
     setBusy(true);
     let prepared = false;
@@ -90,66 +86,62 @@ export default function RecoveryChoices({
       >
         Recovery ({entries.length})
       </button>
-      <dialog
-        ref={dialog}
-        aria-label="Recover unsaved work"
-        onCancel={(event) => {
-          event.preventDefault();
-          if (!busy) setOpen(false);
-        }}
-        style={{ maxWidth: 660, maxHeight: '80vh' }}
-      >
-        <h2>Recover unsaved work</h2>
-        <p>
-          Restore opens a new unsaved document. Discard permanently removes only
-          the selected recovery entry.
-        </p>
-        {warnings.map((message) => (
-          <p role="status" key={message}>
-            {message}
-          </p>
-        ))}
-        {!entries.length && <p>No recoverable work found.</p>}
-        {entries.map((entry) => (
-          <section
-            key={entry.id}
-            aria-label={entry.title}
-            style={{ borderTop: '1px solid #ccc', padding: '12px 0' }}
-          >
-            <h3>{entry.title}</h3>
-            <p>
-              {entry.sourcePath ?? 'Never saved to a file'}
-              <br />
-              {new Date(entry.capturedAt).toLocaleString()} · revision{' '}
-              {entry.revision}
+      {open && (
+        <FormDialog
+          title="Recover unsaved work"
+          description="Restore opens a new unsaved document. Discard permanently removes only the selected recovery entry."
+          className="recovery-dialog"
+          onCancel={() => setOpen(false)}
+          cancelLabel="Continue without restoring"
+          cancelDisabled={busy}
+        >
+          {warnings.map((message) => (
+            <p role="status" key={message}>
+              {message}
             </p>
-            <small>
-              Session {entry.sessionId} · App {entry.instanceId}
-            </small>
-            <div>
-              <button
-                disabled={busy}
-                onClick={() => {
-                  void choose(entry, true);
-                }}
-              >
-                Restore
-              </button>{' '}
-              <button
-                disabled={busy}
-                onClick={() => {
-                  void choose(entry, false);
-                }}
-              >
-                Discard
-              </button>
-            </div>
-          </section>
-        ))}
-        <button disabled={busy} onClick={() => setOpen(false)}>
-          Continue without restoring
-        </button>
-      </dialog>
+          ))}
+          {!entries.length && <p>No recoverable work found.</p>}
+          {entries.map((entry) => (
+            <section
+              key={entry.id}
+              aria-label={entry.title}
+              className="form-dialog-section"
+            >
+              <h3>{entry.title}</h3>
+              <p>
+                {entry.sourcePath ?? 'Never saved to a file'}
+                <br />
+                {new Date(entry.capturedAt).toLocaleString()} · revision{' '}
+                {entry.revision}
+              </p>
+              <small>
+                Session {entry.sessionId} · App {entry.instanceId}
+              </small>
+              <div className="form-dialog-inline-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    void choose(entry, true);
+                  }}
+                >
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void choose(entry, false);
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
+            </section>
+          ))}
+        </FormDialog>
+      )}
     </>
   );
 }

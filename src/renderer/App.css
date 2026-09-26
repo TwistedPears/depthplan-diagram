@@ -577,35 +577,25 @@ kbd {
   font-size: 13px;
   color: var(--danger);
 }
-.automation-dialog {
+.form-dialog.automation-dialog {
   width: 560px;
-  max-height: calc(100vh - 36px);
-  overflow: auto;
-  scrollbar-color: var(--line) var(--surface);
 }
-.automation-heading {
+.automation-folder {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-}
-.automation-dialog p {
-  font-size: 13px;
-}
-.automation-dialog > button {
-  margin-bottom: 12px;
-}
-.automation-dialog label {
-  display: block;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .automation-dialog code {
   overflow-wrap: anywhere;
+  min-width: 0;
 }
-.automation-dialog textarea,
-.automation-dialog input {
-  width: 100%;
-  margin: 6px 0;
+.automation-folder button {
+  flex-shrink: 0;
+}
+.form-dialog.recovery-dialog {
+  width: 660px;
 }
 .recovery-control {
   position: absolute;
@@ -637,33 +627,130 @@ dialog {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 24px;
   max-width: calc(100vw - 32px);
 }
 dialog::backdrop {
   background: #14233e45;
 }
-dialog h2 {
-  margin-bottom: 16px;
-}
-dialog fieldset {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 14px;
-  min-width: 0;
-}
-dialog legend {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 0 6px;
-}
-dialog fieldset p {
-  font-size: 12px;
-  color: var(--muted);
-}
 dialog label {
   font-size: 13px;
   line-height: 1.6;
+}
+.form-dialog {
+  width: 440px;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  scrollbar-color: var(--line) var(--surface);
+}
+.form-dialog > form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+}
+.form-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+  flex-shrink: 0;
+}
+.form-dialog-header > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.form-dialog-header h2 {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.form-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.form-dialog-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  padding: 8px;
+  border-color: transparent;
+}
+.form-dialog-fields {
+  display: grid;
+  gap: 16px;
+  padding: 0 24px 24px;
+  min-height: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.form-dialog-fields p {
+  margin: 0;
+  font-size: 13px;
+}
+.form-dialog-fields [role='alert'] {
+  color: var(--danger);
+}
+.form-dialog-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.form-dialog-section h3 {
+  margin: 0;
+}
+.form-dialog-section > button {
+  justify-self: start;
+}
+.form-dialog-section small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.form-dialog-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.form-dialog-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.form-dialog-field select,
+.form-dialog-field input:not([type='checkbox'], [type='radio']),
+.form-dialog-field textarea {
+  width: 100%;
+}
+.form-dialog-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.form-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.form-dialog-actions button {
+  min-height: 38px;
+  padding-inline: 14px;
+}
+.danger-button {
+  background: var(--danger);
+  border-color: transparent;
+  color: var(--surface);
+}
+.danger-button:hover:not(:disabled),
+.danger-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--danger), var(--ink) 20%);
 }
 .properties-panel {
   width: 100%;

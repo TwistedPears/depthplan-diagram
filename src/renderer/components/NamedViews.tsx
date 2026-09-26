@@ -1,4 +1,5 @@
 import Icon from './Icon';
+import FormDialog from './FormDialog';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
@@ -255,6 +256,9 @@ export default function NamedViews({
                 );
                 return;
               }
+              setNotice('');
+              bookmarks.current!.open = false;
+              bookmarks.current!.querySelector('summary')?.focus();
               setNaming({ id: context.id, name: views[context.id].name });
             }}
           >
@@ -290,6 +294,7 @@ export default function NamedViews({
         <BookmarkName
           key={naming.id}
           initial={naming.name}
+          error={notice}
           onBusy={onBusy}
           onCancel={() => setNaming(null)}
           onSave={(value) => {
@@ -305,60 +310,53 @@ export default function NamedViews({
 }
 function BookmarkName({
   initial,
+  error,
   onBusy,
   onSave,
   onCancel,
 }: {
   initial: string;
+  error: string;
   onBusy: (source: string, busy: boolean) => void;
   onSave: (name: string) => void;
   onCancel: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(initial);
+  const save = () => {
+    if (name.trim()) onSave(name);
+  };
   useDocumentDraft({
     label: 'bookmark name',
     active: () => true,
-    apply: () => dialog.current!.querySelector('form')!.requestSubmit(),
+    apply: save,
     discard: onCancel,
   });
   useEffect(() => {
-    const node = dialog.current!;
-    node.showModal();
     onBusy('bookmark-name', true);
-    return () => {
-      node.close();
-      onBusy('bookmark-name', false);
-    };
+    return () => onBusy('bookmark-name', false);
   }, [onBusy]);
   return (
-    <dialog
-      ref={dialog}
-      aria-label="Name bookmark"
-      data-document-editor
+    <FormDialog
+      title="Rename bookmark"
+      description="Give this saved view a name that's easy to find."
+      initialFocus={input}
+      onSubmit={save}
+      submitLabel="Save bookmark"
+      submitDisabled={!name.trim()}
       onCancel={onCancel}
     >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (name.trim()) onSave(name);
-        }}
-      >
-        <label>
-          Bookmark name{' '}
-          <input
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={!name.trim()}>
-          Save bookmark
-        </button>
-        <button type="button" onClick={onCancel}>
-          Cancel
-        </button>
-      </form>
-    </dialog>
+      <label className="form-dialog-field">
+        <span>Bookmark name</span>
+        <input
+          ref={input}
+          required
+          value={name}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+      {error && <p role="alert">{error}</p>}
+    </FormDialog>
   );
 }
