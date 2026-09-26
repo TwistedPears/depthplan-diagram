@@ -19,3 +19,4 @@ src-tauri/binaries
 
 # Preserve the upstream vendored crate verbatim.
 src-tauri/vendor/glib-0.18.5
+src-tauri/vendor/tauri-runtime-wry-2.11.4

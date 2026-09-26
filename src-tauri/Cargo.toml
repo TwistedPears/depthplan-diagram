@@ -60,3 +60,5 @@ png = "0.18.1"
 # Backport RUSTSEC-2024-0429 while Tauri requires the GLib 0.18 API.
 [patch.crates-io]
 glib = { path = "vendor/glib-0.18.5" }
+# Keep the Windows event-loop target on its owner thread (tauri#15408).
+tauri-runtime-wry = { path = "vendor/tauri-runtime-wry-2.11.4" }

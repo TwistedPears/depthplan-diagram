@@ -79,7 +79,9 @@ export async function connectors(driver, probe) {
   const pointer = async (type, x, y, modifiers = {}) => {
     await sync(
       `const [type,x,y,modifiers]=arguments;
-      document.elementFromPoint(x,y).dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
+      const target=document.elementFromPoint(x,y);
+      if(!target)throw new Error('Pointer '+x+','+y+' outside viewport '+innerWidth+'x'+innerHeight);
+      target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
       [type, x, y, modifiers],
     );
     await js(
@@ -205,13 +207,17 @@ export async function connectors(driver, probe) {
     document.objects.b.boundaryPoints,
   );
   handle = await endHandle();
+  // Hosted macOS can clamp a requested 900px window to a 677px viewport.
+  // Stay clear of both the bottom toolbar and the diamond's snap radius.
+  const free = await sync(
+    'return {x:Math.min(1200,innerWidth-40),y:Math.min(720,innerHeight-130)}',
+  );
   await pointer('mousedown', handle.x, handle.y);
-  await pointer('mousemove', 1150, 720);
-  await pointer('mouseup', 1150, 720);
+  await pointer('mousemove', free.x, free.y);
+  await pointer('mouseup', free.x, free.y);
   assert.deepEqual((await save()).connections.legacy.end, {
     kind: 'free',
-    x: 1150,
-    y: 720,
+    ...free,
   });
 
   // A preferred point returns after the shapes move back into view of each other.
