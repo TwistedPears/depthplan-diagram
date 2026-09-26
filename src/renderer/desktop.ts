@@ -1,8 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { createRecursiveDocument } from '../shared/recursiveDocument';
+import {
+  createRecursiveDocument,
+  validateRecursiveDocument,
+} from '../shared/recursiveDocument';
 import type { RecursiveDocument } from '../shared/recursiveDocument';
 import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
+import { validateProjectManifest } from '../shared/projectContract';
+import type {
+  ProjectAction,
+  ProjectBoard,
+  ProjectSnapshot,
+} from '../shared/projectContract';
 import type {
   FileCandidate,
   FileResult,
@@ -59,7 +68,46 @@ const menuChannels = [
 ] as const;
 export type Channels = (typeof menuChannels)[number];
 
+async function projectCall(
+  method: string,
+  ...args: unknown[]
+): Promise<FileResult<{ project: ProjectSnapshot }>> {
+  const result = await native<FileResult<{ project: ProjectSnapshot }>>(
+    method,
+    ...args,
+  );
+  if (result.status === 'success')
+    validateProjectManifest(result.project.manifest);
+  return result;
+}
+
 const desktopHandler = {
+  projects: {
+    create: (name: string, folder: string, document?: RecursiveDocument) =>
+      projectCall('project:create', name.trim(), folder, document),
+    open: () => projectCall('project:open'),
+    inspect: (sessionId: string) => projectCall('project:inspect', sessionId),
+    apply: (sessionId: string, expected: string, action: ProjectAction) =>
+      projectCall('project:apply', sessionId, expected, action),
+    close: (sessionId: string): Promise<FileResult<Record<string, never>>> =>
+      native('project:close', sessionId),
+    readBoard: async (
+      sessionId: string,
+      boardId: string,
+    ): Promise<FileResult<{ board: ProjectBoard }>> => {
+      const result = await native<FileResult<{ board: ProjectBoard }>>(
+        'project:read-board',
+        sessionId,
+        boardId,
+      );
+      if (result.status === 'success') {
+        validateRecursiveDocument(result.board.document);
+        if (typeof result.board.fingerprint !== 'string')
+          throw new Error('Invalid board fingerprint');
+      }
+      return result;
+    },
+  },
   clipboard: {
     readText: (): Promise<string> => native('clipboard:read-text'),
     writeText: (text: string): Promise<void> =>

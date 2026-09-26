@@ -6,6 +6,9 @@ const bundled = await build({
   stdin: {
     resolveDir: process.cwd(),
     contents: `import { z } from 'zod';
+import { writeFileSync } from 'node:fs';
+import { projectManifestSchema } from './src/shared/projectContract';
+writeFileSync('src-tauri/generated/project-schema.json', JSON.stringify(z.toJSONSchema(projectManifestSchema)));
 import { mcpTools } from './src/shared/mcpRegistry';
 console.log(JSON.stringify(Object.entries(mcpTools).map(([name, tool]) => ({
   name,
@@ -20,6 +23,7 @@ console.log(JSON.stringify(Object.entries(mcpTools).map(([name, tool]) => ({
   platform: 'node',
   format: 'cjs',
 });
+await mkdir('src-tauri/generated', { recursive: true });
 const result = spawnSync(process.execPath, ['-'], {
   input: bundled.outputFiles[0].text,
   encoding: 'utf8',
@@ -27,7 +31,6 @@ const result = spawnSync(process.execPath, ['-'], {
 });
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(result.stderr);
-await mkdir('src-tauri/generated', { recursive: true });
 await writeFile('src-tauri/generated/mcp-tools.json', result.stdout);
 console.log(
   `Generated ${JSON.parse(result.stdout).length} native MCP tool schemas.`,
