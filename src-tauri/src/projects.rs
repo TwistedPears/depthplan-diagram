@@ -446,6 +446,7 @@ impl Project {
     }
     fn commit(&mut self, candidate: Manifest, before: &dyn Fn(&str) -> Result<()>) -> Result<()> {
         manifest(&json!(candidate))?;
+        files::writable(&self.path)?;
         let bytes = serde_json::to_vec(&candidate).map_err(|e| e.to_string())?;
         let mut temporary =
             tempfile::NamedTempFile::new_in(&self.root).map_err(|e| e.to_string())?;
@@ -453,6 +454,7 @@ impl Project {
         temporary.as_file().sync_all().map_err(|e| e.to_string())?;
         before("manifest-publish")?;
         self.check_location()?;
+        files::writable(&self.path)?;
         if self.fingerprint.is_empty() {
             vacant(&self.path)?;
             temporary
@@ -506,6 +508,7 @@ impl Project {
         }
         let path = self.board_path(id)?;
         regular(&path)?;
+        files::writable(&path)?;
         let mut document = document.clone();
         document["metadata"]["modified"] = files::now().into();
         let bytes = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
@@ -520,6 +523,7 @@ impl Project {
             return Err(files::SOURCE_CHANGED.into());
         }
         permit()?;
+        files::writable(&path)?;
         temporary.persist(&path).map_err(|e| e.to_string())?;
         durable_directory(path.parent().unwrap())?;
         Ok(files::fingerprint(&bytes))
@@ -590,6 +594,7 @@ impl Project {
         before: &dyn Fn(&str) -> Result<()>,
     ) -> Result<()> {
         self.check(expected)?;
+        files::writable(&self.path)?;
         let mut next = self.manifest.clone();
         let mut output: Option<(String, Value)> = None;
         let mut renamed_source = None;
@@ -638,6 +643,7 @@ impl Project {
                 path,
                 expected,
             } => {
+                files::writable(&self.board_path(&board_id)?)?;
                 let current = self.read_board(&board_id)?;
                 if current["fingerprint"] != expected {
                     return Err(files::SOURCE_CHANGED.into());
@@ -745,8 +751,9 @@ impl Project {
     }
     pub fn snapshot(&self, session: &str) -> Value {
         let mut diagnostics = Vec::new();
+        // Inspect paths now; parse and validate content only when a board is opened.
         for board in &self.manifest.boards {
-            if let Err(error) = self.read_board(&board.id) {
+            if let Err(error) = self.board_path(&board.id).and_then(|path| regular(&path)) {
                 diagnostics.push(json!({"boardId": board.id, "path": board.path, "error": format!("{error}. Restore the expected file, retry, or remove membership.")}));
             }
         }

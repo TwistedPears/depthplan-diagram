@@ -1,3 +1,5 @@
+import AutomationControl from './AutomationControl';
+import type useAutomation from '../hooks/useAutomation';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import {
   projectFilename,
@@ -49,7 +51,7 @@ export function ProjectMenu({
       {project && (
         <>
           <button
-            disabled={busy}
+            disabled={busy || registry.sessions.length === 0}
             onClick={() => {
               void workspace.run(() => registry.saveAll());
               onAction();
@@ -223,7 +225,12 @@ function ProjectForm({
   );
 }
 
-export default function ProjectNavigation() {
+export default function ProjectNavigation({
+  automation,
+}: {
+  automation: ReturnType<typeof useAutomation>;
+}) {
+  const emptyMenu = useRef<HTMLDetailsElement>(null);
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
   const {
@@ -282,12 +289,19 @@ export default function ProjectNavigation() {
         <div className="project-navigation" data-session-navigation>
           {!registry.activeKey && (
             <div className="project-empty-identity document-switcher">
-              <details>
+              <details ref={emptyMenu}>
                 <summary aria-label="Project menu">
                   <Icon name="bars" />
                 </summary>
-                <div className="project-empty-menu">
+                <div className="project-empty-menu dropdown-menu">
                   <ProjectMenu />
+                  <AutomationControl
+                    automation={automation}
+                    onShowDetails={() => {
+                      emptyMenu.current?.removeAttribute('open');
+                      emptyMenu.current?.querySelector('summary')?.focus();
+                    }}
+                  />
                   <button
                     onClick={() => {
                       void workspace.standalone(() =>

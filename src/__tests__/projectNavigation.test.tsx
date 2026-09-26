@@ -839,3 +839,43 @@ test('routes MCP edits, delayed saves and receipts to explicit owners across sam
   });
   await waitFor(() => expect(controller('b').work?.active()).toBeNull());
 });
+
+test('empty projects retain local MCP controls and project/access discovery without a document owner', async () => {
+  project.manifest.boards = [];
+  project.manifest.homeBoardId = null;
+  let request!: (input: unknown) => unknown;
+  window.desktop.automation = {
+    ...window.desktop.automation,
+    onRequest: (listener) => {
+      request = listener;
+      return () => {};
+    },
+    enable: jest.fn(async (enabled) => ({
+      enabled,
+      descriptor: '/private/descriptor',
+      executable: '/app/mcp',
+    })),
+  };
+  window.desktop.mcpFiles = {
+    onRevoked: noop,
+    folders: jest.fn().mockResolvedValue([]),
+  } as unknown as typeof window.desktop.mcpFiles;
+  await setup();
+  expect(registry.sessions).toHaveLength(0);
+  act(() => {
+    screen.getByLabelText('Project menu').closest('details')!.open = true;
+  });
+  fireEvent.click(screen.getByRole('switch', { name: 'MCP Server' }));
+  await waitFor(() =>
+    expect(screen.getByRole('switch', { name: 'MCP Server' })).toBeChecked(),
+  );
+  expect(
+    await request({ tool: 'depthplan_get_project', input: {} }),
+  ).toMatchObject({
+    ok: true,
+    data: { project: { id: project.manifest.id, boards: [], active: null } },
+  });
+  expect(
+    await request({ tool: 'depthplan_get_access', input: {} }),
+  ).toMatchObject({ ok: true, data: { folders: [] } });
+});

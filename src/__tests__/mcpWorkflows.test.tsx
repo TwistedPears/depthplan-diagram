@@ -39,16 +39,14 @@ beforeEach(() => {
     },
     projects: {
       writeBoard: jest.fn().mockResolvedValue({ status: 'success', source }),
-      readBoard: jest
-        .fn()
-        .mockResolvedValue({
-          status: 'success',
-          board: {
-            document: recursiveFixture(),
-            source,
-            fingerprint: source.fingerprint,
-          },
-        }),
+      readBoard: jest.fn().mockResolvedValue({
+        status: 'success',
+        board: {
+          document: recursiveFixture(),
+          source,
+          fingerprint: source.fingerprint,
+        },
+      }),
     },
     recovery: { release: jest.fn().mockResolvedValue(undefined) },
     transitions: { confirm: jest.fn() },

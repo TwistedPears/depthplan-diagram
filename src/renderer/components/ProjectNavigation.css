@@ -237,9 +237,12 @@
 .project-empty {
   position: absolute;
   top: 40%;
-  left: 320px;
+  left: 36px;
   right: 36px;
   text-align: center;
+}
+.project-drawer ~ .project-empty {
+  left: 320px;
 }
 .project-empty h1 {
   font-size: 25px;

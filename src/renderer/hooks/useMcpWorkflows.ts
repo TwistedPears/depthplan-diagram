@@ -573,15 +573,6 @@ function workflows(current: () => Context, changed: () => void) {
         return editorFailure(s, error);
       }
     },
-    access: async () => {
-      try {
-        return boundedResult(snapshot(), {
-          folders: await window.desktop.mcpFiles.folders(),
-        });
-      } catch (error) {
-        return editorFailure(snapshot(), error);
-      }
-    },
     recovery: async (input: unknown) => {
       try {
         const args = fileTools.depthplan_get_recovery.input.parse(input),

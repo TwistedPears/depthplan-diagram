@@ -313,8 +313,11 @@ fn invalid_open_missing_corrupt_and_identity_mismatch_preserve_healthy_boards() 
             .as_array()
             .unwrap()
             .len(),
-        3
+        1 // Missing path is reported immediately; content remains lazy.
     );
+    for board in &project.manifest.boards[1..] {
+        assert!(project.read_board(&board.id).is_err());
+    }
     assert!(project.read_board(&project.manifest.boards[0].id).is_ok());
     let invalid = dir.path().join("invalid.depthproject");
     fs::write(&invalid, "{}").unwrap();
@@ -670,4 +673,68 @@ fn interrupted_nested_output_and_external_rename_edits_are_reported() {
     let mut value = json!(project.manifest);
     value["name"] = "😀".repeat(61).into();
     assert!(manifest(&value).is_err());
+}
+
+#[test]
+fn read_only_boards_and_manifests_preserve_original_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = create(dir.path());
+    let board = project.manifest.boards[0].clone();
+    let path = project.board_path(&board.id).unwrap();
+    let before = fs::read(&path).unwrap();
+    let read = project.read_board(&board.id).unwrap();
+    let permissions = fs::metadata(&path).unwrap().permissions();
+    let mut protected = permissions.clone();
+    protected.set_readonly(true);
+    fs::set_permissions(&path, protected).unwrap();
+    assert!(project
+        .write_board(
+            &board.id,
+            read["fingerprint"].as_str().unwrap(),
+            &read["document"],
+            &|| Ok(())
+        )
+        .unwrap_err()
+        .contains("read-only"));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    fs::set_permissions(&path, permissions).unwrap();
+    let permissions = fs::metadata(&project.path).unwrap().permissions();
+    let original = fs::read(&project.path).unwrap();
+    let mut protected = permissions.clone();
+    protected.set_readonly(true);
+    fs::set_permissions(&project.path, protected).unwrap();
+    assert!(project
+        .apply(
+            &project.fingerprint.clone(),
+            Action::CreateBoard {
+                name: "Blocked".into(),
+                path: "Blocked.depthplan".into()
+            },
+            None,
+            &|_| Ok(())
+        )
+        .unwrap_err()
+        .contains("read-only"));
+    assert!(!project.root.join("Blocked.depthplan").exists());
+    assert_eq!(fs::read(&project.path).unwrap(), original);
+    fs::set_permissions(&project.path, permissions).unwrap();
+    // The same guard protects standalone atomic writes, including a flag changed mid-write.
+    let standalone = dir.path().join("standalone.depthplan");
+    fs::write(&standalone, &before).unwrap();
+    let permissions = fs::metadata(&standalone).unwrap().permissions();
+    let mut protected = permissions.clone();
+    protected.set_readonly(true);
+    let calls = std::cell::Cell::new(0);
+    assert!(files::write_atomic(&standalone, b"replacement", None, &|| {
+        calls.set(calls.get() + 1);
+        if calls.get() == 2 {
+            fs::set_permissions(&standalone, protected.clone()).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    })
+    .unwrap_err()
+    .contains("read-only"));
+    assert_eq!(calls.get(), 2);
+    assert_eq!(fs::read(&standalone).unwrap(), before);
+    fs::set_permissions(&standalone, permissions).unwrap();
 }

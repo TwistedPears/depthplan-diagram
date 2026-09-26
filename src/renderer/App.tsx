@@ -114,7 +114,7 @@ function SessionWorkspace() {
           />
         </DocumentDrafts>
       ))}
-      <ProjectNavigation />
+      <ProjectNavigation automation={automation} />
     </>
   );
 }
@@ -361,7 +361,6 @@ function BoardWorkspace({
   }); // Rebind with current document and loading state.
 
   const handlers = {
-    depthplan_get_access: mcpWorkflows.access,
     depthplan_files: (input) => mcpWorkflows.start('files', input),
     depthplan_export: (input) => mcpWorkflows.start('export', input),
     depthplan_get_operation: mcpWorkflows.read,

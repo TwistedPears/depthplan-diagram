@@ -61,6 +61,10 @@ export function workspaceRouter(current: () => Context) {
       appInstanceId
     )
       throw new EditorError('STALE_APP', 'Refresh state for the intended app');
+    if (tool === 'depthplan_get_access')
+      return boundedResult(snapshot(), {
+        folders: await window.desktop.mcpFiles.folders(),
+      });
     if (tool === 'depthplan_get_project') {
       const { offset, pageSize } = projectQuery.parse(input);
       const project = workspace.project;

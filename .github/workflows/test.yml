@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: warn
       - name: Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus-daemon
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus-daemon openbox scrot xdotool xdg-utils desktop-file-utils
       - run: npm ci
       - name: Source checks and unit tests
         if: matrix.suite == 'checks'
@@ -93,9 +93,22 @@ jobs:
           TEMP: ${{ runner.temp }}
         # Start the session bus after Xvfb so activated desktop services inherit DISPLAY.
         run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} npm run smoke:ci
-      - name: Build uninstrumented native application
+      - name: Package ordinary installed candidate
         if: matrix.suite == 'release'
-        run: npm run build
+        run: npm run package -- --bundles ${{ runner.os == 'macOS' && 'dmg' || runner.os == 'Windows' && 'nsis' || 'deb' }}
+      - name: Installed file associations and lifecycle
+        if: matrix.suite == 'release'
+        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} node scripts/installed-acceptance.mjs
+      - name: Keep installed artifact evidence
+        if: always() && matrix.suite == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installed-evidence-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/depthplan-installed/*.png
+            ${{ runner.temp }}/depthplan-installed/report.json
+            ${{ runner.temp }}/depthplan-installed/workspaces.json
+          if-no-files-found: warn
       - name: Verify release excludes automation
         if: matrix.suite == 'release'
         shell: bash

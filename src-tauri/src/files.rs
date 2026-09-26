@@ -53,6 +53,17 @@ pub fn hash(path: &Path) -> Result<Option<String>> {
         Err(e) => Err(e.to_string()),
     }
 }
+/// Atomic replacement must still honor an existing file's read-only flag.
+pub fn writable(path: &Path) -> Result<()> {
+    match fs::metadata(path) {
+        Ok(metadata) if metadata.permissions().readonly() => {
+            Err(format!("File is read-only: {}", path.display()))
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
 pub fn write_atomic(
     path: &Path,
     data: &[u8],
@@ -63,6 +74,7 @@ pub fn write_atomic(
     let temporary = PathBuf::from(format!("{}.{}.tmp", path.display(), Uuid::new_v4()));
     let result = (|| {
         before()?;
+        writable(path)?;
         let mut file = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -75,6 +87,7 @@ pub fn write_atomic(
             }
         }
         before()?;
+        writable(path)?;
         fs::rename(&temporary, path).map_err(|e| e.to_string())
     })();
     match fs::remove_file(&temporary) {
