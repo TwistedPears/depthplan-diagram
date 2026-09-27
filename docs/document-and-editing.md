@@ -37,6 +37,12 @@ Shape fills support solid, none, hachure and cross-hatch, with transparent gaps
 for patterns. Corner radius is a numeric style value; quick controls use 0 or 12,
 and Properties accepts custom values. Stroke width/dash, color and opacity remain
 shared across views. Object links are separate from rich-text links.
+Objects may also carry `projectLink: { projectId, boardId, bookmarkId? }` for
+[internal project navigation](projects.md#link-boards-and-bookmarks). This optional
+v2 field is retained by older v2 readers that preserve unknown object properties,
+but those readers cannot activate it. Current TypeScript and native readers
+validate its exact keys and bounded identities. It contains no path or URI and
+does not expand the external URL allowlist.
 New shapes and connectors use the 2px Thin stroke preset, selected in Style on
 creation. Older 1.5px Thin strokes are also recognized without changing their
 stored width.

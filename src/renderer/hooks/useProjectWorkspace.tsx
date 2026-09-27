@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import type { FileLease } from '../../shared/mcpFileContract';
 import {
   createContext,
@@ -8,7 +9,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { createRecursiveDocument } from '../../shared/recursiveDocument';
+import {
+  createRecursiveDocument,
+  validProjectLink,
+  type ProjectLink,
+} from '../../shared/recursiveDocument';
+import type { Camera } from '../../shared/recursiveCamera';
+import { recursiveScene } from '../../shared/recursiveScene';
 import type { FileCandidate, FileResult } from '../../shared/fileContract';
 import {
   projectFilename,
@@ -39,6 +46,9 @@ function useProject() {
   const registry = useDocumentSessions();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const live = useRef(project);
+  const [backStack, setBackStack] = useState<
+    { boardId: string; camera: Camera; selected: string[] }[]
+  >([]);
   const [busy, setBusy] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState<string | null>(null);
   const locked = useRef(false);
@@ -117,6 +127,7 @@ function useProject() {
   const toggle = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const update = (next: ProjectSnapshot | null) => {
+    if (next?.sessionId !== live.current?.sessionId) setBackStack([]);
     live.current = next;
     setProject(next);
   };
@@ -141,7 +152,7 @@ function useProject() {
       registry.release();
       if (!completed) registry.activate(previous);
       locked.current = false;
-      setBusy(false);
+      flushSync(() => setBusy(false));
       scheduleRemember();
     }
   };
@@ -195,6 +206,107 @@ function useProject() {
       });
     return !!opened;
   };
+  const boardDocument = async (boardId: string) => {
+    const current = live.current;
+    if (!current?.manifest.boards.some((board) => board.id === boardId))
+      throw new Error(
+        'Board is no longer in this project. Change the link target.',
+      );
+    const snapshot = registry.controllers.get(key(boardId))?.owner.snapshot();
+    if (snapshot?.document) return snapshot.document;
+    const result = success(
+      await window.desktop.projects.readBoard(current.sessionId, boardId),
+    );
+    if (!result) throw new Error('Board read canceled.');
+    if (live.current?.sessionId !== current.sessionId)
+      throw new Error('Project changed. Try again.');
+    return result.board.document;
+  };
+  const focusBoard = (moved: boolean) => {
+    if (moved)
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLButtonElement>(
+            '.project-tabs [aria-selected="true"]',
+          )
+          ?.focus(),
+      );
+    return moved;
+  };
+  const followLink = (link: ProjectLink) =>
+    run(async () => {
+      if (!validProjectLink(link))
+        throw new Error('Invalid project link. Change the link target.');
+      const project = live.current;
+      if (!project || project.manifest.id !== link.projectId)
+        throw new Error(
+          'This link belongs to another project. Open its complete project folder or change the target.',
+        );
+      const origin = registry
+        .snapshot()
+        .sessions.find(
+          (session) => session.key === registry.snapshot().activeKey,
+        )?.project?.boardId;
+      const snapshot = registry.controllers
+        .get(registry.snapshot().activeKey)
+        ?.owner.snapshot();
+      const document = await boardDocument(link.boardId);
+      if (
+        link.bookmarkId &&
+        !Object.hasOwn(document.namedViews ?? {}, link.bookmarkId)
+      )
+        throw new Error(
+          'Bookmark is no longer available. Change the link target.',
+        );
+      if (!(await openBoard(link.boardId))) return false;
+      const owner = registry.controllers.get(key(link.boardId))!.owner;
+      if (link.bookmarkId) owner.focusEntity('bookmarks', link.bookmarkId);
+      if (origin && snapshot) {
+        // ponytail: retain 32 local back contexts; a durable navigation history is unnecessary.
+        setBackStack((stack) => [
+          ...stack.slice(-31),
+          {
+            boardId: origin,
+            camera: snapshot.camera,
+            selected: snapshot.canvas.selected,
+          },
+        ]);
+      }
+      return true;
+    }).then(focusBoard);
+  const goBack = () =>
+    run(async () => {
+      const origin = backStack.at(-1);
+      if (!origin) return false;
+      if (
+        !live.current?.manifest.boards.some(
+          (board) => board.id === origin.boardId,
+        )
+      ) {
+        setBackStack((stack) => stack.slice(0, -1));
+        throw new Error('The previous board is no longer in this project.');
+      }
+      if (!(await openBoard(origin.boardId))) return false;
+      const owner = registry.controllers.get(key(origin.boardId))!.owner;
+      if (owner.isBusy())
+        throw new Error('Finish the current edit or gesture before returning.');
+      const document = owner.snapshot().document!;
+      const scene = recursiveScene(document);
+      const visible = new Set([
+        ...[...scene.world.keys()].map((id) => `object-${id}`),
+        ...[...scene.connections.values()]
+          .flat()
+          .map((item) => `connection-${item.id}`),
+      ]);
+      owner.setCamera(origin.camera);
+      owner.setCanvas((canvas) => ({
+        ...canvas,
+        selected: origin.selected.filter((id) => visible.has(id)),
+        selectedPoint: null,
+      }));
+      setBackStack((stack) => stack.slice(0, -1));
+      return true;
+    }).then(focusBoard);
   const openHome = async (next: ProjectSnapshot) => {
     // A healthy home board wins; failed members never prevent the project opening.
     const ids = [
@@ -525,6 +637,10 @@ function useProject() {
     apply,
     resolveDefinition,
     openBoard,
+    boardDocument,
+    followLink,
+    goBack,
+    previousBoard: backStack.at(-1)?.boardId ?? null,
     openProject,
     openRequest,
     createProject,

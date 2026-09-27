@@ -6,6 +6,8 @@ import {
   within,
   waitFor,
 } from '@testing-library/react';
+import useProjectWorkspace from '../renderer/hooks/useProjectWorkspace';
+import ProjectObjectLink from '../renderer/components/ProjectObjectLink';
 import { Workspace } from '../renderer/App';
 import useDocumentSessions, {
   DocumentSessions,
@@ -22,9 +24,25 @@ import { editObject } from '../shared/documentTransactions';
 
 jest.mock('../renderer/components/RecursiveCanvas', () => ({
   __esModule: true,
-  default: (props: React.ComponentProps<typeof RecursiveCanvas>) =>
-    props.active ? <canvas data-testid="drawing-surface" /> : null,
+  default: MockCanvas,
 }));
+let mockWorkspace: NonNullable<ReturnType<typeof useProjectWorkspace>>;
+function MockCanvas(props: React.ComponentProps<typeof RecursiveCanvas>) {
+  mockWorkspace = useProjectWorkspace()!;
+  const selected = props.canvas.selected[0];
+  return props.active ? (
+    <>
+      <canvas data-testid="drawing-surface" />
+      {selected?.startsWith('object-') && (
+        <ProjectObjectLink
+          object={props.document.objects[selected.slice(7)]}
+          onEdit={props.onEdit}
+          isBusy={props.isBusy}
+        />
+      )}
+    </>
+  ) : null;
+}
 let registry: ReturnType<typeof useDocumentSessions>;
 function Capture() {
   registry = useDocumentSessions();
@@ -1102,4 +1120,193 @@ test('project search caps results and stops reading further boards', async () =>
   ).toHaveLength(500);
   expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(2);
   expect(registry.sessions).toHaveLength(1);
+});
+
+test('project links pick accepted bookmarks, remain stable through rename/reorder and return to the origin view', async () => {
+  project.manifest.autosave = false;
+  await setup();
+  drawer();
+  await click('Open Same name, b.depthplan');
+  act(() => {
+    controller('b').owner.changeNamedView({
+      type: 'create',
+      id: 'detail',
+      name: 'Unsaved detail',
+    });
+  });
+  await act(async () => {
+    registry.activate(key('a'));
+  });
+  const originCamera = { x: 81, y: -12, scale: 1.25 };
+  act(() => {
+    controller('a').owner.setCamera(originCamera);
+    controller('a').owner.setCanvas((canvas) => ({
+      ...canvas,
+      selected: ['object-app'],
+    }));
+  });
+  await click('Add project link');
+  expect(screen.getByRole('combobox', { name: 'Target board' })).toHaveFocus();
+  expect(registry.canSwitch()).toBe(false);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Target board' }), {
+    target: { value: 'b' },
+  });
+  await screen.findByRole('option', { name: 'Unsaved detail — detail' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Target bookmark' }), {
+    target: { value: 'detail' },
+  });
+  await click('Save link');
+  const reference = {
+    projectId: 'project',
+    boardId: 'b',
+    bookmarkId: 'detail',
+  };
+  expect(
+    controller('a').owner.snapshot().document!.objects.app.projectLink,
+  ).toEqual(reference);
+  await act(async () => {
+    await mockWorkspace.apply({
+      kind: 'settings',
+      name: 'Renamed project',
+      description: '',
+      homeBoardId: 'a',
+      autosave: false,
+    });
+    await mockWorkspace.reorder('b', 1);
+  });
+  await act(async () => {
+    await mockWorkspace.apply({
+      kind: 'renameBoard',
+      boardId: 'b',
+      name: 'Renamed detail',
+      path: 'renamed.depthplan',
+      expected: 'b',
+    });
+  });
+  await click('Open project link');
+  expect(registry.activeKey).toBe(key('b'));
+  await act(async () => {
+    await mockWorkspace.goBack();
+  });
+  expect(registry.activeKey).toBe(key('a'));
+  expect(controller('a').owner.snapshot().camera).toEqual(originCamera);
+  expect(controller('a').owner.snapshot().canvas.selected).toEqual([
+    'object-app',
+  ]);
+  expect(
+    controller('a').owner.snapshot().document!.objects.app.projectLink,
+  ).toEqual(reference);
+});
+
+test('missing bookmarks and members never navigate elsewhere; link picker repairs or removes the reference', async () => {
+  project.manifest.autosave = false;
+  documents.a.objects.app.projectLink = {
+    projectId: 'project',
+    boardId: 'b',
+    bookmarkId: 'missing',
+  };
+  await setup();
+  act(() => {
+    controller('a').owner.setCanvas((canvas) => ({
+      ...canvas,
+      selected: ['object-app'],
+    }));
+  });
+  await click('Open project link');
+  expect(registry.activeKey).toBe(key('a'));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Bookmark is no longer available',
+  );
+  await click('Change project link');
+  await screen.findByRole('option', { name: 'Unavailable bookmark (missing)' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Target bookmark' }), {
+    target: { value: '' },
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Save link' }),
+    ).not.toBeDisabled(),
+  );
+  await click('Save link');
+  await act(async () => {
+    await mockWorkspace.apply({ kind: 'removeBoard', boardId: 'b' });
+  });
+  expect(
+    screen.getByRole('button', { name: 'Open project link' }),
+  ).toBeDisabled();
+  expect(
+    screen.getByText('Project link unavailable. Change its target.'),
+  ).toBeInTheDocument();
+  await click('Change project link');
+  await click('Remove link');
+  expect(
+    controller('a').owner.snapshot().document!.objects.app.projectLink,
+  ).toBeUndefined();
+  expect(registry.activeKey).toBe(key('a'));
+});
+
+test('standalone/foreign links remain unresolved and a whole-folder copy resolves within its current session', async () => {
+  project.manifest.autosave = false;
+  documents.a.objects.app.projectLink = {
+    projectId: 'foreign-project',
+    boardId: 'b',
+  };
+  await setup();
+  act(() => {
+    controller('a').owner.setCanvas((canvas) => ({
+      ...canvas,
+      selected: ['object-app'],
+    }));
+  });
+  expect(
+    screen.getByRole('button', { name: 'Open project link' }),
+  ).toBeDisabled();
+  await click('Change project link');
+  expect(
+    screen.getByText(/reference belongs to another project/),
+  ).toBeInTheDocument();
+  await click('Cancel');
+  act(() => {
+    controller('a').owner.transact((draft) => {
+      draft.objects.app.projectLink = { projectId: 'project', boardId: 'b' };
+    });
+  });
+  project.location = '/copied/project.depthproject';
+  project.workspaceKey = 'copied-location';
+  act(() => {
+    mockWorkspace.update(clone(project));
+  });
+  await click('Open project link');
+  expect(registry.activeKey).toBe(key('b'));
+  expect(window.desktop.projects.readBoard).toHaveBeenLastCalledWith(
+    'project-session',
+    'b',
+    undefined,
+  );
+  await act(async () => {
+    await mockWorkspace.goBack();
+  });
+  // A restored standalone document carries the reference but no project authority.
+  const document = clone(controller('a').owner.snapshot().document!);
+  await act(async () => {
+    mockWorkspace.update(null);
+    registry.install([{ key: 'standalone-linked', document, source: null }]);
+  });
+  const standalone = registry.controllers.get('standalone-linked')!;
+  act(() => {
+    standalone.owner.setCanvas((canvas) => ({
+      ...canvas,
+      selected: ['object-app'],
+    }));
+  });
+  expect(
+    screen.getByRole('button', { name: 'Open project link' }),
+  ).toBeDisabled();
+  await click('Change project link');
+  expect(screen.getByText(/This board is open standalone/)).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Target board' })).toBeDisabled();
+  await click('Remove link');
+  expect(
+    standalone.owner.snapshot().document!.objects.app.projectLink,
+  ).toBeUndefined();
 });

@@ -738,3 +738,68 @@ fn read_only_boards_and_manifests_preserve_original_files() {
     assert_eq!(fs::read(&standalone).unwrap(), before);
     fs::set_permissions(&standalone, permissions).unwrap();
 }
+
+#[test]
+fn internal_references_survive_duplicate_import_rename_and_relocation_without_retargeting() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = Project::create(
+        dir.path(),
+        "linked",
+        "Linked",
+        Some(files::fixture()),
+        &|_| Ok(()),
+    )
+    .unwrap();
+    let board_id = project.manifest.boards[0].id.clone();
+    let original = project.read_board(&board_id).unwrap();
+    let mut document = original["document"].clone();
+    let object_id = document["objects"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .next()
+        .unwrap()
+        .clone();
+    let link = json!({"projectId":project.manifest.id,"boardId":board_id,"bookmarkId":"view"});
+    document["objects"][&object_id]["projectLink"] = link.clone();
+    project
+        .write_board(
+            &board_id,
+            original["fingerprint"].as_str().unwrap(),
+            &document,
+            &|| Ok(()),
+        )
+        .unwrap();
+    apply(
+        &mut project,
+        json!({"kind":"duplicateBoard","boardId":board_id,"name":"Duplicate","path":"Duplicate.depthplan"}),
+    );
+    let copied_id = project.manifest.boards[1].id.clone();
+    assert_ne!(copied_id, board_id);
+    assert_eq!(
+        project.read_board(&copied_id).unwrap()["document"]["objects"][&object_id]["projectLink"],
+        link
+    );
+    let external = dir.path().join("import.depthplan");
+    fs::write(&external, serde_json::to_vec(&document).unwrap()).unwrap();
+    let imported_id = project.import_path(&external).unwrap();
+    assert_ne!(imported_id, board_id);
+    assert_eq!(
+        project.read_board(&imported_id).unwrap()["document"]["objects"][&object_id]["projectLink"],
+        link
+    );
+    let expected = project.read_board(&board_id).unwrap()["fingerprint"].clone();
+    apply(
+        &mut project,
+        json!({"kind":"renameBoard","boardId":board_id,"name":"Renamed","path":"Renamed.depthplan","expected":expected}),
+    );
+    let manifest = project.manifest.clone();
+    drop(project);
+    fs::rename(dir.path().join("linked"), dir.path().join("moved")).unwrap();
+    let project = Project::open(&dir.path().join("moved/project.depthproject")).unwrap();
+    assert_eq!(project.manifest, manifest);
+    assert_eq!(
+        project.read_board(&board_id).unwrap()["document"]["objects"][&object_id]["projectLink"],
+        link
+    );
+}

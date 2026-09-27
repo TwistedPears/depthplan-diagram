@@ -266,6 +266,9 @@
   .project-tab:not([data-active='true']) {
     display: none;
   }
+  body:has(.project-navigation) .select-visible-control {
+    top: 184px;
+  }
   .project-overflow {
     display: block;
     position: absolute;

@@ -153,3 +153,29 @@ itself does not change content, Undo history, selection or camera. Explicit reve
 or bookmark application follows normal editor semantics and may add an Undo
 step. If membership, a live revision or an unopened source changed, repeat the
 search; stale results never select an entity by a similar name.
+
+## Link boards and bookmarks
+
+Select one object and choose **Add project link** in its selection controls. Pick
+an available project board and, optionally, a bookmark, then **Save link**. The
+picker reads accepted bookmarks from an open board or validates an unopened file
+without opening a tab. Link edits use normal Undo and saving.
+
+**Open link** opens that exact board and applies its bookmark when specified.
+**Menu → Back to previous board** (also in the board drawer) restores the previous
+board, camera and still-visible selection. It does not undo edits or restore old
+content. The last 32 return positions live only in the current project session.
+
+References use stable project, board and bookmark IDs. Renaming, reordering and
+moving the complete project folder preserve targets. A copied project resolves
+inside the opened copy. Missing boards/bookmarks and references to another
+project report an unavailable target; **Change project link** repairs it or
+**Remove link** removes it. No title matching or external file lookup is attempted.
+A board opened standalone shows its project links as unavailable; open its
+complete project to follow them.
+
+Object and board duplication, import, clipboard and editable JSON exports retain
+references exactly. A duplicate's self-link therefore still targets the original
+board. Importing into another project leaves foreign references unresolved until
+you choose replacement targets. PNG/SVG exports contain no interactive project
+navigation. Internal links are separate from external web links.

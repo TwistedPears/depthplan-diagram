@@ -42,6 +42,7 @@ import { cullViewport } from '../utils/recursivePaintBounds';
 import RecursiveProperties from './RecursiveProperties';
 import SelectionProperties from './SelectionProperties';
 import SelectionLink from './SelectionLink';
+import ProjectObjectLink from './ProjectObjectLink';
 import { duplicateSelection } from '../../shared/recursiveDuplication';
 import InlineObjectText from './InlineObjectText';
 import RecursiveScene from './RecursiveScene';
@@ -1599,6 +1600,7 @@ export default memo(function RecursiveCanvas({
       )}
       <div
         id="selection-controls"
+        tabIndex={-1}
         ref={selectionControlsRef}
         role="toolbar"
         aria-label="Selection"
@@ -1839,6 +1841,14 @@ export default memo(function RecursiveCanvas({
           >
             <Icon name="link" />
           </button>
+          {selection.length === 1 && selection[0].startsWith('object-') && (
+            <ProjectObjectLink
+              key={selection[0]}
+              object={document.objects[selection[0].slice(7)]}
+              onEdit={onEdit}
+              isBusy={isBusy}
+            />
+          )}
         </div>
       </div>
       {selection.length > 0 &&

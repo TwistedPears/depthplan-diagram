@@ -24,6 +24,10 @@
   border: 0;
   background: var(--surface-hover);
 }
+.selection-actions > .project-link-open {
+  flex-basis: auto;
+  padding-inline: 10px;
+}
 .selection-actions > button svg {
   width: 24px;
   height: 24px;

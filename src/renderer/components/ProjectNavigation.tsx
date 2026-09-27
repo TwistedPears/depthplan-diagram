@@ -51,6 +51,17 @@ export function ProjectMenu({
       </button>
       {project && (
         <>
+          {workspace.previousBoard && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                void workspace.goBack();
+                onAction();
+              }}
+            >
+              Back to previous board
+            </button>
+          )}
           <button
             disabled={busy || registry.sessions.length === 0}
             onClick={() => {
@@ -618,6 +629,16 @@ export default function ProjectNavigation({
                   <Icon name="plus" />
                   New Board
                 </button>
+                {workspace.previousBoard && (
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      void workspace.goBack();
+                    }}
+                  >
+                    Back to previous board
+                  </button>
+                )}
                 <button
                   disabled={busy}
                   onClick={() => {
