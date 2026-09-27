@@ -138,3 +138,37 @@ Correctness review traced all restoration waits, Linux MIME detection and all
 Linux desktop-template consumers, and native work-area calculations. Ponytail
 review: **Lean already. Ship.** Existing native APIs and one desktop template
 cover the fixes without new application dependencies.
+
+## Installed verification and Linux native ownership
+
+Run `36285125807` passed all three ordinary installed jobs. All twelve retained
+screenshots were inspected: both project identities and standalone content open
+correctly, Windows controls fit above the taskbar, and macOS cold standalone
+opening is confirmed by screenshot text as well as visual review. Source checks
+passed on all three OSes, and macOS native integration passed.
+
+Linux native integration aborted with allocator corruption during an existing
+connector test, before reaching the project journeys. Tracing the native context
+found a Linux Tao `Rc` counter cloned/dropped by Tauri worker handles. A disposable
+Ubuntu reproduction using that actual target aborted with the same allocator
+diagnostic (exit 134). Changing only that counter to `Arc` passed three identical
+800,000-clone runs. The vendored package preserves its upstream files except for
+that field, constructor and import; archive comparison verified all 119 files.
+See [the dependency record](../../../src-tauri/vendor/README.md#linux-target-reference-counting).
+CI and the Linux local gate now run the existing real-Tauri handle regression.
+No dependency versions or unrelated lockfile edges change. The full matrix must
+pass again before this work is complete.
+
+Correctness review checked both window-ID collection users, handle cloning and
+cleanup, the package diff and preserved display-handle lifetimes. Ponytail review:
+**Lean already. Ship.** An atomic reference count fixes the ownership boundary;
+no retry, longer timeout, disabled test or alternate runtime is needed.
+
+The final window-placement build's fixed project scenario passed unchanged at
+`out/project-capacity/run-wlwKr7/report.json`: cold max 1,018 ms, open max 219 ms,
+switch p95 42 ms, host 116 MiB and WebKit 318 MiB. The preceding fresh-build run
+`run-i8EPsY` exceeded the 2,000 ms cold budget once (2,319 ms; subsequent launches
+861/840 ms), coinciding with macOS policy evaluation. That failure and its policy
+trace remain retained, as do the earlier `run-2HZwnu` failure and `run-e27eGZ`
+unchanged passing repeat. These results do not certify first-download admission
+latency or broader installed performance. All budgets and repetitions are intact.

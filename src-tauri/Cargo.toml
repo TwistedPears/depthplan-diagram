@@ -62,3 +62,5 @@ png = "0.18.1"
 glib = { path = "vendor/glib-0.18.5" }
 # Keep the Windows event-loop target on its owner thread (tauri#15408).
 tauri-runtime-wry = { path = "vendor/tauri-runtime-wry-2.11.4" }
+# Tauri also clones Linux's window-ID reference counter on worker threads.
+tao = { path = "vendor/tao-0.35.3" }

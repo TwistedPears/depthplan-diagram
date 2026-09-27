@@ -77,10 +77,10 @@ jobs:
         if: matrix.suite == 'checks'
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
-      - name: Windows runtime ownership regression
-        if: matrix.suite == 'checks' && runner.os == 'Windows'
+      - name: Native runtime ownership regression
+        if: matrix.suite == 'checks' && runner.os != 'macOS'
         timeout-minutes: 5
-        run: cargo run --manifest-path src-tauri/Cargo.toml --locked --example runtime_handle_stress
+        run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} cargo run --manifest-path src-tauri/Cargo.toml --locked --example runtime_handle_stress
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
       - run: npm run build:automation
