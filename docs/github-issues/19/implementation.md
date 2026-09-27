@@ -220,3 +220,23 @@ hashes still match base `c78bd1c`; their data was not edited.
 Correctness review checked every member path and identity, folder portability,
 the home board and untouched diagram bytes. Ponytail review: **Lean already. Ship.**
 One manifest and the existing sample test suite cover the request.
+
+## Connector probe paint readiness
+
+The sample-commit run `36288834022` failed an existing Linux connector assertion:
+an endpoint stayed on the right side after a synthetic drag toward the top. The
+process remained healthy and the renderer error list was empty. The probe read
+the handle's updated node coordinates immediately after revealing children, but
+Konva updates its hit canvas in the scheduled frame. Coordinates alone do not
+establish that a synthetic mousedown can reach the handle.
+
+The shared start/end handle lookup now waits until the stage's public hit test
+returns that exact handle at its reported position. Every existing geometry,
+Undo/Redo, save/reopen and export assertion remains. This adds a readiness
+assertion without forcing a canvas draw, increasing a deadline or retrying a
+failed gesture. The complete focused connector journey passed at
+`depthplan-tauri-smoke-6xdlQC`; full local and hosted validation follow the commit.
+
+Correctness review covered every start/end handle lookup and its pointer callers.
+Ponytail review: **Lean already. Ship.** One shared lookup replaces the duplicate
+coordinate reads; no application or diagram data changes are required.

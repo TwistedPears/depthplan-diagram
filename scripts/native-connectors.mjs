@@ -88,10 +88,25 @@ export async function connectors(driver, probe) {
       'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
     );
   };
-  const endHandle = () =>
-    sync(
-      `return window.Konva.stages[0].find('.connector-point-handle').find(n=>n.getAttr('connectorHandle').index===1).getAbsolutePosition();`,
-    );
+  const pointHandle = async (index) => {
+    let position;
+    // Node attributes update before Konva's scheduled scene/hit-canvas paint.
+    // A synthetic pointer must wait for the handle to be hittable at that point.
+    await until(async () => {
+      position = await sync(
+        `const stage=window.Konva.stages[0];
+          const handle=stage.find('.connector-point-handle').find(n=>n.getAttr('connectorHandle').index===arguments[0]);
+          if(!handle)return null;
+          const point=handle.getAbsolutePosition();
+          return stage.getIntersection(point)===handle?point:null;`,
+        [index],
+      );
+      return position !== null;
+    }, `Connector point ${index} is not painted and hittable`);
+    return position;
+  };
+  const startHandle = () => pointHandle(0);
+  const endHandle = () => pointHandle(1);
   const select = (id) =>
     command('depthplan_selection', { action: 'set', connections: [id] });
   const capture = async (name) => {
@@ -143,9 +158,7 @@ export async function connectors(driver, probe) {
   });
 
   // The start handle supports the same reattachment and Undo flow.
-  const start = await sync(
-    `return window.Konva.stages[0].find('.connector-point-handle').find(n=>n.getAttr('connectorHandle').index===0).getAbsolutePosition();`,
-  );
+  const start = await startHandle();
   await pointer('mousedown', start.x, start.y);
   await pointer('mousemove', 1050, 490);
   await pointer('mouseup', 1050, 490);
@@ -340,10 +353,6 @@ export async function connectors(driver, probe) {
     saved.connections[outside].end,
   );
   assert.deepEqual(await endHandle(), { x: 658, y: 420 });
-  const startHandle = () =>
-    sync(
-      `return window.Konva.stages[0].find('.connector-point-handle').find(n=>n.getAttr('connectorHandle').index===0).getAbsolutePosition();`,
-    );
   assert.deepEqual(await startHandle(), { x: 792, y: 420 });
 
   handle = await startHandle();
