@@ -7,7 +7,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 
 import './UnifiedToolbar.css';
-import ExportToolbar from './toolbars/ExportToolbar';
 import FileToolbar from './toolbars/FileToolbar';
 import useProjectWorkspace from '../hooks/useProjectWorkspace';
 import { ProjectMenu } from './ProjectNavigation';
@@ -27,7 +26,6 @@ interface UnifiedToolbarProps {
   onSave: () => void;
   onSaveAs: () => void;
   onExportSVG: () => void;
-  onExportJSON: () => void;
 }
 
 function UnifiedToolbar({
@@ -45,7 +43,6 @@ function UnifiedToolbar({
   onSave,
   onSaveAs,
   onExportSVG,
-  onExportJSON,
 }: UnifiedToolbarProps) {
   const workspace = useProjectWorkspace();
   const project = workspace?.project;
@@ -166,17 +163,16 @@ function UnifiedToolbar({
             </FileToolbar>
             <div className="dropdown-separator" />
             {currentDocument && (
-              <ExportToolbar
-                isLoading={isLoading}
-                onExportSVG={() => {
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
                   onExportSVG();
                   closeDropdown();
                 }}
-                onExportJSON={() => {
-                  onExportJSON();
-                  closeDropdown();
-                }}
-              />
+              >
+                Export
+              </button>
             )}
           </div>
           <div className="dropdown-separator" />

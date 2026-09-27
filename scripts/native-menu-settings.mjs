@@ -37,8 +37,7 @@ export async function menuSettings(driver) {
       'Save',
       'Save As…',
       'Close Board',
-      'Export image',
-      'Export DepthPlan',
+      'Export',
       'Settings',
     ],
   );

@@ -497,7 +497,6 @@ function BoardWorkspace({
       onSave={() => handleSave()}
       onSaveAs={handleSaveAs}
       onExportSVG={handleExportSVG}
-      onExportJSON={handleExportJSON}
     />
   );
   return (

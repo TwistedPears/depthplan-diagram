@@ -262,7 +262,8 @@ try {
   await click('Reset view');
   for (const format of ['svg', 'png']) {
     const image = path.join(profile, `editor-export.${format}`);
-    await click('Export current diagram');
+    await click('Menu');
+    await click('Export');
     await sync(
       'const select=document.querySelector(`select[aria-label="Format"]`);select.value=arguments[0];select.dispatchEvent(new Event("change",{bubbles:true}))',
       [format],
