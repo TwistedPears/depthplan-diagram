@@ -97,6 +97,7 @@ jobs:
         if: matrix.suite == 'release'
         run: npm run package -- --bundles ${{ runner.os == 'macOS' && 'dmg' || runner.os == 'Windows' && 'nsis' || 'deb' }}
       - name: Installed file associations and lifecycle
+        timeout-minutes: 5
         if: matrix.suite == 'release'
         run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} node scripts/installed-acceptance.mjs
       - name: Keep installed artifact evidence

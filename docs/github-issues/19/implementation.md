@@ -68,3 +68,19 @@ project menu now focuses its summary before opening MCP Details. A rebuilt nativ
 probe asserts focus returns to `Project menu` after Close; all six recaptures in
 `/var/folders/sp/nwpxh_hj7yj2bv625j6kjrlc0000gn/T/depthplan-tauri-smoke-R9SeKy`
 were reviewed. Final verdict: `ship`; no new design-system decisions.
+
+## First hosted run and Linux harness correction
+
+Run `36282974909` at `9782070` passed all three source-check jobs, Linux native
+integration and macOS ordinary installed acceptance while other jobs continued.
+The Linux installed phase stalled. Review found two Linux-specific assumptions:
+`ps comm` returns the executable basename, and generic `xdg-open` may wait for the
+application to exit. The probe now checks `/proc/<pid>/exe` for the exact installed
+binary and observes an independently spawned opener with ignored stdio. The
+installed workflow phase has a five-minute bound. No application behavior or
+performance budgets change; Linux installed success still requires the next run.
+
+Correctness review checked spawn errors, bounded process detection, exact binary
+identity and unchanged macOS/Windows paths. Ponytail review: **Lean already. Ship.**
+Readiness lesson: test OS-specific installer helpers against native process and
+launcher semantics, and bound the installed phase rather than only the whole job.

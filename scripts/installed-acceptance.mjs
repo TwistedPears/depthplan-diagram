@@ -9,6 +9,7 @@ import {
   mkdir,
   readdir,
   readFile,
+  readlink,
   writeFile,
   access,
 } from 'node:fs/promises';
@@ -87,16 +88,30 @@ const processes = async () => {
   const rows = (await exec('ps', ['-axo', 'pid=,comm='])).stdout
     .trim()
     .split('\n');
-  return rows.flatMap((row) => {
+  const found = [];
+  for (const row of rows) {
     const match = row.trim().match(/^(\d+)\s+(.+)$/);
-    return match && match[2] === binary
-      ? [{ pid: Number(match[1]), path: match[2] }]
-      : [];
-  });
+    if (!match) continue;
+    let executable = match[2];
+    // Linux comm is a basename; verify the actual installed executable via procfs.
+    if (process.platform === 'linux' && executable === path.basename(binary))
+      executable = await readlink(`/proc/${match[1]}/exe`).catch(() => null);
+    if (executable === binary)
+      found.push({ pid: Number(match[1]), path: executable });
+  }
+  return found;
 };
 const launch = async (file) => {
   if (process.platform === 'win32') await ps('open', file);
-  else await exec(process.platform === 'darwin' ? 'open' : 'xdg-open', [file]);
+  else if (process.platform === 'linux') {
+    // Generic xdg-open may wait for the app to exit; observe the app independently.
+    await new Promise((resolve, reject) => {
+      const opener = spawn('xdg-open', [file], { stdio: 'ignore' });
+      opener.once('spawn', resolve);
+      opener.once('error', reject);
+      opener.unref();
+    });
+  } else await exec('open', [file]);
   await until(
     async () => (await processes()).length === 1,
     'Associated app did not start exactly once',
