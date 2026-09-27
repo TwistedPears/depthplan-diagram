@@ -190,7 +190,9 @@ export async function projectPersistence(driver) {
     );
     await click('Reload project definition…');
     await until(() =>
-      sync('return !document.querySelector(".project-notice")'),
+      sync(
+        'return !document.querySelector(".project-notice") && !!document.querySelector(".project-board-open:not(:disabled)")',
+      ),
     );
     await sync(
       `document.querySelector('[data-inline-edit]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
