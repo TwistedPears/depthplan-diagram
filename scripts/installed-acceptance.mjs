@@ -44,6 +44,7 @@ const report = {
   cpu: os.cpus()[0].model,
   commit: (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim(),
   phases: [],
+  screenshotText: {},
   passed: false,
   scope:
     'Ordinary installed artifact; OS registration/cold and warm open, renderer workspace acknowledgement, clean native close, unchanged fixtures. Screenshots require visual review. This is automated-host evidence, not release certification.',
@@ -104,6 +105,11 @@ const processes = async () => {
 const launch = async (file) => {
   if (process.platform === 'win32') await ps('open', file);
   else if (process.platform === 'linux') {
+    assert.equal(
+      (await exec('xdg-mime', ['query', 'filetype', file])).stdout.trim(),
+      `application/x-${path.extname(file).slice(1)}`,
+      'The desktop must recognize the installed file type',
+    );
     // Generic xdg-open may wait for the app to exit; observe the app independently.
     await new Promise((resolve, reject) => {
       const opener = spawn('xdg-open', [file], { stdio: 'ignore' });
@@ -120,10 +126,17 @@ const launch = async (file) => {
   assert.equal(running.path.toLowerCase(), binary.toLowerCase());
   return running.pid;
 };
-const capture = async (name) => {
+const capture = async (name, expected) => {
   await wait(3000);
   const file = path.join(evidence, `${name}.png`);
   if (process.platform === 'win32') await ps('capture', file);
+  else if (process.platform === 'darwin' && expected)
+    await until(async () => {
+      await exec('screencapture', ['-x', file]);
+      const { stdout } = await exec(path.join(evidence, 'read-text'), [file]);
+      report.screenshotText[name] = stdout;
+      return stdout.includes(expected);
+    }, `Installed screenshot did not show ${expected}`);
   else
     await exec(
       process.platform === 'darwin' ? 'screencapture' : 'scrot',
@@ -162,6 +175,11 @@ const quit = async () => {
 };
 try {
   if (process.platform === 'darwin') {
+    await exec('swiftc', [
+      'scripts/installed-macos.swift',
+      '-o',
+      path.join(evidence, 'read-text'),
+    ]);
     const mount = path.join(evidence, 'mounted');
     await exec('hdiutil', [
       'attach',
@@ -242,6 +260,10 @@ try {
     }
     assert.equal(matches.length, 1);
     report.registration = matches[0];
+    assert.match(matches[0].text, /^Exec=depthplan %F$/m);
+    await exec('desktop-file-validate', [
+      path.join('/usr/share/applications', matches[0].entry),
+    ]);
     await exec('update-desktop-database', [
       path.join(os.homedir(), '.local/share/applications'),
     ]).catch(() => {});
@@ -338,7 +360,7 @@ try {
     () => acknowledged('First'),
     'Renderer did not acknowledge cold project association',
   );
-  await capture('cold-project');
+  await capture('cold-project', 'First installed project');
   report.phases.push('Cold .depthproject association accepted by renderer');
   assert.equal(
     await launch(fixtures[4]),
@@ -349,16 +371,16 @@ try {
     () => acknowledged('Second'),
     'Renderer did not acknowledge warm project association',
   );
-  await capture('warm-project');
+  await capture('warm-project', 'Second installed project');
   report.phases.push(
     'Warm .depthproject association accepted by the same process',
   );
   assert.equal(await launch(standalone), firstPid);
-  await capture('warm-standalone');
+  await capture('warm-standalone', 'Installed standalone');
   await quit();
   report.phases.push('Warm .depthplan association and native clean close');
   await launch(standalone);
-  await capture('cold-standalone');
+  await capture('cold-standalone', 'Installed standalone');
   await quit();
   report.phases.push('Cold .depthplan association and native clean close');
   assert.deepEqual(await Promise.all(fixtures.map(hash)), originals);

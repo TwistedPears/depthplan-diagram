@@ -1151,6 +1151,7 @@ fn create_window(app: &AppHandle) -> tauri::Result<()> {
         .title("DepthPlan")
         .inner_size(1024.0, 728.0)
         .prevent_overflow()
+        .center()
         // WKWebView ignores data_directory. Non-production WebViews must still
         // stay separate from the user's persisted website data on every OS.
         .incognito(cfg!(debug_assertions) || cfg!(feature = "automation"))

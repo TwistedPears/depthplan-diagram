@@ -104,3 +104,37 @@ the taskbar no longer covers the bottom controls.
 Correctness review checked both association classes, paths with spaces/Unicode,
 exact registry values and all three create-window callers. Ponytail review:
 **Lean already. Ship.** Native window fitting replaces any custom geometry code.
+
+## Second hosted run corrections
+
+Run `36283971394` exposed an early assertion in the macOS workspace probe:
+restoration temporarily activates Board B before loading Board C. Its shared
+active-tab query now waits for an enabled tab, preserving every tab/order/camera
+assertion. The focused native journey passed at
+`/var/folders/sp/nwpxh_hj7yj2bv625j6kjrlc0000gn/T/depthplan-tauri-smoke-631wZB`.
+
+The Linux installed launcher opened Firefox. A disposable Ubuntu 24.04 container
+reproduced `xdg-mime` falling back to `application/json` without
+`libfile-mimeinfo-perl`; installing that desktop helper correctly identified both
+extensions. CI now installs it and checks each file's detected MIME type. The
+packaged desktop entry also lacked a file placeholder. One Tauri template adds
+`%F` for DEB, RPM and the AppImage path that reuses DEB generation. Installed
+acceptance validates the generated entry and exact command.
+
+Windows registration checks passed with the corrected quoted paths. Its four
+screenshots still showed clipping: sizing fit the work area, but Windows' default
+placement offset the window below it. Native centering now accompanies fitting;
+the installed check asserts the actual client rectangle is inside the monitor's
+work area. No resize policy or custom window positioning code is introduced.
+
+The macOS report passed, but its cold standalone screenshot showed the blank
+canvas after a fixed three-second wait. That result is not accepted as a pass.
+The probe now uses the built-in Vision text recognizer to wait for the expected
+document title in each screenshot and retains recognized text in its report.
+Local checks correctly distinguish the failing blank screenshot from the warm
+standalone screenshot. The next hosted run must establish the cold-open result.
+
+Correctness review traced all restoration waits, Linux MIME detection and all
+Linux desktop-template consumers, and native work-area calculations. Ponytail
+review: **Lean already. Ship.** Existing native APIs and one desktop template
+cover the fixes without new application dependencies.

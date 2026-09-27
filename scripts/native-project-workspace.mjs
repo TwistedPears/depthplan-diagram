@@ -48,9 +48,10 @@ export async function projectWorkspace(driver) {
     current.sync(
       'return Array.from(document.querySelectorAll("[role=tab]")).map(t=>t.id.slice(4))',
     );
+  // Restoring tabs activates each member before returning to the saved tab.
   const active = () =>
     current.sync(
-      'return document.querySelector("[role=tab][aria-selected=true]")?.id.slice(4) ?? null',
+      'return document.querySelector("[role=tab][aria-selected=true]:not(:disabled)")?.id.slice(4) ?? null',
     );
   const opened = () => current.until(async () => (await active()) === a.id);
   const open = async (board) => {

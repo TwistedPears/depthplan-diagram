@@ -18,6 +18,23 @@ switch ($Action) {
   'capture' {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
+    Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class InstalledWindow {
+  public struct Rect { public int Left, Top, Right, Bottom; }
+  public struct Point { public int X, Y; }
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr window, out Rect rect);
+  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr window, ref Point point);
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+}
+'@
+    [void][InstalledWindow]::SetProcessDPIAware()
+    $window = (Get-Process depthplan).MainWindowHandle
+    $client = New-Object InstalledWindow+Rect
+    $origin = New-Object InstalledWindow+Point
+    if (-not [InstalledWindow]::GetClientRect($window, [ref]$client) -or -not [InstalledWindow]::ClientToScreen($window, [ref]$origin)) { throw 'Could not inspect the installed window' }
+    $workArea = [System.Windows.Forms.Screen]::FromHandle($window).WorkingArea
     $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
     $bitmap = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -25,6 +42,9 @@ switch ($Action) {
       $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
       $bitmap.Save($Value, [System.Drawing.Imaging.ImageFormat]::Png)
     } finally { $graphics.Dispose(); $bitmap.Dispose() }
+    if ($origin.X -lt $workArea.Left -or $origin.Y -lt $workArea.Top -or ($origin.X + $client.Right) -gt $workArea.Right -or ($origin.Y + $client.Bottom) -gt $workArea.Bottom) {
+      throw "Installed content extends beyond the work area: origin=($($origin.X),$($origin.Y)), size=($($client.Right),$($client.Bottom)), workArea=$workArea"
+    }
   }
   default { throw "Unknown installed acceptance action: $Action" }
 }
