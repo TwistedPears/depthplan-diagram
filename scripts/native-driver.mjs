@@ -97,7 +97,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
       `Timed out waiting for button ${label}`,
     );
   };
-  const boardAction = async (boardId, action) => {
+  const closeBoard = async (boardId) => {
     if (!(await sync('return !!document.querySelector("#project-drawer")')))
       await click('Toggle project boards');
     await until(() =>
@@ -107,7 +107,12 @@ export async function launchNative(existingProfile, fileArguments = []) {
         [`board-link-${boardId}`],
       ),
     );
-    await click(action);
+    await click('Close board');
+    await until(() =>
+      sync('return !document.getElementById(arguments[0])', [
+        `board-${boardId}`,
+      ]),
+    );
   };
   // The embedded driver's Actions implementation uses 1 << button (right=4)
   // and drops held buttons on move. Dispatch spec-correct DOM mouse events.
@@ -191,7 +196,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
       native,
       dialogs,
       click,
-      boardAction,
+      closeBoard,
       drag,
       until,
       close,

@@ -123,7 +123,7 @@ export async function projectNavigation(driver) {
   );
   await edit('.document-caption .document-name', 'Detail Board');
   await edit('.document-caption .document-state', 'Custom Board', 'Tab');
-  await driver.boardAction(firstId, 'Close board');
+  await driver.closeBoard(firstId);
   assert.deepEqual(await readdir(profile), initialFiles);
   await dialogs('project-save', null);
   await click('Menu');

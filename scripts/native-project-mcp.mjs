@@ -185,7 +185,7 @@ export async function projectMcp(driver) {
       format: 'svg',
     });
     assert.equal(image.error.code, 'BUSY');
-    await driver.boardAction(b.id, 'Close board');
+    await driver.closeBoard(b.id);
     // Closing and reopening invalidates only B's handle.
     await until(
       async () =>
