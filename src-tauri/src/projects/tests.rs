@@ -927,6 +927,7 @@ fn renaming_without_changing_the_path_updates_memory_and_saved_boards() {
                     &path,
                     &project.fingerprint.clone(),
                     project.manifest.clone(),
+                    &[],
                     &|_| Ok(()),
                 )
                 .unwrap();
@@ -980,13 +981,16 @@ fn memory_project_retains_boards_until_first_save_and_then_reopens() {
     let mut invalid = candidate.clone();
     invalid.boards.pop();
     assert!(project
-        .save(&path, &project.fingerprint.clone(), invalid, &|_| Ok(()))
+        .save(&path, &project.fingerprint.clone(), invalid, &[], &|_| Ok(
+            ()
+        ))
         .is_err());
     project
         .save(
             &path,
             &project.fingerprint.clone(),
             candidate.clone(),
+            &[],
             &|_| Ok(()),
         )
         .unwrap();
@@ -1019,6 +1023,111 @@ fn memory_project_retains_boards_until_first_save_and_then_reopens() {
 }
 
 #[test]
+fn save_project_as_copies_nested_boards_and_accepted_edits_without_changing_the_original() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = create(dir.path());
+    let first = project.manifest.boards[0].id.clone();
+    let original_path = project.disk().unwrap().path.clone();
+    fs::create_dir(project.disk().unwrap().root.join("nested")).unwrap();
+    apply(
+        &mut project,
+        json!({"kind":"duplicateBoard","boardId":first,"name":"Detail","path":"nested/detail.depthplan"}),
+    );
+    let original = project.snapshot("session");
+    let original_files: Vec<_> = std::iter::once(original_path.clone())
+        .chain(
+            project
+                .manifest
+                .boards
+                .iter()
+                .map(|b| project.board_path(&b.id).unwrap()),
+        )
+        .map(|path| {
+            let bytes = fs::read(&path).unwrap();
+            (path, bytes)
+        })
+        .collect();
+    let mut accepted = project.read_board(&first).unwrap()["document"].clone();
+    accepted["extensions"] = json!({"accepted": true});
+    for phase in ["board-publish", "manifest-publish", "manifest-published"] {
+        let destination = tempfile::tempdir().unwrap();
+        assert!(project
+            .save(
+                &destination.path().join("copy.depthproject"),
+                &project.fingerprint.clone(),
+                project.manifest.clone(),
+                &[accepted.clone()],
+                &|step| {
+                    if step == phase {
+                        Err("Injected copy failure".into())
+                    } else {
+                        Ok(())
+                    }
+                }
+            )
+            .is_err());
+        assert_eq!(project.snapshot("session"), original);
+        for (path, bytes) in &original_files {
+            assert_eq!(fs::read(path).unwrap(), *bytes);
+        }
+    }
+    let destination = tempfile::tempdir().unwrap();
+    let path = destination.path().join("copy.depthproject");
+    for documents in [
+        vec![accepted.clone(), accepted.clone()],
+        vec![json!({"id":"foreign"})],
+    ] {
+        assert!(project
+            .save(
+                &path,
+                &project.fingerprint.clone(),
+                project.manifest.clone(),
+                &documents,
+                &|_| Ok(())
+            )
+            .is_err());
+        assert!(!path.exists());
+    }
+    project
+        .save(
+            &path,
+            &project.fingerprint.clone(),
+            project.manifest.clone(),
+            &[accepted.clone()],
+            &|_| Ok(()),
+        )
+        .unwrap();
+    assert_eq!(project.disk().unwrap().path, path.canonicalize().unwrap());
+    assert_eq!(project.read_board(&first).unwrap()["document"], accepted);
+    assert!(destination.path().join("nested/detail.depthplan").is_file());
+    let original = Project::open(&original_path).unwrap();
+    assert_eq!(original.manifest, project.manifest);
+    for board in &project.manifest.boards[1..] {
+        assert_eq!(
+            original.read_board(&board.id).unwrap()["document"],
+            project.read_board(&board.id).unwrap()["document"]
+        );
+    }
+    let read = project.read_board(&first).unwrap();
+    accepted["extensions"] = json!({"afterCopy": true});
+    project
+        .write_board(
+            &first,
+            read["fingerprint"].as_str().unwrap(),
+            &accepted,
+            &|| Ok(()),
+        )
+        .unwrap();
+    for (path, bytes) in &original_files {
+        assert_eq!(fs::read(path).unwrap(), *bytes);
+    }
+    assert_eq!(
+        project.read_board(&first).unwrap()["document"]["extensions"]["afterCopy"],
+        true
+    );
+}
+
+#[test]
 fn first_save_errors_keep_memory_and_never_replace_existing_files() {
     for phase in [
         "board-publish",
@@ -1036,6 +1145,7 @@ fn first_save_errors_keep_memory_and_never_replace_existing_files() {
                 &path,
                 &project.fingerprint.clone(),
                 project.manifest.clone(),
+                &[],
                 &|step| {
                     if step == phase {
                         Err("Injected storage failure".into())
@@ -1061,6 +1171,7 @@ fn first_save_errors_keep_memory_and_never_replace_existing_files() {
             &path,
             &project.fingerprint.clone(),
             project.manifest.clone(),
+            &[],
             &|_| Ok(())
         )
         .is_err());
@@ -1073,6 +1184,7 @@ fn first_save_errors_keep_memory_and_never_replace_existing_files() {
             &path,
             &project.fingerprint.clone(),
             project.manifest.clone(),
+            &[],
             &|_| Ok(())
         )
         .is_err());

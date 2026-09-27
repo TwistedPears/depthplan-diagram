@@ -299,13 +299,8 @@ function BoardWorkspace({
   const handleReloadFile = () => {
     if (!isLoading) return transitions.request('reload');
   };
-  const handleSave = async (saveAs = false) => {
-    if (!isLoading) {
-      if (projectWorkspace.project) return projectWorkspace.saveAll();
-      const captured = owner.snapshot().sessionId;
-      await files.wait();
-      if (owner.snapshot().sessionId === captured) return files.save(saveAs);
-    }
+  const handleSave = () => {
+    if (!isLoading) return projectWorkspace.saveAll();
   };
 
   const handleExportSVG = () => {
@@ -330,7 +325,12 @@ function BoardWorkspace({
     }
   };
 
-  const handleSaveAs = () => handleSave(true);
+  const handleSaveAs = async () => {
+    if (isLoading) return;
+    const captured = owner.snapshot().sessionId;
+    await files.wait();
+    if (owner.snapshot().sessionId === captured) return files.save(true);
+  };
 
   // Only the visible board subscribes to window/menu events.
   useEffect(() => {
@@ -466,7 +466,7 @@ function BoardWorkspace({
           : owner.source
             ? (name) =>
                 projectWorkspace.run(async () => {
-                  if (!(await registry.prepare([session.key], session.key)))
+                  if (!(await registry.prepare([session.key], true)))
                     return false;
                   if (
                     owner.snapshot().dirty &&

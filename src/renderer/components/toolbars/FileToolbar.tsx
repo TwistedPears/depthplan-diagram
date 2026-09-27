@@ -42,18 +42,22 @@ export default function FileToolbar({
       <button type="button" onClick={action(onOpenFile)} disabled={isLoading}>
         Open Board…
       </button>
+      <button
+        type="button"
+        onClick={action(onSaveAs)}
+        disabled={isLoading || !hasDocument}
+      >
+        Save Board As…
+      </button>
       {children}
       <div className="dropdown-separator" />
       {(hasDocument || isProject) && (
         <>
           <button type="button" onClick={action(onSave)} disabled={isLoading}>
-            Save
-          </button>
-          <button type="button" onClick={action(onSaveAs)} disabled={isLoading}>
-            Save As…
+            Save All
           </button>
           <button type="button" onClick={action(onClose)} disabled={isLoading}>
-            {isProject ? 'Close Project' : 'Close Board'}
+            Close All
           </button>
         </>
       )}

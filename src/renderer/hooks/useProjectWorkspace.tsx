@@ -364,20 +364,27 @@ function useProject() {
       current.manifest.name,
       true,
     );
-    if (choice === 'save') return locked.current ? saveDraft() : run(saveDraft);
+    if (choice === 'save')
+      return locked.current ? saveProject() : run(saveProject);
     return choice === 'discard';
   };
-  const saveDraft = async () => {
+  const saveProject = async () => {
     const current = live.current!;
     const active = registry.snapshot().activeKey;
     setError('');
     try {
-      if (!(await registry.prepare())) return false;
+      const keys = registry.sessions
+        .filter((session) => session.project?.sessionId === current.sessionId)
+        .map((session) => session.key);
+      if (!(await registry.prepare(keys, true))) return false;
       const saved = success(
         await window.desktop.projects.save(
           current.sessionId,
           current.fingerprint,
           current.manifest,
+          keys.map(
+            (key) => registry.controllers.get(key)!.owner.snapshot().document!,
+          ),
         ),
       );
       if (!saved) return false;
@@ -391,10 +398,16 @@ function useProject() {
         );
         if (!read) throw new Error('Could not read the saved board');
         controller.owner.relocate(board.name, read.board.source);
+        controller.owner.markSaved(
+          read.board.document,
+          controller.owner.snapshot().sessionId,
+          read.board.source ?? undefined,
+        );
+        controller.files.clearFailure();
       }
       return true;
     } catch (e) {
-      if (live.current?.location) {
+      if (live.current?.location !== current.location) {
         setError(
           `Project saved, but a board could not reopen: ${String(e)}. Close and reopen the affected board before editing.`,
         );
@@ -405,10 +418,12 @@ function useProject() {
       registry.activate(active);
     }
   };
-  const saveAll = () =>
-    run(() =>
-      live.current && !live.current.location ? saveDraft() : registry.saveAll(),
+  const saveAll = () => {
+    if (!live.current) return registry.saveAll();
+    return run(() =>
+      live.current!.location ? registry.saveAll() : saveProject(),
     );
+  };
   const acceptProject = async (candidate: ProjectSnapshot) => {
     if (candidate.sessionId === live.current?.sessionId) return true;
     let installed = false;
@@ -486,12 +501,7 @@ function useProject() {
       const sessionKey = boardId ? key(boardId) : '';
       const controller = registry.controllers.get(sessionKey);
       if (controller) {
-        if (
-          !(await registry.prepare(
-            [sessionKey],
-            kind === 'removeBoard' ? undefined : sessionKey,
-          ))
-        )
+        if (!(await registry.prepare([sessionKey], kind !== 'removeBoard')))
           return false;
         if (
           kind === 'renameBoard' &&
@@ -689,14 +699,16 @@ function useProject() {
       window.desktop.events.on('menu:close', () => {
         if (!dialog) void standalone();
       }),
+      window.desktop.events.on('menu:save-project-as', () => {
+        if (project && !dialog) void run(saveProject);
+      }),
     ];
     if (!registry.activeKey && project) {
-      for (const event of ['menu:save', 'menu:save-as'] as const)
-        stops.push(
-          window.desktop.events.on(event, () => {
-            if (!dialog) void saveAll();
-          }),
-        );
+      stops.push(
+        window.desktop.events.on('menu:save', () => {
+          if (!dialog) void saveAll();
+        }),
+      );
       stops.push(window.desktop.events.on('menu:new', () => newBoard()));
       stops.push(
         window.desktop.events.on('menu:open', () => {
@@ -745,6 +757,7 @@ function useProject() {
     renameBoard,
     renameFilename,
     saveAll,
+    saveProjectAs: () => run(saveProject),
     guardProject,
     renameProject: (name: string) =>
       run(async () => {

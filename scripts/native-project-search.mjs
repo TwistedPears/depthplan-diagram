@@ -173,7 +173,7 @@ export async function projectSearch(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).data.dirty, false);
     await click('Menu');
-    await click('Close Project');
+    await click('Close All');
     await until(() =>
       sync('return !document.querySelector(".project-navigation")'),
     );

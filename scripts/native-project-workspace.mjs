@@ -66,7 +66,7 @@ export async function projectWorkspace(driver) {
   };
   const closeProject = async () => {
     await current.click('Menu');
-    await current.click('Close Project');
+    await current.click('Close All');
     await current.until(() =>
       current.sync('return !document.querySelector(".project-navigation")'),
     );

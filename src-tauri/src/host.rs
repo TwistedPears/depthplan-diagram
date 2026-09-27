@@ -465,7 +465,8 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             };
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(id)?;
-            project.save(&path, expected, candidate, &|_| Ok(()))?;
+            let documents = arg(args, 4).as_array().ok_or("Expected board snapshots")?;
+            project.save(&path, expected, candidate, documents, &|_| Ok(()))?;
             Ok(json!({"status":"success","project":project.snapshot(id)}))
         }
         "project:create" => {
@@ -1244,9 +1245,10 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         ("menu:new-project", "New Project", None),
         ("menu:open-project", "Open Project…", None),
         ("menu:reload-document", "Reload document", None),
-        ("menu:save", "Save", Some("CmdOrCtrl+S")),
-        ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
-        ("menu:close", "Close", Some("CmdOrCtrl+W")),
+        ("menu:save", "Save All", Some("CmdOrCtrl+S")),
+        ("menu:save-as", "Save Board As…", Some("CmdOrCtrl+Shift+S")),
+        ("menu:save-project-as", "Save Project As…", None),
+        ("menu:close", "Close All", Some("CmdOrCtrl+W")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
             "menu:export-json",

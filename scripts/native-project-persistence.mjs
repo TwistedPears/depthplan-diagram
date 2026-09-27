@@ -144,7 +144,7 @@ export async function projectPersistence(driver) {
     await edit('Healthy B');
     await until(async () => (await read(b)).objects.api.name === 'Healthy B');
     await click('Menu');
-    await click('Close Project');
+    await click('Close All');
     await until(() =>
       sync(
         'return !!document.querySelector(".project-board-open:not(:disabled)")',

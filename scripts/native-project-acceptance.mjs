@@ -90,7 +90,7 @@ export async function projectAcceptance(driver) {
     probe.close();
   }
   await sync(`document.querySelector('[aria-label="Project menu"]').click()`);
-  await click('Close Project');
+  await click('Close All');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );

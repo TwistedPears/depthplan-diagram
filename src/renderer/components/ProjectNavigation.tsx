@@ -62,6 +62,15 @@ export function ProjectMenu({
           Back to previous board
         </button>
       )}
+      <button
+        disabled={busy || !project}
+        onClick={() => {
+          void workspace.saveProjectAs();
+          onAction();
+        }}
+      >
+        Save Project As…
+      </button>
     </div>
   );
 }
@@ -300,7 +309,7 @@ export default function ProjectNavigation({
                       workspace.setDialog({ kind: 'openBoard' })
                     }
                     onSave={workspace.saveAll}
-                    onSaveAs={workspace.saveAll}
+                    onSaveAs={() => {}}
                     onClose={workspace.standalone}
                     onAction={() => emptyMenu.current?.removeAttribute('open')}
                   >

@@ -276,21 +276,28 @@ impl Project {
         path: &Path,
         expected: &str,
         candidate: Manifest,
+        documents: &[Value],
         before: &dyn Fn(&str) -> Result<()>,
     ) -> Result<()> {
         self.check(expected)?;
-        if !self.is_draft() {
-            return Err("Project already has a location".into());
-        }
         manifest(&json!(candidate))?;
+        let ids: HashSet<_> = self.manifest.boards.iter().map(|b| b.id.as_str()).collect();
         if candidate.id != self.manifest.id
             || candidate.boards.len() != self.manifest.boards.len()
             || candidate
                 .boards
                 .iter()
-                .any(|b| !self.documents.contains_key(&b.id))
+                .any(|b| !ids.contains(b.id.as_str()))
         {
             return Err("Save must retain the project and every board identity".into());
+        }
+        let mut edits = HashMap::new();
+        for document in documents {
+            validation::document(document)?;
+            let id = document["id"].as_str().ok_or("Missing board identity")?;
+            if !ids.contains(id) || edits.insert(id, document).is_some() {
+                return Err("Save snapshots must identify distinct project members".into());
+            }
         }
         vacant(path)?;
         let parent = path
@@ -304,11 +311,37 @@ impl Project {
             .transpose()?;
         let mut saved = Self::acquire(path, candidate.clone(), String::new())?;
         for board in &candidate.boards {
+            let mut directory = saved.disk()?.root.clone();
+            for part in Path::new(&board.path).parent().unwrap() {
+                directory.push(part);
+                match fs::create_dir(&directory) {
+                    Ok(()) => durable_directory(directory.parent().unwrap())?,
+                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+                    Err(e) => return Err(e.to_string()),
+                }
+                if !fs::symlink_metadata(&directory)
+                    .map_err(|e| e.to_string())?
+                    .is_dir()
+                {
+                    return Err("Board directories must not be symlinks".into());
+                }
+            }
             vacant(&saved.resolve(&board.path)?)?;
         }
         let mut hashes = Vec::new();
         for board in &candidate.boards {
-            let mut document = self.documents[&board.id].clone();
+            let mut document = if let Some(document) = edits.get(board.id.as_str()) {
+                (*document).clone()
+            } else {
+                let read = self.read_board(&board.id)?;
+                if !self.is_draft() {
+                    hashes.push((
+                        self.board_path(&board.id)?,
+                        read["fingerprint"].as_str().unwrap().to_owned(),
+                    ));
+                }
+                read["document"].clone()
+            };
             document["metadata"]["title"] = board.name.clone().into();
             saved.write_new(&board.path, &document, before)?;
             hashes.push((
@@ -321,6 +354,7 @@ impl Project {
         let result = saved.commit(candidate, &|phase| {
             before(phase)?;
             if phase == "manifest-publish" {
+                self.check(expected)?;
                 for (path, expected) in &hashes {
                     regular(path)?;
                     if path.canonicalize().map_err(|e| e.to_string())? != *path
@@ -332,7 +366,7 @@ impl Project {
             }
             Ok(())
         });
-        result.map_err(|e| format!("{e}. Project remains in memory; inspect recoverable files in {} before choosing another destination.", path.parent().unwrap().display()))?;
+        result.map_err(|e| format!("{e}. The original project is unchanged; inspect recoverable files in {} before choosing another destination.", path.parent().unwrap().display()))?;
         *self = saved;
         Ok(())
     }

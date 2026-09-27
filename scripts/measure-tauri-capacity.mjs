@@ -415,7 +415,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', target);
     await driver.click('Menu');
     await measure(metric, async () => {
-      await driver.click('Save As…');
+      await driver.click('Save Board As…');
       await until(
         () =>
           driver.sync(
@@ -692,7 +692,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', null);
     await driver.click('Menu');
     await measure('saveCancel', async () => {
-      await driver.click('Save As…');
+      await driver.click('Save Board As…');
       await until(() =>
         driver.sync(
           'return document.body.textContent.includes("Save canceled")',

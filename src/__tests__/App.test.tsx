@@ -105,7 +105,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
     expect(window.desktop.fileSystem.newDocument).not.toHaveBeenCalled();
     expect(window.desktop.fileSystem.saveDocument).not.toHaveBeenCalled();
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await waitFor(() =>
       expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -285,10 +285,10 @@ describe('App', () => {
     );
     expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await screen.findByText('Save canceled');
     expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await screen.findByText('test.depthplan.json');
     expect(window.desktop.fileSystem.saveDocument).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -454,7 +454,7 @@ describe('App', () => {
     render(<App />);
     chooseFileCommand('Open Board…');
     await screen.findByText('Fixture');
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await waitFor(() =>
       expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
         document,

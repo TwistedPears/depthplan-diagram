@@ -75,6 +75,7 @@ const menuChannels = [
   'menu:reload-document',
   'menu:save',
   'menu:save-as',
+  'menu:save-project-as',
   'menu:export-svg',
   'menu:export-json',
 ] as const;
@@ -96,13 +97,19 @@ async function projectCall(
 const desktopHandler = {
   projects: {
     new: () => projectCall('project:new'),
-    save: (sessionId: string, expected: string, manifest: ProjectManifest) =>
+    save: (
+      sessionId: string,
+      expected: string,
+      manifest: ProjectManifest,
+      documents: RecursiveDocument[] = [],
+    ) =>
       projectCall(
         'project:save',
         sessionId,
         expected,
         manifest,
         projectFilename(manifest.name, [], '.depthproject'),
+        documents,
       ),
     recents: () =>
       native<FileResult<{ entries: RecentProject[] }>>('project:recents'),

@@ -87,7 +87,7 @@ test('project bridge uses opaque sessions, validates responses and preserves can
   await window.desktop.projects.save('session', 'hash', manifest);
   expect(invoke).toHaveBeenLastCalledWith('desktop', {
     method: 'project:save',
-    args: ['session', 'hash', manifest, 'project.depthproject'],
+    args: ['session', 'hash', manifest, 'project.depthproject', []],
   });
   await window.desktop.projects.apply('session', 'hash', {
     kind: 'removeBoard',

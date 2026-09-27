@@ -101,7 +101,7 @@ return the original result without repeating work. New commands using a closed o
 replaced handle fail; reopening the same file creates a new handle.
 
 Project `save` and `reload` use the existing native project owner, fingerprint
-checks and MCP folder grants. Project Save As writes an independent copy with a
+checks and MCP folder grants. Saving a project board as an independent copy uses a
 new document ID and leaves the original association and dirty state intact.
 Choose copy/export destinations outside an open project folder; its native
 writer lock protects that folder from independent file writes.

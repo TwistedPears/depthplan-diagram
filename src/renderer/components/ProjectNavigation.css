@@ -16,9 +16,9 @@
 .project-drawer {
   position: absolute;
   top: 78px;
-  right: 44px;
+  right: 18px;
   width: 280px;
-  max-width: calc(100vw - 62px);
+  max-width: calc(100vw - 36px);
   max-height: calc(100vh - 170px);
   overflow: auto;
   padding: 14px;

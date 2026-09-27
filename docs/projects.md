@@ -13,7 +13,7 @@ prompt. No project folder or board file is created yet.
 
 Double-click the project title above the Boards list or a board name to edit it
 inline. Enter or Tab commits; Escape cancels. Keyboard users can press F2 on the
-focused name. The first **Save**, **Save As** or **Save Project** opens only the
+focused name. The first **Save All** or **Save Project As…** opens the
 native save dialog, suggesting the project name in snake_case. Choose the
 `.depthproject` file; all boards, including closed boards, are saved beside it. Board filenames use snake_case
 (`API Details` becomes `api_details.depthplan`); repeated names receive `_2`, `_3`
@@ -25,7 +25,7 @@ Closing or replacing an unsaved project asks **Save / Discard / Cancel**, even
 if its boards have no edits. Applying or discarding an editor draft is separate
 from saving accepted work. Canceling any required guard keeps the workspace.
 
-**Open Project…**, **Recent Projects** and native file-open events use the same
+**Open Project…**, **Open Recent** and native file-open events use the same
 lifecycle guards. Opening the same canonical project focuses the existing
 workspace. A second application cannot acquire its writer lock. A copied folder
 is a different local workspace even when its persistent project ID is unchanged.
@@ -94,8 +94,8 @@ editing, with a five-second scheduling bound during continuous edits. Active
 gestures, file operations, transitions and MCP decisions defer that work. Hidden
 open boards retain their own autosave owner. No unapplied draft is written.
 
-Autosave is always enabled for project boards, including older projects saved
-with autosave disabled. Save and Save Project also flush pending edits immediately.
+Autosave is enabled by default and can be changed in Settings. **Save All**
+flushes pending board edits immediately; project metadata saves when edited.
 A superscript `*` after a board name marks unsaved work, including unapplied drafts;
 its tooltip includes “Unsaved”. The filename appears below the name. Autosave
 shows no transient notifications. Manual operation messages appear as plain text
@@ -108,13 +108,20 @@ explicitly overwrite the observed source. Board and manifest changes on disk are
 checked separately. A second external change invalidates the previous overwrite
 consent. Healthy boards can continue saving while another has a conflict.
 
-Project **Save As** creates an independent file with a fresh document ID. It keeps
-the original project association and unsaved status. Choose copy and export
+**Save Project As…** copies the project and all its boards to a new location,
+including accepted edits in open boards and the saved contents of closed boards.
+Choose a new folder so existing board files do not collide. DepthPlan switches
+to the copy while preserving open boards, undo histories and views. The original
+project and boards remain unchanged. Canceling or failing the save keeps the
+original workspace; existing files at the destination are never overwritten.
+
+**Save Board As…** creates an independent file with a fresh document ID for a
+project board. It keeps the original project association and unsaved status. Choose copy and export
 locations outside an open project folder: its native writer lock protects that
 folder from independent file writes. Closing a project releases the lock; the
 small `.depthproject.lock` file may remain safely on disk.
 
-Closing a project, replacing the workspace or quitting considers every open
+**Close All**, replacing the workspace or quitting considers every open
 board. Accepted changes save automatically before closing, without a review sheet.
 A failed save keeps all sessions open for repair. Drafts still need an explicit
 apply/discard decision; canceling it keeps all sessions. A running MCP operation

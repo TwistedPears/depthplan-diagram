@@ -179,7 +179,7 @@ function useRegistry() {
   };
   const prepare = async (
     keys = current.current.sessions.map((s) => s.key),
-    copyKey?: string,
+    copy = false,
   ) => {
     if (!canSwitch() || opening.current.size) return false;
     const previous = current.current.activeKey;
@@ -201,17 +201,11 @@ function useRegistry() {
         const controller = controllers.current.get(session.key)!;
         if (
           !(await controller.transitions.request(
-            session.project || session.key === copyKey
-              ? 'prepare-copy'
-              : 'prepare-close',
+            session.project || copy ? 'prepare-copy' : 'prepare-close',
           ))
         )
           return false;
-        if (
-          session.project &&
-          session.key !== copyKey &&
-          controller.owner.snapshot().dirty
-        ) {
+        if (session.project && !copy && controller.owner.snapshot().dirty) {
           const saved = await controller.files.save();
           if (saved.status !== 'success' || controller.owner.snapshot().dirty)
             return false;
@@ -271,10 +265,7 @@ function useRegistry() {
         const controller = controllers.current.get(key);
         if (!controller) return false;
         await controller.files.wait();
-        return (
-          !controller.owner.snapshot().dirty ||
-          (await controller.files.save()).status === 'success'
-        );
+        return (await controller.files.save()).status === 'success';
       }),
     );
     return results.every(Boolean);

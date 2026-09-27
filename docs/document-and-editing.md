@@ -7,10 +7,10 @@ and their tests define detailed edge cases. [PRD](PRD.md) describes product scop
 ## Format and identity
 
 DepthPlan diagrams use `.depthplan` files containing ordinary JSON. Existing
-`.depthplan.json` files remain supported. **Save** writes to the exact opened
-filename; **Save As** suggests the same basename with `.depthplan`, leaves the
+`.depthplan.json` files remain supported. **Save All** writes to the exact opened
+filename; **Save Board As…** suggests the same basename with `.depthplan`, leaves the
 original file intact, and makes the selected copy the current save destination
-in standalone mode. In a [project](projects.md), Save As creates an independent
+in standalone mode. In a [project](projects.md), Save Board As creates an independent
 copy with a fresh identity while retaining the project source and dirty state.
 New documents default to `untitled.depthplan`. Editable document exports also
 default to `.depthplan`. This naming change does not change the document format.

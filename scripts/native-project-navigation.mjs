@@ -64,6 +64,12 @@ export async function projectNavigation(driver) {
         await sync('return document.documentElement.scrollWidth > innerWidth'),
         false,
       );
+      assert(
+        await sync(
+          `const drawer=document.querySelector('#project-drawer');const button=document.querySelector('[aria-label="Export current diagram"]');return !drawer || !button || Math.abs(drawer.getBoundingClientRect().right-button.getBoundingClientRect().right)<1`,
+        ),
+        'The project drawer aligns with the Export button',
+      );
     }
   };
   await click('Menu');
@@ -117,7 +123,7 @@ export async function projectNavigation(driver) {
   assert.deepEqual(await readdir(profile), initialFiles);
   await dialogs('project-save', null);
   await click('Menu');
-  await click('Save As…');
+  await click('Save Project As…');
   await until(
     async () => (await native('test:last-file-dialog')).kind === 'project-save',
   );
@@ -232,10 +238,10 @@ export async function projectNavigation(driver) {
   );
   assert.deepEqual(
     menuLabels.slice(
-      menuLabels.indexOf('Save'),
-      menuLabels.indexOf('Save') + 3,
+      menuLabels.indexOf('Save All'),
+      menuLabels.indexOf('Save All') + 2,
     ),
-    ['Save', 'Save As…', 'Close Project'],
+    ['Save All', 'Close All'],
   );
   for (const removed of [
     'Save Project',
@@ -244,6 +250,7 @@ export async function projectNavigation(driver) {
     'Reload',
     'Recent Projects',
     'Save Copy…',
+    'Save As…',
   ])
     assert(!menuLabels.includes(removed));
   assert(
@@ -265,19 +272,14 @@ export async function projectNavigation(driver) {
     ),
     false,
   );
-  await click('Save');
-  const lastDialog = await native('test:last-file-dialog');
-  await dialogs('save', null);
+  await click('Save All');
+  await dialogs('project-save', null);
   await click('Menu');
-  await click('Save As…');
+  await click('Save Project As…');
   await until(() =>
     sync('return !document.querySelector(".quick-save").disabled'),
   );
-  assert.deepEqual(
-    await native('test:last-file-dialog'),
-    lastDialog,
-    'Saved-project Save As saves the project without a board-copy chooser',
-  );
+  assert.equal((await native('test:last-file-dialog')).kind, 'project-save');
   await native('test:dialogs', []);
   await click('Menu');
   await click('Open Board…');
@@ -302,8 +304,103 @@ export async function projectNavigation(driver) {
   await dialogs('open', null);
   await click('Standalone');
   assert(await sync('return !!document.querySelector(".project-navigation")'));
+  const originalManifest = await readFile(actualPath, 'utf8');
+  const originalBoards = await Promise.all(
+    (await current()).boards.map(async (board) => [
+      board.path,
+      await readFile(path.join(projectRoot, board.path), 'utf8'),
+    ]),
+  );
+  const bookmark = async (name) => {
+    await sync(
+      `const input=document.querySelector('[data-active="true"] [aria-label="New bookmark name"]');input.closest('details').open=true;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[0]);input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      [name],
+    );
+    await click('Add bookmark');
+  };
+  const saveState = () =>
+    sync(
+      `const toolbar=[...document.querySelectorAll('.unified-toolbar')].find(n=>n.getClientRects().length);return {filename:toolbar.querySelector('.document-state').textContent,dirty:!!toolbar.querySelector('.document-name sup'),busy:toolbar.querySelector('.quick-save').disabled}`,
+    );
+  const containsBookmark = (document, name) =>
+    Object.values(document.namedViews ?? {}).some((view) => view.name === name);
   await click('Menu');
-  await click('Close Project');
+  await click('Settings');
+  await sync(`document.querySelector('[aria-label=Autosave]').click()`);
+  await click('Menu');
+  await bookmark('Only in the copy');
+  const activeFilename = (await saveState()).filename;
+  const boardCopy = path.join(profile, 'board-copy.depthplan');
+  await dialogs('save', boardCopy);
+  await click('Menu');
+  await click('Save Board As…');
+  await until(async () => {
+    try {
+      return containsBookmark(
+        JSON.parse(await readFile(boardCopy, 'utf8')),
+        'Only in the copy',
+      );
+    } catch {
+      return false;
+    }
+  });
+  assert.notEqual(
+    JSON.parse(await readFile(boardCopy, 'utf8')).id,
+    JSON.parse(
+      originalBoards.find(([filename]) => filename === activeFilename)[1],
+    ).id,
+  );
+  assert((await saveState()).dirty);
+  await dialogs('project-save', null);
+  await click('Menu');
+  await click('Save Project As…');
+  await until(async () => !(await saveState()).busy);
+  assert((await saveState()).dirty);
+  const copyRoot = path.join(profile, 'project-copy');
+  await mkdir(copyRoot);
+  const copiedProject = path.join(copyRoot, 'copy.depthproject');
+  await dialogs('project-save', copiedProject);
+  await click('Menu');
+  await click('Save Project As…');
+  await until(async () => {
+    const state = await saveState();
+    return !state.busy && !state.dirty;
+  });
+  assert.equal(await readFile(copiedProject, 'utf8'), originalManifest);
+  for (const [filename, bytes] of originalBoards) {
+    const copied = JSON.parse(
+      await readFile(path.join(copyRoot, filename), 'utf8'),
+    );
+    if (filename === activeFilename)
+      assert(containsBookmark(copied, 'Only in the copy'));
+    else {
+      const original = JSON.parse(bytes);
+      // Native saves stamp modified time without replacing the live snapshot.
+      copied.metadata.modified = original.metadata.modified;
+      assert.deepEqual(copied, original);
+    }
+  }
+  await bookmark('After Save As');
+  await click('Menu');
+  await click('Save All');
+  await until(async () =>
+    containsBookmark(
+      JSON.parse(await readFile(path.join(copyRoot, activeFilename), 'utf8')),
+      'After Save As',
+    ),
+  );
+  assert.equal(await readFile(actualPath, 'utf8'), originalManifest);
+  for (const [filename, bytes] of originalBoards)
+    assert.equal(
+      await readFile(path.join(projectRoot, filename), 'utf8'),
+      bytes,
+    );
+  await click('Menu');
+  await click('Settings');
+  await sync(`document.querySelector('[aria-label=Autosave]').click()`);
+  await click('Menu');
+  await click('Menu');
+  await click('Close All');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
@@ -391,7 +488,7 @@ export async function projectNavigation(driver) {
     'menu-import.depthplan',
   );
   await click('Menu');
-  await click('Close Board');
+  await click('Close All');
   await until(() =>
     sync(
       'return document.querySelector(".document-state").textContent === "Not saved yet"',

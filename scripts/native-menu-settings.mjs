@@ -32,11 +32,12 @@ export async function menuSettings(driver) {
       'Open Recent',
       'New Board',
       'Open Board…',
+      'Save Board As…',
       'New Project',
       'Open Project…',
-      'Save',
-      'Save As…',
-      'Close Board',
+      'Save Project As…',
+      'Save All',
+      'Close All',
       'Export',
       'Settings',
     ],
@@ -163,7 +164,7 @@ export async function menuSettings(driver) {
   );
   await dialogs('message', 'Discard');
   await click('Menu');
-  await click('Close Board');
+  await click('Close All');
   await until(() =>
     sync(
       'return document.querySelector(".document-name").textContent.includes("Untitled")',
