@@ -21,30 +21,25 @@ export async function projectMcp(driver) {
       path: 'Board-B.depthplan',
     })
   ).project;
-  project = (
-    await native('project:apply', project.sessionId, project.fingerprint, {
-      kind: 'settings',
-      name: 'MCP Project',
-      description: '',
-      homeBoardId: project.manifest.boards[0].id,
-      autosave: false,
-    })
-  ).project;
   const [a, b] = project.manifest.boards;
   const root = path.dirname(project.location);
   const read = async (board) =>
     JSON.parse(await readFile(path.join(root, board.path), 'utf8'));
   const originalB = await readFile(path.join(root, b.path));
   await native('project:close', project.sessionId);
+  // This journey exercises explicit MCP saves, controlled by the app setting.
+  await click('Menu');
+  await click('Settings');
+  await sync(
+    `const autosave=document.querySelector('[aria-label="Autosave"]'); if(autosave.getAttribute('aria-checked')==='true') autosave.click();`,
+  );
   if (!(await native('automation:status')).enabled) {
-    await click('Menu');
-    await click('Settings');
     await sync(
       `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
-    await click('Menu');
   }
+  await click('Menu');
   const probe = client(
     driver.adapter,
     (await native('automation:status')).descriptor,
@@ -81,6 +76,17 @@ export async function projectMcp(driver) {
         requestId: `project-mcp-${sequence++}`,
       };
     };
+    const activate = async (boardId) => {
+      await sync('document.getElementById(arguments[0]).click()', [
+        `board-link-${boardId}`,
+      ]);
+      await until(() =>
+        sync(
+          'return document.querySelector("[data-board-session][data-active=true]:not(:has(> [inert]))")?.id === arguments[0]',
+          [`board-${boardId}`],
+        ),
+      );
+    };
     const openB = {
       handle: discovery.handle,
       boardId: b.id,
@@ -114,9 +120,7 @@ export async function projectMcp(driver) {
     await writeFile(path.join(root, a.path), JSON.stringify(external));
     if (!(await sync('return !!document.querySelector("#project-drawer")')))
       await click('Toggle project boards');
-    await sync('document.getElementById(arguments[0]).click()', [
-      `board-link-${a.id}`,
-    ]);
+    await activate(a.id);
     const saveInput = { ...(await args()), action: { type: 'save' } };
     const started = await probe.call('depthplan_files', saveInput);
     assert.equal(started.ok, true, JSON.stringify(started));
@@ -130,15 +134,7 @@ export async function projectMcp(driver) {
       return result.data;
     };
     await until(async () => (await receipt()).status === 'needs-decision');
-    await sync('document.getElementById(arguments[0]).click()', [
-      `board-link-${b.id}`,
-    ]);
-    await until(() =>
-      sync(
-        'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
-        [`board-${b.id}`],
-      ),
-    );
+    await activate(b.id);
     const pending = await receipt();
     assert.equal(pending.target.sessionId, handleA.sessionId);
     assert.equal(

@@ -82,7 +82,7 @@ export async function projectLinks(driver) {
   const active = (id) =>
     until(() =>
       sync(
-        `return document.getElementById('board-${id}')?.getAttribute('data-active') === 'true'`,
+        `return !!document.querySelector('#board-${id}[data-active=true]:not(:has(> [inert]))')`,
       ),
     );
   const select = () =>

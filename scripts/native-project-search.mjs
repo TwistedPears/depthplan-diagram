@@ -56,7 +56,11 @@ export async function projectSearch(driver) {
     await dialogs('project-open', file);
     await click('Menu');
     await click('Open Project…');
-    await until(() => sync('return !!document.getElementById("board-a")'));
+    await until(() =>
+      sync(
+        'return !!document.querySelector("#board-a[data-active=true]:not(:has(> [inert]))")',
+      ),
+    );
     const before = await probe.call('depthplan_get_state');
     if (
       await sync('return document.getElementById("object-search-form").hidden')

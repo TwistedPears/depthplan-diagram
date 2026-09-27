@@ -60,7 +60,7 @@ export async function projectPersistence(driver) {
       await click(`Open ${board.name}, ${board.path}`);
       await until(() =>
         sync(
-          'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
+          'return document.querySelector("[data-board-session][data-active=true]:not(:has(> [inert]))")?.id === arguments[0]',
           [`board-${board.id}`],
         ),
       );
