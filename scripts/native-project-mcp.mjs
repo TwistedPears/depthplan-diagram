@@ -111,8 +111,10 @@ export async function projectMcp(driver) {
     const external = await read(a);
     external.objects.api.name = 'External A';
     await writeFile(path.join(root, a.path), JSON.stringify(external));
+    if (!(await sync('return !!document.querySelector("#project-drawer")')))
+      await click('Toggle project boards');
     await sync('document.getElementById(arguments[0]).click()', [
-      `tab-${a.id}`,
+      `board-link-${a.id}`,
     ]);
     const saveInput = { ...(await args()), action: { type: 'save' } };
     const started = await probe.call('depthplan_files', saveInput);
@@ -128,12 +130,12 @@ export async function projectMcp(driver) {
     };
     await until(async () => (await receipt()).status === 'needs-decision');
     await sync('document.getElementById(arguments[0]).click()', [
-      `tab-${b.id}`,
+      `board-link-${b.id}`,
     ]);
     await until(() =>
       sync(
-        'return document.querySelector("[role=tab][aria-selected=true]")?.id === arguments[0]',
-        [`tab-${b.id}`],
+        'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
+        [`board-${b.id}`],
       ),
     );
     const pending = await receipt();
@@ -186,11 +188,8 @@ export async function projectMcp(driver) {
       format: 'svg',
     });
     assert.equal(image.error.code, 'BUSY');
-    await sync(
-      `document.getElementById(arguments[0]).parentElement.querySelector('[aria-label^="Close " ]').click()`,
-      [`tab-${b.id}`],
-    );
-    // Close the active B tab, then reopen to invalidate only B's handle.
+    await driver.boardAction(b.id, 'Close board');
+    // Closing and reopening invalidates only B's handle.
     await until(
       async () =>
         (await probe.call('depthplan_get_state', { handle: handleB })).error

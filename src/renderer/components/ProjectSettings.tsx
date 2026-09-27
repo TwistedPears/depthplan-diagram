@@ -11,7 +11,6 @@ export default function ProjectSettings() {
     name: manifest.name,
     description: manifest.description,
     homeBoardId: manifest.homeBoardId,
-    autosave: manifest.autosave,
   });
   const [submitted, setSubmitted] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -23,7 +22,7 @@ export default function ProjectSettings() {
   return (
     <FormDialog
       title="Project Settings"
-      description="These settings travel with the project. Your open tabs and board views stay on this computer."
+      description="These settings travel with the project. Your open boards and views stay on this computer."
       initialFocus={input}
       submitLabel={workspace.busy ? 'Applying…' : 'Apply'}
       submitDisabled={workspace.busy}
@@ -38,6 +37,7 @@ export default function ProjectSettings() {
         void workspace.run(async () => {
           const saved = await workspace.apply({
             kind: 'settings',
+            autosave: true,
             ...settings,
             name: settings.name.trim(),
           });
@@ -95,20 +95,9 @@ export default function ProjectSettings() {
       <p className="field-hint">
         If the home board is unavailable, the first readable board opens.
       </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={settings.autosave}
-          onChange={(e) =>
-            setSettings({ ...settings, autosave: e.target.checked })
-          }
-        />
-        Automatically save accepted board changes
-      </label>
       <p className="field-hint">
-        Unapplied editor drafts remain separate from saved board content.{' '}
-        Autosave replaces the current file; it does not keep backups or version
-        history.
+        Boards save automatically. Apply editor drafts to save them. Autosave
+        replaces the current file; it does not keep backups or version history.
       </p>
       <label className="form-dialog-field">
         Project location

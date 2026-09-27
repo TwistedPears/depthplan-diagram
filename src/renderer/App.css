@@ -240,7 +240,7 @@ summary {
   scrollbar-color: var(--line) var(--surface);
 }
 .bookmark-item,
-.bookmark-menu > button {
+:is(.bookmark-menu, .project-board-menu) > button {
   width: 100%;
   border-color: transparent;
   text-align: left;
@@ -251,7 +251,7 @@ summary {
   white-space: nowrap;
 }
 .bookmark-item:focus-visible,
-.bookmark-menu > button:focus-visible {
+:is(.bookmark-menu, .project-board-menu) > button:focus-visible {
   outline-offset: -2px;
 }
 .bookmark-panel p {
@@ -272,7 +272,7 @@ summary {
   width: 34px;
   padding: 7px;
 }
-.bookmark-menu {
+:is(.bookmark-menu, .project-board-menu) {
   position: fixed;
   margin: 0;
   padding: 5px;
@@ -502,13 +502,6 @@ summary {
   font-size: 12px;
   line-height: 1.5;
 }
-.select-visible-control {
-  position: absolute;
-  top: 90px;
-  right: 18px;
-  font-size: 12px;
-}
-
 .canvas-welcome {
   position: absolute;
   left: 50%;
@@ -771,8 +764,7 @@ dialog label {
 @media (max-width: 1100px) {
   .recursive-selection-toolbar,
   .object-search-results,
-  .selection-reopen,
-  .select-visible-control {
+  .selection-reopen {
     top: 150px;
   }
   .workspace-notice {

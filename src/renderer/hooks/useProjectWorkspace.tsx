@@ -226,8 +226,8 @@ function useProject() {
     if (moved)
       requestAnimationFrame(() =>
         document
-          .querySelector<HTMLButtonElement>(
-            '.project-tabs [aria-selected="true"]',
+          .querySelector<HTMLElement>(
+            '[data-board-session][data-active="true"]',
           )
           ?.focus(),
       );
@@ -561,15 +561,6 @@ function useProject() {
       if (result.imported.length) await openBoard(result.imported[0]);
       setError(result.errors.join('\n'));
     });
-  const reorder = (boardId: string, delta: number) =>
-    run(async () => {
-      const ids = live.current!.manifest.boards.map((b) => b.id);
-      const from = ids.indexOf(boardId),
-        to = from + delta;
-      if (from < 0 || to < 0 || to >= ids.length) return false;
-      [ids[from], ids[to]] = [ids[to], ids[from]];
-      await apply({ kind: 'reorderBoards', ids });
-    });
   const quickSwitch = () => {
     setDrawer(true);
     requestAnimationFrame(() => search.current?.focus());
@@ -647,7 +638,6 @@ function useProject() {
     standalone,
     manage,
     importBoards,
-    reorder,
     quickSwitch,
     filename: (name: string) =>
       projectFilename(name, [

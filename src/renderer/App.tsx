@@ -198,9 +198,7 @@ function BoardWorkspace({
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
   const files = useDocumentFiles(owner, showStatus, recovery, session.project);
-  const autosave =
-    !!session.project && !!projectWorkspace.project?.manifest.autosave;
-  useProjectAutosave(owner, files, autosave);
+  useProjectAutosave(owner, files, !!session.project);
   const { scheduleRemember } = projectWorkspace;
   useEffect(() => {
     if (session.project) scheduleRemember();
@@ -221,7 +219,7 @@ function BoardWorkspace({
         ? 'Saving'
         : dirty
           ? session.project
-            ? 'Unsaved'
+            ? 'Saving'
             : 'Unsaved changes'
           : hasDrafts
             ? ''
@@ -404,7 +402,6 @@ function BoardWorkspace({
       transitions,
       leave: recovery.leave,
       hasDrafts,
-      autosave,
       handlers,
       work: mcpWorkflows,
     });
@@ -442,11 +439,13 @@ function BoardWorkspace({
       <div
         className="workspace"
         data-board-session={session.key}
+        data-active={active}
         id={session.project ? `board-${session.project.boardId}` : undefined}
-        role={session.project ? 'tabpanel' : undefined}
-        aria-labelledby={
-          session.project ? `tab-${session.project.boardId}` : undefined
+        role={session.project ? 'region' : undefined}
+        aria-label={
+          session.project ? currentDocument?.metadata.title : undefined
         }
+        tabIndex={session.project ? -1 : undefined}
       >
         <div
           inert={

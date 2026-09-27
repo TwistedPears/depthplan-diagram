@@ -21,14 +21,8 @@ import type {
 import type useDocumentState from './useDocumentState';
 import type useDocumentFiles from './useDocumentFiles';
 import type useDocumentTransitions from './useDocumentTransitions';
-import ProjectCloseReview from '../components/ProjectCloseReview';
 import type { AutomationHandlers } from './useAutomation';
 import type useMcpWorkflows from './useMcpWorkflows';
-
-export type CloseReview = {
-  keys: string[];
-  finish: (approved: boolean) => void;
-};
 
 export type BoardSession = {
   key: string;
@@ -42,13 +36,11 @@ export type SessionController = {
   transitions: ReturnType<typeof useDocumentTransitions>;
   leave: (sessionId: string) => Promise<void>;
   hasDrafts?: boolean;
-  autosave?: boolean;
   handlers?: AutomationHandlers;
   work?: ReturnType<typeof useMcpWorkflows>;
 };
 
 function useRegistry() {
-  const [closeReview, setCloseReview] = useState<CloseReview | null>(null);
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const report = useCallback(
     (key: string, status: string) =>
@@ -202,50 +194,27 @@ function useRegistry() {
         )
       )
         return false;
-      if (!copyKey && selected.some((session) => session.project)) {
-        await Promise.all(
-          selected.map(async (session) => {
-            const controller = controllers.current.get(session.key)!;
-            await controller.files.wait();
-            if (
-              controller.autosave &&
-              !controller.hasDrafts &&
-              !controller.files.failure &&
-              controller.owner.snapshot().dirty
-            )
-              await controller.files.save();
-          }),
-        );
-        if (
-          selected.some((session) => {
-            const controller = controllers.current.get(session.key)!;
-            return controller.hasDrafts || controller.owner.snapshot().dirty;
-          })
-        ) {
-          approved = await new Promise<boolean>((resolve) =>
-            setCloseReview({
-              keys,
-              finish: (answer) => {
-                flushSync(() => setCloseReview(null));
-                resolve(answer);
-              },
-            }),
-          );
-          return approved;
-        }
-      }
       // Resolve every board before retiring any recovery data. Cancel retains all sessions.
-      for (const session of current.current.sessions.filter((s) =>
-        keys.includes(s.key),
-      )) {
+      for (const session of selected) {
         show(session.key);
         const controller = controllers.current.get(session.key)!;
         if (
           !(await controller.transitions.request(
-            session.key === copyKey ? 'prepare-copy' : 'prepare-close',
+            session.project || session.key === copyKey
+              ? 'prepare-copy'
+              : 'prepare-close',
           ))
         )
           return false;
+        if (
+          session.project &&
+          session.key !== copyKey &&
+          controller.owner.snapshot().dirty
+        ) {
+          const saved = await controller.files.save();
+          if (saved.status !== 'success' || controller.owner.snapshot().dirty)
+            return false;
+        }
       }
       approved = true;
       return true;
@@ -320,8 +289,6 @@ function useRegistry() {
     activate,
     close,
     closeAll,
-    closeReview,
-    showForClose: show,
     saveAll,
     prepare,
     retire,
@@ -335,14 +302,7 @@ function useRegistry() {
 const Sessions = createContext<ReturnType<typeof useRegistry> | null>(null);
 export function DocumentSessions({ children }: { children: ReactNode }) {
   const registry = useRegistry();
-  return (
-    <Sessions.Provider value={registry}>
-      {children}
-      {registry.closeReview && (
-        <ProjectCloseReview request={registry.closeReview} />
-      )}
-    </Sessions.Provider>
-  );
+  return <Sessions.Provider value={registry}>{children}</Sessions.Provider>;
 }
 export default function useDocumentSessions() {
   const sessions = useContext(Sessions);

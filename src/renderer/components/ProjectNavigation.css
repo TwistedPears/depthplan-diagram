@@ -16,9 +16,9 @@
 .project-drawer {
   position: absolute;
   top: 78px;
-  left: 18px;
+  right: 44px;
   width: 280px;
-  max-width: calc(100vw - 36px);
+  max-width: calc(100vw - 62px);
   max-height: calc(100vh - 170px);
   overflow: auto;
   padding: 14px;
@@ -41,8 +41,7 @@
   margin-left: 6px;
   font-weight: 400;
 }
-.project-drawer header button,
-.project-tab > button + button {
+.project-drawer header button {
   padding: 6px;
   border: 0;
   display: inline-flex;
@@ -68,16 +67,11 @@
 .project-board-list li[data-active='true'] {
   background: var(--accent-soft);
 }
-.project-board-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-}
 .project-board-open {
   display: flex;
   align-items: center;
   gap: 9px;
-  flex: 1;
+  width: 100%;
   min-width: 0;
   padding: 9px 6px;
   text-align: left;
@@ -98,37 +92,6 @@
   font-size: 11px;
   font-weight: 400;
 }
-.project-board-row details {
-  flex-shrink: 0;
-}
-.project-board-row summary,
-.project-empty-identity summary {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  min-height: 34px;
-  border-radius: 6px;
-}
-.project-board-row details[open] {
-  display: contents;
-}
-.project-board-actions {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 4px;
-}
-.project-board-actions button:last-child {
-  grid-column: 1 / -1;
-}
-.project-board-actions button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-}
 .project-drawer footer {
   border-top: 1px solid var(--line);
   padding-top: 10px;
@@ -141,46 +104,6 @@
   gap: 10px;
   border: 0;
   text-align: left;
-}
-.project-tabs {
-  position: absolute;
-  top: 78px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(100vw - 660px);
-  display: flex;
-  overflow-x: auto;
-  background: var(--surface);
-  border-radius: 8px;
-  box-shadow: var(--floating-shadow);
-  padding: 4px;
-}
-.project-tab {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  border-radius: 4px;
-}
-.project-tab[data-active='true'] {
-  background: var(--accent-soft);
-}
-.project-tab button[role='tab'] {
-  border: 0;
-  background: transparent;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.project-tab button[aria-selected='true'] {
-  color: var(--accent);
-  font-weight: 600;
-}
-.project-tab-state {
-  font-size: 11px;
-}
-.project-overflow {
-  display: none;
 }
 .project-error {
   color: var(--danger);
@@ -217,11 +140,12 @@
   display: flex;
   align-items: center;
 }
-.project-empty-identity > button {
-  border: 0;
+.project-empty-identity summary {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  padding: 8px;
+}
+.project-empty-identity > span {
+  padding: 0 12px;
 }
 .project-empty-menu {
   position: absolute;
@@ -242,7 +166,7 @@
   text-align: center;
 }
 .project-drawer ~ .project-empty {
-  left: 320px;
+  right: 350px;
 }
 .project-empty h1 {
   font-size: 25px;
@@ -251,37 +175,25 @@
   margin: 4px;
 }
 .project-drawer-toggle {
-  border: 0;
-  padding: 6px;
-  display: flex;
-  background: transparent;
+  position: absolute;
+  top: 150px;
+  right: 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 14px 9px;
+  border-radius: 8px 0 0 8px;
+  background: var(--surface);
+  box-shadow: var(--floating-shadow);
+  font-size: 12px;
+}
+.project-drawer-toggle[aria-expanded='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 @media (max-width: 1100px) {
-  .project-tabs {
-    top: 134px;
-    left: 18px;
-    transform: none;
-    max-width: calc(100vw - 185px);
-  }
-  .project-tab:not([data-active='true']) {
-    display: none;
-  }
-  body:has(.project-navigation) .select-visible-control {
-    top: 184px;
-  }
-  .project-overflow {
-    display: block;
-    position: absolute;
-    top: 138px;
-    right: 18px;
-  }
   .project-drawer {
-    top: 184px;
-    max-height: calc(100vh - 270px);
-  }
-  .project-empty {
-    left: 30px;
-    right: 30px;
+    top: 144px;
+    max-height: calc(100vh - 230px);
   }
 }
 

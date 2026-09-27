@@ -123,19 +123,6 @@ function UnifiedToolbar({
             {documentStatus ?? 'Local document'}
           </span>
         </div>
-        {project && workspace && (
-          <button
-            className="project-drawer-toggle"
-            ref={workspace.toggle}
-            data-session-navigation
-            aria-label="Toggle project boards"
-            aria-expanded={workspace.drawer}
-            aria-controls="project-drawer"
-            onClick={() => workspace.setDrawer(!workspace.drawer)}
-          >
-            <Icon name="chevron-right" />
-          </button>
-        )}
         <div
           className="dropdown-menu"
           id="document-menu"

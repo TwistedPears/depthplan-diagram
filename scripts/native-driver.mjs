@@ -97,6 +97,18 @@ export async function launchNative(existingProfile, fileArguments = []) {
       `Timed out waiting for button ${label}`,
     );
   };
+  const boardAction = async (boardId, action) => {
+    if (!(await sync('return !!document.querySelector("#project-drawer")')))
+      await click('Toggle project boards');
+    await until(() =>
+      sync(
+        `const board=document.getElementById(arguments[0]); if(!board || board.disabled)return false;
+       board.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true})); return true`,
+        [`board-link-${boardId}`],
+      ),
+    );
+    await click(action);
+  };
   // The embedded driver's Actions implementation uses 1 << button (right=4)
   // and drops held buttons on move. Dispatch spec-correct DOM mouse events.
   // This exercises WKWebView handlers, not OS input or hardware latency.
@@ -179,6 +191,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
       native,
       dialogs,
       click,
+      boardAction,
       drag,
       until,
       close,

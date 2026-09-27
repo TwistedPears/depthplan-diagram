@@ -92,10 +92,10 @@ approved folder. Opening a project in the UI never grants MCP disk access.
 
 Use the returned **document** handle for edits, saves, exports, draft resolution
 and reads. `get_state`, `get_drafts` and `get_context` accept an optional handle;
-omitting it resolves the active board at acceptance. Later tab switches cannot
+omitting it resolves the active board at acceptance. Later board switches cannot
 redirect a request. File receipts contain their captured `target`, and
 `get_operation`/`cancel_operation` find that receipt even after switching or closing
-a tab. The workspace retains the latest 64 workflow owners and 256 accepted request
+a board session. The workspace retains the latest 64 workflow owners and 256 accepted request
 results; expiration requires reconciling current state. Identical accepted retries
 return the original result without repeating work. New commands using a closed or
 replaced handle fail; reopening the same file creates a new handle.
@@ -107,11 +107,11 @@ Choose copy/export destinations outside an open project folder; its native
 writer lock protects that folder from independent file writes.
 Standalone New/Open and recovery Restore require closing project mode first;
 recovery discard remains available. Drafts and project transitions retain their
-normal guards. Edits to an already loaded board follow the user's project
-autosave policy, just like UI edits; explicit MCP file access still requires a grant.
+normal guards. Edits to an already loaded project board save automatically,
+just like UI edits; explicit MCP file access still requires a grant.
 
 JSON export can target an inactive board. SVG/PNG requires its active canvas;
-switching tabs is blocked during export. Save decisions can remain pending while
+switching boards is blocked during export. Save decisions can remain pending while
 another board is active; use the original handle and fresh target revisions for
 `decide`. Closing an owner or its project waits until its MCP workflow finishes
 or is canceled.

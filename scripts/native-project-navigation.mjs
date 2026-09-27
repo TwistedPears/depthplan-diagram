@@ -45,16 +45,8 @@ export async function projectNavigation(driver) {
     }
   };
   const boardAction = async (name, action) => {
-    await drawer();
-    await until(() =>
-      sync(
-        `const summary=Array.from(document.querySelectorAll('summary')).find(s=>s.getAttribute('aria-label')===arguments[0]);
-      if(!summary)return false; summary.parentElement.open=true;
-      const button=Array.from(summary.parentElement.querySelectorAll('button')).find(b=>b.textContent.trim()===arguments[1]);
-      if(!button||button.disabled)return false;button.click();return true`,
-        [`Actions for ${name}`, action],
-      ),
-    );
+    const board = (await current()).boards.find((board) => board.name === name);
+    await driver.boardAction(board.id, action);
   };
   await click('Menu');
   await click('New Project…');
@@ -85,7 +77,7 @@ export async function projectNavigation(driver) {
   await click('Import Boards…');
   await until(async () => (await current()).boards.length === 3);
   await until(() =>
-    sync('return document.querySelectorAll("[role=tab]").length===2'),
+    sync('return document.querySelectorAll("[data-board-session]").length===2'),
   );
   assert.deepEqual(await readFile(a), original);
   assert.deepEqual(await readFile(b), second);
@@ -104,8 +96,21 @@ export async function projectNavigation(driver) {
   await dialogGone();
   const duplicate = (await current()).boards.at(-1);
   assert.notEqual(duplicate.id, newId);
-  await boardAction(duplicate.name, 'Move up');
-  await until(async () => (await current()).boards.at(-2).id === duplicate.id);
+  const names = await sync(
+    'return [...document.querySelectorAll(".project-board-open span")].map(span=>span.firstChild.textContent)',
+  );
+  assert.deepEqual(
+    names,
+    [...names].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+    ),
+  );
+  assert.equal(
+    await sync(
+      'return !!document.querySelector("[role=tab], .select-visible-control, .project-board-row summary")',
+    ),
+    false,
+  );
   await boardAction('API Details', 'Remove from Project…');
   await click('Remove board');
   await dialogGone();
@@ -115,7 +120,7 @@ export async function projectNavigation(driver) {
       .id,
     newId,
   );
-  await click(`Close ${duplicate.name} tab`);
+  await boardAction(duplicate.name, 'Close board');
   assert.ok(
     (await current()).boards.some((board) => board.id === duplicate.id),
   );
@@ -135,8 +140,7 @@ export async function projectNavigation(driver) {
     `const textarea=document.querySelector('dialog textarea');
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(textarea,'Shared across project locations');
     textarea.dispatchEvent(new Event('input',{bubbles:true}));
-    const select=document.querySelector('dialog select'); select.value=arguments[0]; select.dispatchEvent(new Event('change',{bubbles:true}));
-    document.querySelector('dialog input[type=checkbox]').click();`,
+    const select=document.querySelector('dialog select'); select.value=arguments[0]; select.dispatchEvent(new Event('change',{bubbles:true}));`,
     [duplicate.id],
   );
   await capture('project-settings');
@@ -169,7 +173,7 @@ export async function projectNavigation(driver) {
   const persisted = await current();
   assert.equal(persisted.name, 'Project Settings Journey');
   assert.equal(persisted.homeBoardId, duplicate.id);
-  assert.equal(persisted.autosave, false);
+  assert.equal(persisted.autosave, true);
   assert.equal(persisted.description, 'Shared across project locations');
   assert.deepEqual(
     await Promise.all(
@@ -182,7 +186,7 @@ export async function projectNavigation(driver) {
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
-  // Settings choose the home for a fresh local workspace; valid saved tabs win otherwise.
+  // Settings choose the home for a fresh local workspace; valid saved open boards win otherwise.
   const recent = (await driver.native('project:recents')).entries.find(
     (entry) => entry.id === persisted.id,
   );
@@ -190,13 +194,15 @@ export async function projectNavigation(driver) {
   await click('Menu');
   await dialogs('project-open', actualPath);
   await click('Open Project…');
-  await until(() => sync('return !!document.querySelector("[role=tab]")'));
+  await until(() =>
+    sync('return !!document.querySelector("[data-board-session]")'),
+  );
   assert.deepEqual(await current(), persisted);
   assert.equal(
     await sync(
-      'return document.querySelector("[role=tab][aria-selected=true]").textContent.trim()',
+      'return document.querySelector("[data-board-session][data-active=true]").id',
     ),
-    duplicate.name,
+    `board-${duplicate.id}`,
   );
   await drawer();
   await capture('project');

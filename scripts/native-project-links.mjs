@@ -81,7 +81,7 @@ export async function projectLinks(driver) {
   const active = (id) =>
     until(() =>
       sync(
-        `return document.getElementById('tab-${id}')?.getAttribute('aria-selected') === 'true'`,
+        `return document.getElementById('board-${id}')?.getAttribute('data-active') === 'true'`,
       ),
     );
   const select = () =>
@@ -105,7 +105,7 @@ export async function projectLinks(driver) {
     await click('Menu');
     await click('Back to previous board');
     await active('a');
-    await until(() => sync('return document.activeElement.id === "tab-a"'));
+    await until(() => sync('return document.activeElement.id === "board-a"'));
   };
   const capture = async (name) => {
     await until(() =>
@@ -125,14 +125,20 @@ export async function projectLinks(driver) {
       await driver.js(
         'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))',
       );
-      if (name === 'project-link-destination' && width <= 1100)
+      if (name === 'project-link-destination') {
         assert.equal(
           await sync(
-            `const a=document.querySelector('.project-overflow').getBoundingClientRect(); const b=document.querySelector('.select-visible-control').getBoundingClientRect(); return a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left;`,
+            'return !!document.querySelector("[role=tab], .select-visible-control")',
+          ),
+          false,
+        );
+        assert.equal(
+          await sync(
+            `const toggle=document.querySelector('.project-drawer-toggle'); const rect=toggle.getBoundingClientRect(); return Math.abs(rect.right-innerWidth)<1 && rect.height>rect.width && getComputedStyle(toggle).writingMode==='vertical-rl'`,
           ),
           true,
-          'Project and selection controls must not overlap',
         );
+      }
       await writeFile(
         path.join(profile, `${name}-${width}.png`),
         Buffer.from(
@@ -176,7 +182,9 @@ export async function projectLinks(driver) {
       ),
     );
     assert.equal(
-      await sync('return document.querySelectorAll("[role=tab]").length'),
+      await sync(
+        'return document.querySelectorAll("[data-board-session]").length',
+      ),
       1,
     );
     assert.equal(
@@ -205,7 +213,7 @@ export async function projectLinks(driver) {
     const origin = await state();
     await click('Open project link');
     await active('b');
-    await until(() => sync('return document.activeElement.id === "tab-b"'));
+    await until(() => sync('return document.activeElement.id === "board-b"'));
     const destination = await state();
     assert.deepEqual(destination.camera, sample.namedViews.detail.camera);
     assert.notEqual(destination.handle.sessionId, origin.handle.sessionId);

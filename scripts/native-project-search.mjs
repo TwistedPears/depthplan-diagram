@@ -55,7 +55,7 @@ export async function projectSearch(driver) {
     await dialogs('project-open', file);
     await click('Menu');
     await click('Open Project…');
-    await until(() => sync('return !!document.getElementById("tab-a")'));
+    await until(() => sync('return !!document.getElementById("board-a")'));
     const before = await probe.call('depthplan_get_state');
     await click('Menu');
     await click('Search Project…');
@@ -76,7 +76,9 @@ export async function projectSearch(driver) {
       3,
     );
     assert.equal(
-      await sync('return document.querySelectorAll("[role=tab]").length'),
+      await sync(
+        'return document.querySelectorAll("[data-board-session]").length',
+      ),
       1,
     );
     assert.equal(
@@ -142,7 +144,7 @@ export async function projectSearch(driver) {
     await sync('document.activeElement.click()');
     await until(() =>
       sync(
-        'return document.getElementById("tab-b")?.getAttribute("aria-selected")==="true" && !document.querySelector("dialog[open]")',
+        'return document.getElementById("board-b")?.getAttribute("data-active")==="true" && !document.querySelector("dialog[open]")',
       ),
     );
     const shown = await probe.call('depthplan_get_state');
@@ -151,7 +153,7 @@ export async function projectSearch(driver) {
       shown.data.canvas.selected.includes('object-handler'),
       JSON.stringify(shown),
     );
-    assert.equal(await sync('return document.activeElement.id'), 'tab-b');
+    assert.equal(await sync('return document.activeElement.id'), 'board-b');
     assert.equal(
       (
         await probe.call('depthplan_history', {

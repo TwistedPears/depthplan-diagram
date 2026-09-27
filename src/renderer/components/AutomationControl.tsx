@@ -156,10 +156,9 @@ export default function AutomationControl({
                 </p>
                 <p>
                   Ask Codex to build a diagram, arrange its objects and save an
-                  Overview bookmark. Diagram edits are undoable. Project
-                  autosave follows the project setting; otherwise save your
-                  accepted changes. Finish active edits before retrying a busy
-                  request.
+                  Overview bookmark. Diagram edits are undoable. Project boards
+                  save automatically; otherwise save your accepted changes.
+                  Finish active edits before retrying a busy request.
                 </p>
                 <label className="form-dialog-field">
                   <span>MCP executable</span>

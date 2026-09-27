@@ -1956,18 +1956,6 @@ export default memo(function RecursiveCanvas({
         onSelect={onSelectDepth}
         onBusyChange={onBusyChange}
       />
-      {!selection.length && boxes.size > 0 && (
-        <button
-          className="select-visible-control"
-          type="button"
-          onClick={() => {
-            setSelected([...boxes.keys()]);
-            setSelectedPoint(null);
-          }}
-        >
-          Select visible
-        </button>
-      )}
       {Object.keys(document.objects).length === 0 &&
         Object.keys(document.connections).length === 0 &&
         !drawing && (

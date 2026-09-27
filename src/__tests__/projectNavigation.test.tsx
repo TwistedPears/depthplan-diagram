@@ -71,6 +71,8 @@ const read = (id: string) => ({
   },
 });
 beforeEach(() => {
+  HTMLElement.prototype.showPopover = jest.fn();
+  HTMLElement.prototype.hidePopover = jest.fn();
   documents = {};
   for (const id of ['a', 'b', 'c'])
     documents[id] = {
@@ -214,17 +216,19 @@ function drawer() {
     );
   return screen.getByRole('complementary', { name: 'Project boards' });
 }
-function action(id: string, label: string) {
-  const row = within(drawer())
-    .getByRole('button', {
-      name: `Open ${project.manifest.boards.find((b) => b.id === id)!.name}, ${project.manifest.boards.find((b) => b.id === id)!.path}`,
-    })
-    .closest('li')!;
-  row.querySelector('details')!.open = true;
-  fireEvent.click(within(row).getByRole('button', { name: label }));
+async function action(id: string, label: string) {
+  const board = project.manifest.boards.find((b) => b.id === id)!;
+  fireEvent.contextMenu(
+    within(drawer()).getByRole('button', {
+      name: `Open ${board.name}, ${board.path}`,
+    }),
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+  });
 }
 
-test('loads only selected boards, supports keyboard navigation, preserves dirty/history state and keeps membership when tabs close', async () => {
+test('loads only selected boards, supports keyboard navigation, preserves dirty/history state and keeps membership when boards close', async () => {
   project.manifest.autosave = false;
   await setup();
   expect(window.desktop.projects.readBoard).toHaveBeenCalledTimes(1);
@@ -236,37 +240,27 @@ test('loads only selected boards, supports keyboard navigation, preserves dirty/
   );
   await click('Open Same name, c.depthplan');
   expect(screen.getAllByTestId('drawing-surface')).toHaveLength(1);
-  const tabs = screen.getAllByRole('tab');
-  tabs[2].focus();
-  fireEvent.keyDown(tabs[2], { key: 'Home' });
-  expect(tabs[0]).toHaveFocus();
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+  expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+  const boards = [
+    ...drawer().querySelectorAll<HTMLButtonElement>('.project-board-open'),
+  ];
+  boards[2].focus();
+  fireEvent.keyDown(boards[2], { key: 'Home' });
+  expect(boards[0]).toHaveFocus();
   expect(registry.activeKey).toBe(key('c'));
-  tabs[0].parentElement!.style.display = 'none';
-  tabs[1].parentElement!.style.display = 'none';
-  tabs[2].focus();
-  fireEvent.keyDown(tabs[2], { key: 'Home' });
-  expect(tabs[2]).toHaveFocus();
-  fireEvent.keyDown(tabs[2], { key: 'ArrowRight' });
-  expect(tabs[2]).toHaveFocus();
-  tabs[0].parentElement!.style.display = '';
-  tabs[1].parentElement!.style.display = '';
-  await act(async () => {
-    fireEvent.click(tabs[1]);
-  });
+  fireEvent.keyDown(boards[0], { key: 'ArrowDown' });
+  expect(boards[1]).toHaveFocus();
+  await click('Open Same name, b.depthplan');
   expect(controller('b').owner.document!.objects.api.name).toBe('Accepted B');
   expect(controller('b').owner.canUndo).toBe(true);
-  let closing!: Promise<boolean>;
-  await act(async () => {
-    closing = registry.close(key('b'));
-  });
-  await click('Keep open');
-  expect(await closing).toBe(false);
-  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
-  await act(async () => {
-    closing = registry.close(key('b'));
-  });
-  await click('Review Same name…');
-  expect(await closing).toBe(true);
+  await action('b', 'Close board');
+  expect(documents.b.objects.api.name).toBe('Accepted B');
+  expect(registry.controllers.has(key('b'))).toBe(false);
+  expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole('dialog', { name: 'Review open boards' }),
+  ).not.toBeInTheDocument();
   expect(registry.activeKey).toBe(key('c'));
   expect(project.manifest.boards).toHaveLength(3);
   expect(window.desktop.projects.apply).not.toHaveBeenCalled();
@@ -328,9 +322,8 @@ test('settings apply shared policy without touching boards; cancel, validation a
   fireEvent.change(screen.getByLabelText('Home board'), {
     target: { value: 'b' },
   });
-  fireEvent.click(
-    screen.getByLabelText('Automatically save accepted board changes'),
-  );
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  expect(screen.getByText(/Boards save automatically/)).toBeVisible();
   await click('Reveal in File Manager');
   expect(window.desktop.projects.reveal).toHaveBeenCalledWith(
     'project-session',
@@ -355,7 +348,7 @@ test('settings apply shared policy without touching boards; cancel, validation a
     name: 'Shared settings',
     description: 'Portable description',
     homeBoardId: 'b',
-    autosave: false,
+    autosave: true,
   });
   expect(controller('a').owner.snapshot()).toEqual(before);
   expect(controller('a').owner.canUndo).toBe(true);
@@ -370,7 +363,6 @@ test('settings apply shared policy without touching boards; cancel, validation a
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
   await click('Menu');
   await click('Close Project');
-  await click('Review Overview…');
   await click('Menu');
   await click('Open Project…');
   expect(registry.activeKey).toBe(key('b'));
@@ -385,7 +377,7 @@ test('rename saves the exact board and retains undo; duplicate copies current co
       editObject('api', { name: 'Preserved edit' }),
     ),
   );
-  action('a', 'Rename…');
+  await action('a', 'Rename…');
   fireEvent.change(screen.getByLabelText('Name'), {
     target: { value: '設計 API' },
   });
@@ -406,7 +398,7 @@ test('rename saves the exact board and retains undo; duplicate copies current co
       editObject('api', { name: 'Unsaved copy content' }),
     ),
   );
-  action('a', 'Duplicate…');
+  await action('a', 'Duplicate…');
   await click('Duplicate board');
   expect(documents['created-3'].objects.api.name).toBe('Unsaved copy content');
   expect(documents['created-3'].id).not.toBe('a');
@@ -416,14 +408,14 @@ test('rename saves the exact board and retains undo; duplicate copies current co
     .mocked(window.desktop.projects.apply)
     .mockResolvedValueOnce({ status: 'error', error: 'Manifest changed' });
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
-  action('a', 'Remove from Project…');
+  await action('a', 'Remove from Project…');
   await click('Remove board');
-  await click('Review 設計 API…');
   expect(screen.getByRole('alert')).toHaveTextContent('Manifest changed');
   expect(controller('a').owner.document!.objects.api.name).toBe(
     'Unsaved copy content',
   );
-  expect(controller('a').owner.dirty).toBe(true);
+  expect(controller('a').owner.dirty).toBe(false);
+  expect(documents.a.objects.api.name).toBe('Unsaved copy content');
   expect(window.desktop.recovery.remove).not.toHaveBeenCalledWith(
     sessionId,
     undefined,
@@ -442,9 +434,11 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
     controller('b').owner.transact(editObject('api', { name: 'Unsaved B' })),
   );
   const before = registry.sessions;
+  jest
+    .mocked(window.desktop.projects.writeBoard)
+    .mockResolvedValue({ status: 'error', error: 'Disk unavailable' });
   await click('Menu');
   await click('Close Project');
-  await click('Keep open');
   expect(registry.sessions).toBe(before);
   expect(registry.activeKey).toBe(key('b'));
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
@@ -462,9 +456,9 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
   expect(registry.sessions).toBe(before);
 });
 
-test('closing every tab leaves an empty project with create/import actions and safe filenames', async () => {
+test('closing every board leaves an empty project with create/import actions and safe filenames', async () => {
   await setup();
-  await click('Close Overview tab');
+  await action('a', 'Close board');
   expect(screen.queryByTestId('drawing-surface')).not.toBeInTheDocument();
   expect(screen.getByText('Choose a board to begin.')).toBeVisible();
   expect(project.manifest.boards).toHaveLength(3);
@@ -475,9 +469,10 @@ test('closing every tab leaves an empty project with create/import actions and s
   expect(projectFilename('API', ['api.depthplan'])).toBe('API-2.depthplan');
 });
 
-test('autosaves accepted edits in inactive boards without moving their target or undo history', async () => {
+test('autosaves accepted edits even in legacy manual projects and inactive boards without moving their target or undo history', async () => {
   jest.useFakeTimers();
   try {
+    project.manifest.autosave = false;
     await setup();
     act(() =>
       controller('a').owner.transact(
@@ -505,7 +500,7 @@ test('autosaves accepted edits in inactive boards without moving their target or
   }
 });
 
-test('failed multi-board flush stays in one review; cancel preserves all sessions and Save All retries accepted work', async () => {
+test('failed multi-board flush keeps all sessions without a review dialog and Save All retries accepted work', async () => {
   await setup();
   drawer();
   await click('Open Same name, b.depthplan');
@@ -522,14 +517,12 @@ test('failed multi-board flush stays in one review; cancel preserves all session
     .mockRejectedValue(new Error('Disk unavailable'));
   await click('Menu');
   await click('Close Project');
-  const review = screen.getByRole('dialog', { name: 'Review open boards' });
-  expect(within(review).getAllByRole('alert')).toHaveLength(2);
-  expect(window.desktop.projects.close).not.toHaveBeenCalled();
-  await click('Save all and continue');
   expect(
-    screen.getByRole('dialog', { name: 'Review open boards' }),
-  ).toBeVisible();
-  await click('Keep open');
+    screen.queryByRole('dialog', { name: 'Review open boards' }),
+  ).not.toBeInTheDocument();
+  expect(window.desktop.projects.close).not.toHaveBeenCalled();
+  expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+  expect(controller('a').files.failure?.message).toBe('Disk unavailable');
   expect(registry.sessions).toBe(sessions);
   expect(controller('a').owner.document!.objects.api.name).toBe('Keep A');
   expect(controller('b').owner.document!.objects.api.name).toBe('Keep B');
@@ -576,14 +569,16 @@ test('reloading a repathed manifest guards dirty boards and keeps unaffected ses
   await click('Menu');
   await click('Project Settings…');
   await click('Apply');
+  jest.mocked(window.desktop.projects.writeBoard).mockResolvedValueOnce({
+    status: 'error',
+    error: 'Project manifest changed',
+  });
   await click('Reload project definition…');
-  await click('Keep open');
   expect(controller('a').owner.snapshot()).toEqual(aBefore);
   expect(window.desktop.projects.resolveDefinition).not.toHaveBeenCalled();
   await click('Apply');
   await click('Reload project definition…');
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
-  await click('Review Overview…');
   expect(registry.controllers.has(key('a'))).toBe(false);
   expect(controller('b').owner.snapshot()).toEqual(bBefore);
   expect(project.manifest.boards[0].path).toBe('repathed.depthplan');
@@ -984,9 +979,7 @@ test('project search uses accepted dirty owners and unopened hidden content, lab
   expect(
     screen.queryByRole('dialog', { name: 'Search Project' }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole('tab', { name: /Same name, b.depthplan/ }),
-  ).toHaveFocus();
+  expect(screen.getByRole('region', { name: 'Same name' })).toHaveFocus();
   expect(controller('a').owner.snapshot()).toEqual(before);
 });
 
@@ -1172,7 +1165,7 @@ test('project links pick accepted bookmarks, remain stable through rename/reorde
       homeBoardId: 'a',
       autosave: false,
     });
-    await mockWorkspace.reorder('b', 1);
+    await mockWorkspace.apply({ kind: 'reorderBoards', ids: ['a', 'c', 'b'] });
   });
   await act(async () => {
     await mockWorkspace.apply({
@@ -1309,4 +1302,73 @@ test('standalone/foreign links remain unresolved and a whole-folder copy resolve
   expect(
     standalone.owner.snapshot().document!.objects.app.projectLink,
   ).toBeUndefined();
+});
+
+test('board actions use a keyboard-accessible context menu and the drawer always sorts naturally', async () => {
+  project.manifest.boards[0].name = 'Board 10';
+  project.manifest.boards[1].name = 'board 2';
+  project.manifest.boards[2].name = 'Board 1';
+  await setup();
+  const list = drawer();
+  expect(
+    [...list.querySelectorAll<HTMLElement>('.project-board-open')].map(
+      (b) => b.dataset.boardId,
+    ),
+  ).toEqual(['c', 'b', 'a']);
+  expect(list.querySelector('summary')).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Toggle project boards' }),
+  ).toHaveTextContent('Boards / Project');
+  const board = screen.getByRole('button', {
+    name: 'Open board 2, b.depthplan',
+  });
+  board.focus();
+  fireEvent.keyDown(board, { key: 'F10', shiftKey: true });
+  const rename = screen.getByRole('menuitem', { name: 'Rename…' });
+  expect(rename).toHaveFocus();
+  expect(
+    screen.queryByRole('menuitem', { name: /Move/ }),
+  ).not.toBeInTheDocument();
+  fireEvent.keyDown(rename, { key: 'ArrowDown' });
+  expect(screen.getByRole('menuitem', { name: 'Duplicate…' })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(board).toHaveFocus();
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  await action('a', 'Rename…');
+  fireEvent.change(screen.getByLabelText('Name'), {
+    target: { value: 'Board 0' },
+  });
+  await click('Rename board');
+  expect(
+    [...drawer().querySelectorAll<HTMLElement>('.project-board-open')].map(
+      (b) => b.dataset.boardId,
+    ),
+  ).toEqual(['a', 'c', 'b']);
+});
+
+test('closing a project board protects unapplied drafts then saves the applied content without a document prompt', async () => {
+  await setup();
+  const input = screen.getByRole('textbox', {
+    name: 'New bookmark name',
+    hidden: true,
+  });
+  fireEvent.change(input, { target: { value: 'Keep my draft' } });
+  await action('a', 'Close board');
+  expect(registry.controllers.has(key('a'))).toBe(true);
+  expect(window.desktop.transitions.confirm).toHaveBeenLastCalledWith(
+    'draft',
+    'bookmark name',
+    true,
+  );
+  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('save');
+  await action('a', 'Close board');
+  expect(registry.controllers.has(key('a'))).toBe(false);
+  expect(
+    Object.values(documents.a.namedViews ?? {}).map((v) => v.name),
+  ).toContain('Keep my draft');
+  expect(
+    jest
+      .mocked(window.desktop.transitions.confirm)
+      .mock.calls.every(([kind]) => kind === 'draft'),
+  ).toBe(true);
 });

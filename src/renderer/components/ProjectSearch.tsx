@@ -171,7 +171,7 @@ export default function ProjectSearch() {
     });
     if (opened) {
       flushSync(() => workspace.setDialog(null));
-      document.getElementById(`tab-${group.board.id}`)?.focus();
+      document.getElementById(`board-${group.board.id}`)?.focus();
     }
   };
   return (

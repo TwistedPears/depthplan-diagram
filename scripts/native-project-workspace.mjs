@@ -44,14 +44,14 @@ export async function projectWorkspace(driver) {
   );
   const manifestBytes = await readFile(project.location);
   await driver.native('project:close', project.sessionId);
-  const tabs = () =>
+  const openBoards = () =>
     current.sync(
-      'return Array.from(document.querySelectorAll("[role=tab]")).map(t=>t.id.slice(4))',
+      'return Array.from(document.querySelectorAll("[data-board-session]")).map(t=>t.id.slice(6))',
     );
-  // Restoring tabs activates each member before returning to the saved tab.
+  // Restoring boards activates each member before returning to the saved board.
   const active = () =>
     current.sync(
-      'return document.querySelector("[role=tab][aria-selected=true]:not(:disabled)")?.id.slice(4) ?? null',
+      'return document.querySelector("[data-board-session][data-active=true]:not(:has(> [inert]))")?.id.slice(6) ?? null',
     );
   const opened = () => current.until(async () => (await active()) === a.id);
   const open = async (board) => {
@@ -158,7 +158,7 @@ export async function projectWorkspace(driver) {
     await current.until(
       async () => (await current.native('file:open-requests')).length === 0,
     );
-    assert.deepEqual(await tabs(), [a.id, b.id, c.id]);
+    assert.deepEqual(await openBoards(), [a.id, b.id, c.id]);
     assert.equal(await active(), b.id);
     await closeProject();
     await current.click('Menu');
@@ -171,7 +171,7 @@ export async function projectWorkspace(driver) {
     await capture('project-recents');
     await current.click('Open Resume Project');
     await current.until(async () => (await active()) === b.id);
-    assert.deepEqual(await tabs(), [a.id, b.id, c.id]);
+    assert.deepEqual(await openBoards(), [a.id, b.id, c.id]);
     for (const [index, board] of [a, b, c].entries()) {
       await open(board);
       const state = await probe.call('depthplan_get_state');
@@ -189,7 +189,7 @@ export async function projectWorkspace(driver) {
     await current.close();
     current = await launchNative(rootProfile, [project.location]);
     await current.until(async () => (await active()) === b.id);
-    assert.deepEqual(await tabs(), [a.id, b.id, c.id]);
+    assert.deepEqual(await openBoards(), [a.id, b.id, c.id]);
     await closeProject();
     const copiedRoot = path.join(rootProfile, 'Copied-Project');
     await cp(originalRoot, copiedRoot, { recursive: true });
@@ -197,7 +197,7 @@ export async function projectWorkspace(driver) {
       path.join(copiedRoot, 'project.depthproject'),
     ]);
     await opened();
-    assert.deepEqual(await tabs(), [a.id]);
+    assert.deepEqual(await openBoards(), [a.id]);
     await closeProject();
     const movedRoot = path.join(rootProfile, 'Moved-Project');
     await rename(originalRoot, movedRoot);
@@ -215,12 +215,12 @@ export async function projectWorkspace(driver) {
     ]);
     await current.click('Locate Resume Project…');
     await current.until(async () => (await active()) === b.id);
-    assert.deepEqual(await tabs(), [a.id, b.id, c.id]);
+    assert.deepEqual(await openBoards(), [a.id, b.id, c.id]);
     await closeProject();
     await unlink(path.join(movedRoot, c.path));
     await current.native('test:open-files', [project.location]);
     await current.until(async () => (await active()) === b.id);
-    assert.deepEqual(await tabs(), [a.id, b.id]);
+    assert.deepEqual(await openBoards(), [a.id, b.id]);
     assert.deepEqual(await readFile(project.location), manifestBytes);
     for (const [index, board] of [a, b].entries())
       assert.deepEqual(
@@ -229,7 +229,7 @@ export async function projectWorkspace(driver) {
       );
     assert.deepEqual(await current.sync('return window.nativeErrors'), []);
     console.log(
-      `PASS project workspace: cold/warm native opens, three-board tabs/cameras, same-location focus, copied isolation, moved recovery, missing member fallback and unchanged sources. Evidence: ${rootProfile}`,
+      `PASS project workspace: cold/warm native opens, three-board sessions/cameras, same-location focus, copied isolation, moved recovery, missing member fallback and unchanged sources. Evidence: ${rootProfile}`,
     );
   } finally {
     probe?.close();

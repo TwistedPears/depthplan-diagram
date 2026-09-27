@@ -59,8 +59,8 @@ export async function projectPersistence(driver) {
       await click(`Open ${board.name}, ${board.path}`);
       await until(() =>
         sync(
-          'return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes(arguments[0])',
-          [board.name],
+          'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
+          [`board-${board.id}`],
         ),
       );
     };
@@ -146,11 +146,17 @@ export async function projectPersistence(driver) {
     await click('Close Project');
     await until(() =>
       sync(
-        'return !!document.querySelector(`dialog[aria-label="Review open boards"][open]`)',
+        'return !!document.querySelector(".project-board-open:not(:disabled)")',
       ),
     );
-    await capture('project-close-review');
-    await click('Keep open');
+    assert.equal(
+      await sync(
+        'return !!document.querySelector(".project-navigation") && !document.querySelector("dialog[open]")',
+      ),
+      true,
+    );
+    assert.equal((await read(a)).objects.api.name, 'External A');
+    await capture('project-save-blocked-close');
     await click('Resolve conflict for Board A…');
     await dialogs('message', 'Keep editing');
     await click('Overwrite source…');
@@ -169,7 +175,9 @@ export async function projectPersistence(driver) {
     await writeFile(project.location, JSON.stringify(manifest));
     await click('Menu');
     await click('Project Settings…');
-    await sync('document.querySelector("dialog input[type=checkbox]").click()');
+    await sync(
+      `const input=document.querySelector('dialog textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'Updated description'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+    );
     await click('Apply');
     await until(() =>
       sync(
@@ -186,8 +194,13 @@ export async function projectPersistence(driver) {
     await until(() => sync('return !document.querySelector("dialog[open]")'));
     assert.equal(
       JSON.parse(await readFile(project.location, 'utf8')).autosave,
-      false,
+      true,
     );
+    // Recovery protects accepted work when an external writer prevents autosave.
+    for (const board of [a, b]) {
+      const file = path.join(root, board.path);
+      await writeFile(file, (await readFile(file, 'utf8')) + '\n');
+    }
     await open(a);
     const crashA = await edit('Recover A');
     await open(b);

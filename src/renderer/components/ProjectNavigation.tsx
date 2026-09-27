@@ -1,6 +1,6 @@
 import AutomationControl from './AutomationControl';
 import type useAutomation from '../hooks/useAutomation';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   projectFilename,
   projectNameSchema,
@@ -17,6 +17,11 @@ import RecentProjects from './RecentProjects';
 import ProjectSearch from './ProjectSearch';
 import Icon from './Icon';
 import './ProjectNavigation.css';
+
+const boardNames = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+});
 
 export function ProjectMenu({
   onAction = () => {},
@@ -197,8 +202,8 @@ function ProjectForm({
     >
       {removing ? (
         <p>
-          Remove <strong>{board?.name}</strong> from the board list and close
-          its tab? Unsaved work will be resolved first.
+          Remove <strong>{board?.name}</strong> from the board list? Accepted
+          changes will be saved before closing it.
         </p>
       ) : (
         <>
@@ -265,7 +270,36 @@ export default function ProjectNavigation({
     search,
   } = workspace;
   const list = useRef<HTMLElement>(null);
-  const tabs = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [context, setContext] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    trigger: HTMLButtonElement;
+  } | null>(null);
+  const openMenu = (
+    id: string,
+    trigger: HTMLButtonElement,
+    x = trigger.getBoundingClientRect().left,
+    y = trigger.getBoundingClientRect().bottom,
+  ) => {
+    if (busy) return;
+    trigger.focus();
+    setContext({ id, x, y, trigger });
+  };
+  const closeMenu = () => {
+    menu.current?.hidePopover();
+    context?.trigger.focus();
+    setContext(null);
+  };
+  useLayoutEffect(() => {
+    const node = menu.current;
+    if (!context || !node) return;
+    node.showPopover({ source: context.trigger });
+    node.style.left = `${Math.max(8, Math.min(context.x, window.innerWidth - node.offsetWidth - 8))}px`;
+    node.style.top = `${Math.max(8, Math.min(context.y, window.innerHeight - node.offsetHeight - 8))}px`;
+    node.querySelector('button')?.focus();
+  }, [context]);
   const moveFocus = (
     event: KeyboardEvent,
     elements: HTMLElement[],
@@ -292,18 +326,26 @@ export default function ProjectNavigation({
       if (closed)
         requestAnimationFrame(() =>
           (
-            tabs.current?.querySelector<HTMLElement>(
-              '[aria-selected="true"]',
-            ) ?? toggle.current
+            list.current?.querySelector<HTMLElement>('[aria-current="true"]') ??
+            toggle.current
           )?.focus(),
         );
       return closed;
     });
   };
   const members =
-    project?.manifest.boards.filter((b) =>
-      b.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
-    ) ?? [];
+    project?.manifest.boards
+      .filter((b) =>
+        b.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
+      )
+      .sort(
+        (a, b) =>
+          boardNames.compare(a.name, b.name) ||
+          boardNames.compare(a.path, b.path),
+      ) ?? [];
+  const contextBoard = project?.manifest.boards.find(
+    (board) => board.id === context?.id,
+  );
   return (
     <>
       {project && (
@@ -339,84 +381,18 @@ export default function ProjectNavigation({
                   </button>
                 </div>
               </details>
-              <button
-                ref={toggle}
-                aria-expanded={drawer}
-                aria-controls="project-drawer"
-                onClick={() => setDrawer(!drawer)}
-              >
-                {project.manifest.name}
-                <Icon name="chevron-right" />
-              </button>
+              <span>{project.manifest.name}</span>
             </div>
           )}
-          {registry.sessions.length > 0 && (
-            <div
-              ref={tabs}
-              role="tablist"
-              tabIndex={-1}
-              aria-label="Open project boards"
-              className="project-tabs"
-              onKeyDown={(e) =>
-                moveFocus(
-                  e,
-                  [
-                    ...tabs.current!.querySelectorAll<HTMLElement>(
-                      '[role="tab"]',
-                    ),
-                  ].filter(
-                    (tab) =>
-                      getComputedStyle(tab.parentElement!).display !== 'none',
-                  ),
-                  'ArrowLeft',
-                  'ArrowRight',
-                )
-              }
-            >
-              {registry.sessions.map((session) => {
-                const member = project.manifest.boards.find(
-                  (b) => b.id === session.project?.boardId,
-                );
-                if (!member) return null;
-                const active = session.key === registry.activeKey;
-                const status = registry.statuses[session.key] ?? 'Saved';
-                return (
-                  <div
-                    key={session.key}
-                    className="project-tab"
-                    data-active={active}
-                  >
-                    <button
-                      role="tab"
-                      id={`tab-${member.id}`}
-                      aria-selected={active}
-                      aria-controls={`board-${member.id}`}
-                      aria-label={`${member.name}, ${member.path}, ${status}`}
-                      title={`${member.name} — ${member.path} — ${status}`}
-                      tabIndex={active ? 0 : -1}
-                      disabled={busy}
-                      onClick={() => registry.activate(session.key)}
-                    >
-                      {member.name}
-                      {status !== 'Saved' && (
-                        <span className="project-tab-state"> · {status}</span>
-                      )}
-                    </button>
-                    <button
-                      aria-label={`Close ${member.name} tab`}
-                      title={`Close ${member.name} tab`}
-                      disabled={busy}
-                      onClick={() => close(session.key)}
-                    >
-                      <Icon name="xmark" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <button className="project-overflow" onClick={workspace.quickSwitch}>
-            Open boards ({registry.sessions.length})
+          <button
+            className="project-drawer-toggle"
+            ref={toggle}
+            aria-label="Toggle project boards"
+            aria-expanded={drawer}
+            aria-controls="project-drawer"
+            onClick={() => setDrawer(!drawer)}
+          >
+            Boards / Project
           </button>
           {drawer && (
             <aside
@@ -487,7 +463,6 @@ export default function ProjectNavigation({
                   const diagnostic = project.diagnostics.find(
                     (d) => d.boardId === member.id,
                   );
-                  const index = project.manifest.boards.indexOf(member);
                   const failure =
                     registry.controllers.get(sessionKey)?.files.failure;
                   return (
@@ -495,92 +470,66 @@ export default function ProjectNavigation({
                       key={member.id}
                       data-active={sessionKey === registry.activeKey}
                     >
-                      <div className="project-board-row">
-                        <button
-                          className="project-board-open"
-                          aria-label={`Open ${member.name}, ${member.path}`}
-                          title={`${member.name} — ${member.path}`}
-                          disabled={busy}
-                          onClick={() => open(member.id)}
-                        >
-                          <Icon name="file" />
-                          <span>
-                            {member.name}
-                            <small>
-                              {workspace.loadingBoard === member.id
-                                ? 'Loading…'
-                                : diagnostic
-                                  ? 'Unavailable — retry opening'
-                                  : (registry.statuses[sessionKey] ??
-                                    (member.id === project.manifest.homeBoardId
-                                      ? 'Home board'
-                                      : member.path))}
-                            </small>
-                          </span>
-                        </button>
-                        <details name="project-board-actions">
-                          <summary
-                            aria-label={`Actions for ${member.name}`}
-                            title={`Actions for ${member.name}`}
-                          >
-                            <Icon name="sliders" />
-                          </summary>
-                          <div className="project-board-actions">
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                workspace.setDialog({
-                                  kind: 'renameBoard',
-                                  boardId: member.id,
-                                })
-                              }
-                            >
-                              Rename…
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                workspace.setDialog({
-                                  kind: 'duplicateBoard',
-                                  boardId: member.id,
-                                })
-                              }
-                            >
-                              Duplicate…
-                            </button>
-                            <button
-                              disabled={busy || index === 0}
-                              onClick={() => {
-                                void workspace.reorder(member.id, -1);
-                              }}
-                            >
-                              Move up
-                            </button>
-                            <button
-                              disabled={
-                                busy ||
-                                index === project.manifest.boards.length - 1
-                              }
-                              onClick={() => {
-                                void workspace.reorder(member.id, 1);
-                              }}
-                            >
-                              Move down
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                workspace.setDialog({
-                                  kind: 'removeBoard',
-                                  boardId: member.id,
-                                })
-                              }
-                            >
-                              Remove from Project…
-                            </button>
-                          </div>
-                        </details>
-                      </div>
+                      <button
+                        className="project-board-open"
+                        id={`board-link-${member.id}`}
+                        aria-current={
+                          sessionKey === registry.activeKey ? 'true' : undefined
+                        }
+                        aria-haspopup="menu"
+                        data-board-id={member.id}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          if (!event.buttons)
+                            openMenu(
+                              member.id,
+                              event.currentTarget,
+                              event.clientX,
+                              event.clientY,
+                            );
+                        }}
+                        onPointerUp={(event) => {
+                          // macOS contextmenu precedes pointerup, which dismisses popovers.
+                          if (
+                            event.button === 2 ||
+                            (event.button === 0 && event.ctrlKey)
+                          )
+                            openMenu(
+                              member.id,
+                              event.currentTarget,
+                              event.clientX,
+                              event.clientY,
+                            );
+                        }}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'ContextMenu' ||
+                            (event.shiftKey && event.key === 'F10')
+                          ) {
+                            event.preventDefault();
+                            openMenu(member.id, event.currentTarget);
+                          }
+                        }}
+                        aria-label={`Open ${member.name}, ${member.path}`}
+                        title={`${member.name} — ${member.path}`}
+                        disabled={busy}
+                        onClick={() => open(member.id)}
+                      >
+                        <Icon name="file" />
+                        <span>
+                          {member.name}
+                          <small>
+                            {workspace.loadingBoard === member.id
+                              ? 'Loading…'
+                              : diagnostic
+                                ? 'Unavailable — retry opening'
+                                : (registry.statuses[sessionKey] ??
+                                  (member.id === project.manifest.homeBoardId
+                                    ? 'Home board'
+                                    : member.path))}
+                          </small>
+                        </span>
+                      </button>
                       {failure && (
                         <button
                           className="project-error"
@@ -613,15 +562,6 @@ export default function ProjectNavigation({
                 </p>
               )}
               <footer>
-                <p role="status">
-                  {
-                    Object.values(registry.statuses).filter(
-                      (status) => status !== 'Saved',
-                    ).length
-                  }{' '}
-                  open boards need attention
-                  {workspace.dialog ? ' · Project action pending' : ''}
-                </p>
                 <button
                   disabled={busy}
                   onClick={() => workspace.setDialog({ kind: 'createBoard' })}
@@ -657,6 +597,67 @@ export default function ProjectNavigation({
                   </p>
                 ))}
             </aside>
+          )}
+          {drawer && context && contextBoard && (
+            <div
+              ref={menu}
+              popover="auto"
+              className="project-board-menu"
+              role="menu"
+              aria-label={`Actions for ${contextBoard.name}`}
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === 'Escape' || event.key === 'Tab') {
+                  if (event.key === 'Escape') event.preventDefault();
+                  closeMenu();
+                } else
+                  moveFocus(
+                    event,
+                    [
+                      ...event.currentTarget.querySelectorAll<HTMLElement>(
+                        'button:not(:disabled)',
+                      ),
+                    ],
+                    'ArrowUp',
+                    'ArrowDown',
+                  );
+              }}
+            >
+              {(
+                [
+                  ['renameBoard', 'Rename…'],
+                  ['duplicateBoard', 'Duplicate…'],
+                  ['removeBoard', 'Remove from Project…'],
+                ] as const
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  role="menuitem"
+                  tabIndex={-1}
+                  disabled={busy}
+                  onClick={() => {
+                    closeMenu();
+                    workspace.setDialog({ kind, boardId: context.id });
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              {registry.controllers.has(workspace.key(context.id)) && (
+                <button
+                  role="menuitem"
+                  tabIndex={-1}
+                  disabled={busy}
+                  onClick={() => {
+                    closeMenu();
+                    close(workspace.key(context.id));
+                  }}
+                >
+                  Close board
+                </button>
+              )}
+            </div>
           )}
           {!registry.activeKey && (
             <div className="project-empty">

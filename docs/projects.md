@@ -17,17 +17,23 @@ lifecycle guards. Opening the same canonical project focuses the existing
 workspace. A second application cannot acquire its writer lock. A copied folder
 is a different local workspace even when its persistent project ID is unchanged.
 
-The drawer lists members in project order; the tab strip lists open boards. Names
-can repeat, so filenames distinguish them. Filter the drawer by board name. Use
-arrow keys and Home/End in the tab strip or drawer; Enter/Space activates a focused
-control. Switch boards without losing accepted edits, local undo, selections,
-cameras or suspended drafts. Only the active canvas is mounted.
+Use the vertical **Boards / Project** label on the right edge to open the drawer
+and switch boards. Boards sort by name, ignoring case and ordering numbers naturally
+(for example, Board 2 before Board 10). Names can repeat, so filenames distinguish
+them. Filter by board name. Use arrow keys and Home/End in the drawer;
+Enter/Space activates a focused control. Switch boards without losing accepted
+edits, local undo, selections, cameras or suspended drafts. Only the active canvas is mounted.
 
-Closing a tab keeps its file and project membership. Reopening that board creates
+Right-click a board and choose **Close board** to close its editing session while
+keeping its file and project membership. Reopening that board creates
 a new editing session and a new undo history. Undo is local to a live board and is
 not stored in the project or restored after closing/restarting.
 
 ## Manage members
+
+Right-click a board for **Rename**, **Duplicate**, **Remove from Project** and
+**Close board**. Keyboard users can press Shift+F10 or the Context Menu key on a
+focused board. Ordering updates automatically when a board is added or renamed.
 
 - **New Board** creates a fresh independent document and opens it.
 - **Import Boards…** copies supported diagrams into the project with fresh document
@@ -47,14 +53,14 @@ recoverable output with a persistent diagnostic. Inspect it before retrying.
 
 ## Shared settings and local navigation
 
-**Project Settings…** stores the name, description, home board and autosave policy
+**Project Settings…** stores the name, description and home board
 in the shared manifest. Apply writes accepted settings atomically; Cancel changes
 nothing. These settings have no board-level Undo action.
 
-Open tabs, active board, cameras, drawer state, window size and Recent Projects
-are local preferences. Reopening restores valid local tabs first. With no usable
+Open boards, active board, cameras, drawer state, window size and Recent Projects
+are local preferences. Reopening restores valid local boards first. With no usable
 local state, DepthPlan tries the home board, then the first healthy member. A
-saved workspace with no open tabs stays empty. Missing tabs are skipped and
+saved workspace with no open boards stays empty. Missing boards are skipped and
 reported; malformed preferences fall back without changing project files.
 
 Recent Projects keeps up to 20 entries. Removing an entry forgets local navigation
@@ -70,9 +76,10 @@ editing, with a five-second scheduling bound during continuous edits. Active
 gestures, file operations, transitions and MCP decisions defer that work. Hidden
 open boards retain their own autosave owner. No unapplied draft is written.
 
-With autosave off, use Save for the active board or Save All for open boards.
-Status distinguishes Saved, Saving, Unsaved, Conflict, Save failed and Draft not
-saved. An older write acknowledgement cannot mark newer edits saved.
+Autosave is always enabled for project boards, including older projects saved
+with autosave disabled. Save and Save All can also flush pending edits immediately.
+Status distinguishes Saved, Saving, Conflict, Save failed and Draft not saved.
+An older write acknowledgement cannot mark newer edits saved.
 
 A failed save pauses automatic retries for that board and retains accepted work.
 Use its persistent save status to retry, save a copy, reload through guards, or
@@ -87,9 +94,10 @@ folder from independent file writes. Closing a project releases the lock; the
 small `.depthproject.lock` file may remain safely on disk.
 
 Closing a project, replacing the workspace or quitting considers every open
-board. Cancel keeps all sessions. The review distinguishes accepted unsaved work
-from drafts; Save All saves accepted data, and drafts still need an explicit
-apply/discard decision. A running MCP operation must finish or be canceled first.
+board. Accepted changes save automatically before closing, without a review sheet.
+A failed save keeps all sessions open for repair. Drafts still need an explicit
+apply/discard decision; canceling it keeps all sessions. A running MCP operation
+must finish or be canceled first.
 
 Recovery checkpoints are local crash protection, not portable backups. Restored
 work retains its originating project/board labels but opens as a fresh standalone
@@ -102,8 +110,9 @@ unavailable storage and abrupt failures can limit what is recoverable.
 
 Close the project, then copy or move **the complete folder**, keeping the relative
 layout of its board files. The manifest contains membership and settings, not
-embedded board content. Sending only `.depthproject` is insufficient. Local tabs,
-recent entries, undo and recovery checkpoints are not part of the shared folder.
+embedded board content. Sending only `.depthproject` is insufficient. Local open
+boards, recent entries, undo and recovery checkpoints are not part of the shared
+folder.
 
 There is one writer per project location. This is folder-based sharing, not live
 collaboration or sync conflict resolution. Keep backups before manual edits or
@@ -114,6 +123,9 @@ on demand when each board opens. Diagnostics remain actionable without rewriting
 unrelated files.
 
 ## Technical boundaries
+
+The version-1 `autosave` field remains readable for compatibility; it no longer
+disables automatic saving in the app. Applying settings writes it as `true`.
 
 The manifest is strict version 1 JSON, at most 1 MiB and 1,000 members. Member IDs
 must match their document IDs. Paths are relative, contained, portable and unique
@@ -130,7 +142,7 @@ recovery storage and never changes the manifest or board merely to remember a vi
 [MCP](mcp.md#projects-and-explicit-board-targets) exposes persistent membership
 separately from live session handles. Opening a project grants no MCP folder
 access. Explicit saves, reloads, exports and unopened-board reads require local
-grants. Edits to loaded content follow the user's normal autosave policy.
+grants. Edits to loaded project boards save automatically.
 
 ## Search project content
 
@@ -138,8 +150,8 @@ Choose **Menu → Search Project…** to search every board's object names and r
 text/code, connection labels and bookmark names, including hidden descendants.
 This is separate from the drawer's board-name filter. Open boards contribute
 accepted in-memory content, including unsaved changes; unopened boards are read
-and validated from disk without opening tabs or canvases. Unapplied drafts are
-not accepted content.
+and validated from disk without opening editing sessions or canvases. Unapplied
+drafts are not accepted content.
 
 Results group by board in project order and list objects, connections and
 bookmarks in stable ID order. Board paths and entity IDs distinguish duplicate
@@ -159,7 +171,7 @@ search; stale results never select an entity by a similar name.
 Select one object and choose **Add project link** in its selection controls. Pick
 an available project board and, optionally, a bookmark, then **Save link**. The
 picker reads accepted bookmarks from an open board or validates an unopened file
-without opening a tab. Link edits use normal Undo and saving.
+without opening an editing session. Link edits use normal Undo and saving.
 
 **Open link** opens that exact board and applies its bookmark when specified.
 **Menu → Back to previous board** (also in the board drawer) restores the previous
