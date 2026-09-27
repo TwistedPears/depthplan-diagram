@@ -11,6 +11,8 @@ import InlineEdit from './InlineEdit';
 import ProjectSaveIssue from './ProjectSaveIssue';
 import ProjectDefinitionActions from './ProjectDefinitionActions';
 import RecentProjects from './RecentProjects';
+import FileToolbar from './toolbars/FileToolbar';
+import BoardSearch from './BoardSearch';
 import ProjectSearch from './ProjectSearch';
 import Icon from './Icon';
 import './ProjectNavigation.css';
@@ -27,8 +29,7 @@ export function ProjectMenu({
 }) {
   const workspace = useProjectWorkspace();
   if (!workspace) return null;
-  const { project, busy, setDialog, openProject, standalone, quickSwitch } =
-    workspace;
+  const { project, busy, openProject } = workspace;
   return (
     <div className="project-menu">
       <div className="dropdown-label">Projects</div>
@@ -50,58 +51,17 @@ export function ProjectMenu({
       >
         Open Project…
       </button>
-      {project && (
-        <>
-          {workspace.previousBoard && (
-            <button
-              disabled={busy}
-              onClick={() => {
-                void workspace.goBack();
-                onAction();
-              }}
-            >
-              Back to previous board
-            </button>
-          )}
-          <button
-            disabled={busy}
-            onClick={() => {
-              void workspace.saveAll();
-              onAction();
-            }}
-          >
-            Save Project
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => {
-              quickSwitch();
-              onAction();
-            }}
-          >
-            Open Board in Project…
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => {
-              setDialog({ kind: 'search' });
-              onAction();
-            }}
-          >
-            Search Project…
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => {
-              void standalone();
-              onAction();
-            }}
-          >
-            Close Project
-          </button>
-        </>
+      {project && workspace.previousBoard && (
+        <button
+          disabled={busy}
+          onClick={() => {
+            void workspace.goBack();
+            onAction();
+          }}
+        >
+          Back to previous board
+        </button>
       )}
-      <RecentProjects onAction={onAction} />
     </div>
   );
 }
@@ -109,7 +69,10 @@ export function ProjectMenu({
 function ProjectForm({
   action,
 }: {
-  action: Exclude<ProjectDialog, { kind: 'saveIssue' | 'search' }>;
+  action: Exclude<
+    ProjectDialog,
+    { kind: 'saveIssue' | 'search' | 'openBoard' }
+  >;
 }) {
   const workspace = useProjectWorkspace()!;
   const board = workspace.project?.manifest.boards.find(
@@ -325,6 +288,24 @@ export default function ProjectNavigation({
                       emptyMenu.current?.querySelector('summary')?.focus();
                     }}
                   />
+                  <FileToolbar
+                    isLoading={busy}
+                    hasDocument={false}
+                    hasSource={false}
+                    isProject
+                    onReload={() => {}}
+                    onNewDocument={workspace.newBoard}
+                    onOpenFile={() =>
+                      workspace.setDialog({ kind: 'openBoard' })
+                    }
+                    onSave={workspace.saveAll}
+                    onSaveAs={workspace.saveAll}
+                    onClose={workspace.standalone}
+                    onAction={() => emptyMenu.current?.removeAttribute('open')}
+                  />
+                  <RecentProjects
+                    onAction={() => emptyMenu.current?.removeAttribute('open')}
+                  />
                   <AutomationControl
                     automation={automation}
                     onShowDetails={() => {
@@ -332,18 +313,10 @@ export default function ProjectNavigation({
                       emptyMenu.current?.querySelector('summary')?.focus();
                     }}
                   />
-                  <button
-                    onClick={() => {
-                      void workspace.standalone(() =>
-                        window.desktop.fileSystem.openDocument(),
-                      );
-                    }}
-                  >
-                    Open standalone board…
-                  </button>
                 </div>
               </details>
               <span>{project.manifest.name}</span>
+              <BoardSearch />
             </div>
           )}
           {!drawer && !workspace.dialog && (
@@ -668,7 +641,32 @@ export default function ProjectNavigation({
         </div>
       )}
       {workspace.dialog?.kind === 'search' ? (
-        <ProjectSearch />
+        <ProjectSearch initialQuery={workspace.dialog.query} />
+      ) : workspace.dialog?.kind === 'openBoard' ? (
+        <FormDialog
+          title="Open Board"
+          description="Import into the current Project, or open the standalone Board?"
+          onCancel={() => workspace.setDialog(null)}
+          cancelLabel={false}
+          submitLabel="Import"
+          onSubmit={() => {
+            workspace.setDialog(null);
+            void workspace.importBoards();
+          }}
+          actions={
+            <button
+              type="button"
+              onClick={() => {
+                workspace.setDialog(null);
+                void workspace.standalone(() =>
+                  window.desktop.fileSystem.openDocument(),
+                );
+              }}
+            >
+              Standalone
+            </button>
+          }
+        />
       ) : workspace.dialog?.kind === 'saveIssue' ? (
         <ProjectSaveIssue boardId={workspace.dialog.boardId} />
       ) : (

@@ -116,7 +116,8 @@ export async function projectNavigation(driver) {
   await driver.boardAction(firstId, 'Close board');
   assert.deepEqual(await readdir(profile), initialFiles);
   await dialogs('project-save', null);
-  await click('Save document');
+  await click('Menu');
+  await click('Save As…');
   await until(
     async () => (await native('test:last-file-dialog')).kind === 'project-save',
   );
@@ -224,29 +225,78 @@ export async function projectNavigation(driver) {
     ),
     false,
   );
-  await click('Save document');
-  await until(() =>
-    sync(
-      'return document.querySelector(".workspace-notice")?.textContent.startsWith("Saved:")',
-    ),
-  );
-  assert.equal(
-    await sync(
-      'const n=document.querySelector(".workspace-notice");return n.getBoundingClientRect().top > innerHeight/2 && getComputedStyle(n).borderTopWidth==="0px"',
-    ),
-    true,
-  );
   await capture('project-inline');
   await click('Menu');
+  const menuLabels = await sync(
+    'return [...document.querySelectorAll("#document-menu button")].map(b=>b.textContent.trim())',
+  );
+  assert.deepEqual(
+    menuLabels.slice(
+      menuLabels.indexOf('Save'),
+      menuLabels.indexOf('Save') + 4,
+    ),
+    ['Save', 'Save As…', 'Close', 'Open Recent'],
+  );
+  for (const removed of [
+    'Save Project',
+    'Open Board in Project…',
+    'Search Project…',
+    'Close Project',
+    'Recent Projects',
+    'Save Copy…',
+  ])
+    assert(!menuLabels.includes(removed));
+  assert(
+    await sync(
+      'return [...document.querySelectorAll("#document-menu .dropdown-label")].some(n=>n.textContent==="Boards")',
+    ),
+  );
+  await capture('project-menu');
   assert.equal(
     await sync(
       'return [...document.querySelectorAll("#document-menu button")].some(b=>b.textContent.includes("Project Settings"))',
     ),
     false,
   );
-  await click('Save Project');
+  await click('Save');
+  const lastDialog = await native('test:last-file-dialog');
+  await dialogs('save', null);
   await click('Menu');
-  await click('Close Project');
+  await click('Save As…');
+  await until(() =>
+    sync('return !document.querySelector(".quick-save").disabled'),
+  );
+  assert.deepEqual(
+    await native('test:last-file-dialog'),
+    lastDialog,
+    'Saved-project Save As saves the project without a board-copy chooser',
+  );
+  await native('test:dialogs', []);
+  await click('Menu');
+  await click('Open Board…');
+  await until(() =>
+    sync(`return !!document.querySelector('dialog[aria-label="Open Board"]')`),
+  );
+  await capture('project-open-board');
+  const importSource = path.join(profile, 'menu-import.depthplan');
+  await writeFile(
+    importSource,
+    JSON.stringify({
+      ...memoryBoard,
+      metadata: { ...memoryBoard.metadata, title: 'Imported from menu' },
+    }),
+  );
+  await dialogs('project-import', [importSource]);
+  await click('Import');
+  await until(async () => (await current()).boards.length === 3);
+  assert.equal((await current()).boards[2].name, 'Imported from menu');
+  await click('Menu');
+  await click('Open Board…');
+  await dialogs('open', null);
+  await click('Standalone');
+  assert(await sync('return !!document.querySelector(".project-navigation")'));
+  await click('Menu');
+  await click('Close');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
@@ -263,9 +313,7 @@ export async function projectNavigation(driver) {
   }
   const recents = (await native('project:recents')).entries.slice(0, 5);
   await click('Menu');
-  await sync(
-    'document.querySelector("details.recent-projects summary").click()',
-  );
+  await sync('document.querySelector(".recent-projects > button").click()');
   await until(() =>
     sync(
       'return document.querySelectorAll(".recent-projects-menu button").length===5',
@@ -282,6 +330,37 @@ export async function projectNavigation(driver) {
     false,
   );
   await capture('project-recents');
+  assert(
+    await sync(
+      `const menu=document.querySelector('#document-menu').getBoundingClientRect();const flyout=document.querySelector('.recent-projects-menu').getBoundingClientRect();return flyout.left>=menu.right-2 && flyout.right<=innerWidth && flyout.bottom<=innerHeight;`,
+    ),
+    'Open Recent flies out to the right and stays within the viewport',
+  );
+  await sync(
+    `document.querySelector('.recent-projects > button').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));`,
+  );
+  await until(() =>
+    sync('return document.activeElement.getAttribute("role")==="menuitem"'),
+  );
+  await sync(
+    `document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));`,
+  );
+  await until(() =>
+    sync(
+      'return document.querySelector(".recent-projects > button").getAttribute("aria-expanded")==="false"',
+    ),
+  );
+  assert(
+    await sync(
+      'return !document.querySelector("#document-menu").hidden && document.activeElement.textContent.trim()==="Open Recent"',
+    ),
+  );
+  await click('Open Recent');
+  await until(() =>
+    sync(
+      'return document.querySelector(".recent-projects > button").getAttribute("aria-expanded")==="true"',
+    ),
+  );
   await sync('document.querySelector(".recent-projects-menu button").click()');
   await until(() =>
     sync('return !!document.querySelector(".project-navigation")'),
@@ -292,9 +371,22 @@ export async function projectNavigation(driver) {
     recents[0].name,
   );
   await click('Menu');
-  await click('Close Project');
+  await click('Open Board…');
+  await dialogs('open', importSource);
+  await click('Standalone');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
+  );
+  assert.equal(
+    await sync('return document.querySelector(".document-state").textContent'),
+    'menu-import.depthplan',
+  );
+  await click('Menu');
+  await click('Close');
+  await until(() =>
+    sync(
+      'return document.querySelector(".document-state").textContent === "Not saved yet"',
+    ),
   );
   const standalone = path.join(profile, 'standalone.depthplan');
   await writeFile(standalone, JSON.stringify(memoryBoard));
@@ -315,6 +407,18 @@ export async function projectNavigation(driver) {
   assert.equal(
     await sync('return !!document.querySelector(".project-notice")'),
     false,
+  );
+  await click('Save document');
+  await until(() =>
+    sync(
+      'return document.querySelector(".workspace-notice")?.textContent.startsWith("Saved:")',
+    ),
+  );
+  assert.equal(
+    await sync(
+      'const n=document.querySelector(".workspace-notice");return n.getBoundingClientRect().top > innerHeight/2 && getComputedStyle(n).borderTopWidth==="0px"',
+    ),
+    true,
   );
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   await request(`/session/${session}/window/rect`, {

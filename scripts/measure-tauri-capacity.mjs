@@ -414,7 +414,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', target);
     await driver.click('Menu');
     await measure(metric, async () => {
-      await driver.click('Save As...');
+      await driver.click('Save As…');
       await until(
         () =>
           driver.sync(
@@ -504,7 +504,7 @@ for (const [name, settings] of Object.entries(cases)) {
       result.fileBytes = (await fs.stat(source)).size;
       await driver.dialogs('open', source);
       await measure(i ? 'loadWarm' : 'loadCold', async () => {
-        await driver.click('Open');
+        await driver.click('Open Board…');
         await until(
           () =>
             driver.sync(
@@ -691,7 +691,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', null);
     await driver.click('Menu');
     await measure('saveCancel', async () => {
-      await driver.click('Save As...');
+      await driver.click('Save As…');
       await until(() =>
         driver.sync(
           'return document.body.textContent.includes("Save canceled")',

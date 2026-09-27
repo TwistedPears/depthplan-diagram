@@ -56,7 +56,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(document));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const save = async () => {
@@ -235,7 +235,7 @@ export async function connectors(driver, probe) {
   assert.equal(saved.connections[id].end.side, 'left');
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return (
@@ -302,7 +302,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const draw = async (from, to) => {
@@ -392,7 +392,7 @@ export async function connectors(driver, probe) {
   await save();
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return !current.canUndo && current.canvas.viewport.height > 0;
@@ -417,7 +417,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   saved = await draw([860, 420], [650, 420]);
@@ -522,7 +522,7 @@ export async function connectors(driver, probe) {
   // Save/reopen the collapsed state, then restore the original child's anchor.
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return !current.canUndo && current.canvas.viewport.height > 0;
@@ -628,7 +628,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const routes = () =>

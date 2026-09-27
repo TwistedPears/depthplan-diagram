@@ -54,13 +54,18 @@ test('timed clicks ignore hidden controls, pass labels as data and retain timing
   let frames = 0;
   let clicks = 0;
   let buttons = [];
+  let modalButtons;
   const driver = {
     js(expression, args) {
       assert.deepEqual(args, [label]);
       assert(!expression.includes(label));
       return runInNewContext(expression, {
         arguments: args,
-        document: { querySelectorAll: () => buttons },
+        document: {
+          querySelector: () =>
+            modalButtons ? { querySelectorAll: () => modalButtons } : null,
+          querySelectorAll: () => buttons,
+        },
         performance: { now: () => frames * 16 },
         requestAnimationFrame: (callback) => {
           frames++;
@@ -90,12 +95,21 @@ test('timed clicks ignore hidden controls, pass labels as data and retain timing
       message: `Missing/disabled button ${label}`,
     });
   }
+  modalButtons = [{ ...buttons[1], disabled: false }];
+  buttons = [
+    {
+      ...modalButtons[0],
+      click: () => assert.fail('Background button clicked through a modal'),
+    },
+  ];
+  assert.equal(await clickToPaint(driver, label), 32);
+  modalButtons = undefined;
   buttons = [];
   await assert.rejects(clickToPaint(driver, label), {
     message: `Missing/disabled button ${label}`,
   });
-  assert.equal(clicks, 3);
-  assert.equal(frames, 6);
+  assert.equal(clicks, 4);
+  assert.equal(frames, 8);
 });
 
 function failure(binary, args = []) {

@@ -240,18 +240,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.recent-projects summary {
-  display: flex;
+.recent-projects > button {
   justify-content: space-between;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-.recent-projects summary::marker {
-  content: '';
 }
 .recent-projects-menu {
-  margin: 0 6px 6px 14px;
-  border-left: 1px solid var(--line);
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(360px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 .recent-projects-menu button {
   flex-direction: column;

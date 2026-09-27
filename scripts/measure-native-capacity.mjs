@@ -143,7 +143,7 @@ for (const name of names) {
       const previous = (await probe.call('depthplan_get_context')).state
         .sessionId;
       const start = performance.now();
-      await click('Open');
+      await click('Open Board…');
       await until(async () => {
         const current = await probe.call('depthplan_get_context');
         return current.ok && current.state.sessionId !== previous;

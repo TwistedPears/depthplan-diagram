@@ -27,7 +27,8 @@ import {
 import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
-  | { kind: 'search' }
+  | { kind: 'search'; query?: string }
+  | { kind: 'openBoard' }
   | { kind: 'saveIssue'; boardId: string }
   | {
       kind: 'createBoard' | 'duplicateBoard' | 'removeBoard';
@@ -682,16 +683,8 @@ function useProject() {
       window.desktop.events.on('menu:open-project', () => {
         if (!dialog) void openProject();
       }),
-      window.desktop.events.on('menu:close-project', () => {
-        if (live.current && !dialog) void standalone();
-      }),
-      window.desktop.events.on('menu:project-board', quickSwitch),
-      window.desktop.events.on('menu:save-all', () => {
-        if (live.current && !dialog) void saveAll();
-      }),
-      window.desktop.events.on('menu:close-tab', () => {
-        if (live.current && registry.activeKey && !dialog)
-          void run(() => registry.close(registry.activeKey));
+      window.desktop.events.on('menu:close', () => {
+        if (!dialog) void standalone();
       }),
     ];
     if (!registry.activeKey && project) {
@@ -704,7 +697,7 @@ function useProject() {
       stops.push(window.desktop.events.on('menu:new', () => newBoard()));
       stops.push(
         window.desktop.events.on('menu:open', () => {
-          void standalone(() => window.desktop.fileSystem.openDocument());
+          if (!dialog) setDialog({ kind: 'openBoard' });
         }),
       );
     }

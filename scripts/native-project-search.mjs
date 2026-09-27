@@ -57,13 +57,15 @@ export async function projectSearch(driver) {
     await click('Open Project…');
     await until(() => sync('return !!document.getElementById("board-a")'));
     const before = await probe.call('depthplan_get_state');
-    await click('Menu');
-    await click('Search Project…');
+    if (
+      await sync('return document.getElementById("object-search-form").hidden')
+    )
+      await click('Search boards');
     assert.equal(await sync('return document.activeElement.type'), 'search');
     await sync(
-      `const input=document.querySelector('dialog input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      `const input=document.getElementById('object-search-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
     );
-    await sync(`document.querySelector('dialog form').requestSubmit()`);
+    await sync(`document.getElementById('object-search-form').requestSubmit()`);
     await until(() =>
       sync(
         'return document.querySelector("dialog")?.textContent.includes("Search complete.")',
@@ -92,12 +94,14 @@ export async function projectSearch(driver) {
       before,
       'Search must not change accepted content, history or camera',
     );
-    await click('Menu');
-    await click('Search Project…');
+    if (
+      await sync('return document.getElementById("object-search-form").hidden')
+    )
+      await click('Search boards');
     await sync(
-      `const input=document.querySelector('dialog input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      `const input=document.getElementById('object-search-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
     );
-    await sync(`document.querySelector('dialog form').requestSubmit()`);
+    await sync(`document.getElementById('object-search-form').requestSubmit()`);
     await until(() =>
       sync(
         'return document.querySelector("dialog")?.textContent.includes("Search complete.")',
@@ -168,7 +172,7 @@ export async function projectSearch(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).data.dirty, false);
     await click('Menu');
-    await click('Close Project');
+    await click('Close');
     await until(() =>
       sync('return !document.querySelector(".project-navigation")'),
     );

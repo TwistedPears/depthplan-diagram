@@ -9,6 +9,8 @@ interface FileToolbarProps {
   onOpenFile: () => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onClose: () => void;
+  onAction?: () => void;
   isProject?: boolean;
 }
 
@@ -21,34 +23,45 @@ export default function FileToolbar({
   onOpenFile,
   onSave,
   onSaveAs,
+  onClose,
+  onAction = () => {},
   isProject = false,
 }: FileToolbarProps) {
+  const action = (handler: () => void) => () => {
+    handler();
+    onAction();
+  };
   return (
     <>
-      <div className="dropdown-label">File</div>
-      <button type="button" onClick={onNewDocument} disabled={isLoading}>
+      <div className="dropdown-label">Boards</div>
+      <button
+        type="button"
+        onClick={action(onNewDocument)}
+        disabled={isLoading}
+      >
         <Icon name="file" /> {isProject ? 'New Board…' : 'New'}
       </button>
-      <button type="button" onClick={onOpenFile} disabled={isLoading}>
-        <Icon name="folder-open" />{' '}
-        {isProject ? 'Open standalone board…' : 'Open'}
+      <button type="button" onClick={action(onOpenFile)} disabled={isLoading}>
+        <Icon name="folder-open" /> Open Board…
       </button>
       <button
         type="button"
-        onClick={onReload}
+        onClick={action(onReload)}
         disabled={isLoading || !hasSource}
       >
         Reload
       </button>
-      {hasDocument && (
+      {(hasDocument || isProject) && (
         <>
-          <button type="button" onClick={onSave} disabled={isLoading}>
+          <button type="button" onClick={action(onSave)} disabled={isLoading}>
             <Icon name="save" /> Save
           </button>
-          <button type="button" onClick={onSaveAs} disabled={isLoading}>
-            <Icon name="save" /> {isProject ? 'Save Copy…' : 'Save As...'}
+          <button type="button" onClick={action(onSaveAs)} disabled={isLoading}>
+            <Icon name="save" /> Save As…
           </button>
-          <div className="dropdown-separator" />
+          <button type="button" onClick={action(onClose)} disabled={isLoading}>
+            Close
+          </button>
         </>
       )}
     </>

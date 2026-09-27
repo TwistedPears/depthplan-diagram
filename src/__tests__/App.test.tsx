@@ -334,7 +334,7 @@ describe('App', () => {
   it('preserves the current document when opening is canceled', async () => {
     render(<App />);
     const id = screen.getByTestId('recursive-canvas').dataset.documentId;
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     await waitFor(() =>
       expect(window.desktop.fileSystem.openDocument).toHaveBeenCalled(),
     );
@@ -425,7 +425,7 @@ describe('App', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit document' }));
     const id = screen.getByTestId('recursive-canvas').dataset.documentId;
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     expect(
       await screen.findByText(
         /Failed to open document:.*unsupported document format/,
@@ -452,7 +452,7 @@ describe('App', () => {
       },
     });
     render(<App />);
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     await screen.findByText('Fixture');
     chooseFileCommand('Save');
     await waitFor(() =>

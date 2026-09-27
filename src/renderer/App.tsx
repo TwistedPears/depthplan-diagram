@@ -292,9 +292,7 @@ function BoardWorkspace({
   const handleOpenFile = () => {
     if (!isLoading)
       return projectWorkspace.project
-        ? projectWorkspace.standalone(() =>
-            window.desktop.fileSystem.openDocument(),
-          )
+        ? projectWorkspace.setDialog({ kind: 'openBoard' })
         : transitions.request('open');
   };
   const handleReloadFile = () => {
@@ -302,8 +300,7 @@ function BoardWorkspace({
   };
   const handleSave = async (saveAs = false) => {
     if (!isLoading) {
-      if (projectWorkspace.project && !projectWorkspace.project.location)
-        return projectWorkspace.saveAll();
+      if (projectWorkspace.project) return projectWorkspace.saveAll();
       const captured = owner.snapshot().sessionId;
       await files.wait();
       if (owner.snapshot().sessionId === captured) return files.save(saveAs);

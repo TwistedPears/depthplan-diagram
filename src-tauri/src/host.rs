@@ -1237,25 +1237,22 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         )?)?;
         menu.append(&native)?;
     }
-    let file = Submenu::new(app, "File", true)?;
+    let file = Submenu::new(app, "Boards", true)?;
     for (id, title, key) in [
         ("menu:new", "New Board", Some("CmdOrCtrl+N")),
         ("menu:open", "Open Board…", Some("CmdOrCtrl+O")),
         ("menu:new-project", "New Project", None),
         ("menu:open-project", "Open Project…", None),
-        ("menu:close-project", "Close Project", None),
-        ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),
-        ("menu:save-all", "Save Project", None),
         ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
+        ("menu:close", "Close", Some("CmdOrCtrl+W")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
             "menu:export-json",
             "Export DepthPlan…",
             Some("CmdOrCtrl+Shift+E"),
         ),
-        ("app:close", "Close", Some("CmdOrCtrl+W")),
     ] {
         file.append(&MenuItem::with_id(app, id, title, true, key)?)?;
     }
@@ -1406,13 +1403,6 @@ pub fn run() {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "app:quit" => request_close(app, true),
-            "app:close" => {
-                if app.state::<Host>().projects.lock().unwrap().0.is_empty() {
-                    request_close(app, false);
-                } else {
-                    let _ = app.emit_to("main", "menu:close-tab", ());
-                }
-            }
             "app:devtools" =>
             {
                 #[cfg(debug_assertions)]

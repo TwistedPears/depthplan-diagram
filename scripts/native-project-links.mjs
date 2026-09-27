@@ -88,7 +88,7 @@ export async function projectLinks(driver) {
     command('depthplan_selection', { action: 'set', objects: ['app'] });
   const save = async () => {
     await click('Menu');
-    await click('Save Project');
+    await click('Save');
     await until(async () => {
       const reply = await probe.call('depthplan_get_state');
       return reply.ok && !reply.data.dirty;
@@ -96,7 +96,7 @@ export async function projectLinks(driver) {
   };
   const close = async () => {
     await click('Menu');
-    await click('Close Project');
+    await click('Close');
     await until(() =>
       sync('return !document.querySelector(".project-navigation")'),
     );

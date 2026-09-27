@@ -90,7 +90,7 @@ export async function layering(driver, probe) {
   await writeFile(target, JSON.stringify(document));
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === target);
   await click('Reset view');
 
@@ -172,7 +172,7 @@ export async function layering(driver, probe) {
     });
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   await expectPaint(430, 280, 'connection-line', red);
   await expectPaint(430, 320, 'connection-arrow', green);

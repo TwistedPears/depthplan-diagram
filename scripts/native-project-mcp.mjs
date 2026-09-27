@@ -257,7 +257,7 @@ export async function projectMcp(driver) {
         (await receipt(finalSave.data.operationId)).status === 'completed',
     );
     await click('Menu');
-    await click('Close Project');
+    await click('Close');
     await until(
       async () =>
         (await probe.call('depthplan_get_project')).data?.project === null,

@@ -66,7 +66,7 @@ export async function projectWorkspace(driver) {
   };
   const closeProject = async () => {
     await current.click('Menu');
-    await current.click('Close Project');
+    await current.click('Close');
     await current.until(() =>
       current.sync('return !document.querySelector(".project-navigation")'),
     );
@@ -163,7 +163,7 @@ export async function projectWorkspace(driver) {
     await closeProject();
     await current.click('Menu');
     await current.sync(
-      'document.querySelector("details.recent-projects summary").click()',
+      'document.querySelector(".recent-projects > button").click()',
     );
     await current.until(() =>
       current.sync(
@@ -206,7 +206,7 @@ export async function projectWorkspace(driver) {
     project.location = path.join(movedRoot, 'project.depthproject');
     await current.click('Menu');
     await current.sync(
-      'document.querySelector("details.recent-projects summary").click()',
+      'document.querySelector(".recent-projects > button").click()',
     );
     await current.until(() =>
       current.sync('return !!document.querySelector(arguments[0])', [

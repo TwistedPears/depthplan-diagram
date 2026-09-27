@@ -9,6 +9,9 @@
   pointer-events: none;
   z-index: 1040;
 }
+.unified-toolbar:has(.dropdown-menu:not([hidden])) {
+  z-index: 1060;
+}
 .unified-toolbar > * {
   pointer-events: auto;
 }

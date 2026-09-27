@@ -40,7 +40,9 @@ it('focuses the input, searches only on Enter, opens results and restores focus 
   const panel = screen.getByRole('complementary', { name: 'Search Results' });
   expect(within(panel).getByRole('status')).toHaveTextContent('1 object found');
   fireEvent.click(
-    within(panel).getByRole('button', { name: 'endpoint endpoint' }),
+    within(panel).getByRole('button', {
+      name: `${document.metadata.title} endpoint endpoint`,
+    }),
   );
   expect(onFocus).toHaveBeenCalledWith('endpoint');
   fireEvent.click(screen.getByRole('button', { name: 'Close search results' }));

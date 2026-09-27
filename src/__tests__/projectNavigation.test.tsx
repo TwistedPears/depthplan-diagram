@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import useProjectWorkspace from '../renderer/hooks/useProjectWorkspace';
+import BoardSearch from '../renderer/components/BoardSearch';
 import ProjectObjectLink from '../renderer/components/ProjectObjectLink';
 import { Workspace } from '../renderer/App';
 import useDocumentSessions, {
@@ -34,6 +35,7 @@ function MockCanvas(props: React.ComponentProps<typeof RecursiveCanvas>) {
   return props.active ? (
     <>
       <canvas data-testid="drawing-surface" />
+      <BoardSearch />
       {selected?.startsWith('object-') && (
         <ProjectObjectLink
           object={props.document.objects[selected.slice(7)]}
@@ -74,8 +76,12 @@ const read = (id: string) => ({
   },
 });
 beforeEach(() => {
-  HTMLElement.prototype.showPopover = jest.fn();
-  HTMLElement.prototype.hidePopover = jest.fn();
+  HTMLElement.prototype.showPopover = jest.fn(function (this: HTMLElement) {
+    fireEvent(this, Object.assign(new Event('toggle'), { newState: 'open' }));
+  });
+  HTMLElement.prototype.hidePopover = jest.fn(function (this: HTMLElement) {
+    fireEvent(this, Object.assign(new Event('toggle'), { newState: 'closed' }));
+  });
   documents = {};
   for (const id of ['a', 'b', 'c'])
     documents[id] = {
@@ -463,7 +469,7 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
     .mocked(window.desktop.projects.writeBoard)
     .mockResolvedValue({ status: 'error', error: 'Disk unavailable' });
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   expect(registry.sessions).toBe(before);
   expect(registry.activeKey).toBe(key('b'));
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
@@ -477,7 +483,8 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
       .id,
   ).not.toBe('b');
   await click('Menu');
-  await click('Open standalone board…');
+  await click('Open Board…');
+  await click('Standalone');
   expect(registry.sessions).toBe(before);
 });
 
@@ -492,6 +499,26 @@ test('closing every board leaves an empty project with create/import actions and
     projectFilename('設計', ['Board.depthplan', 'board_2.depthplan']),
   ).toBe('board_3.depthplan');
   expect(projectFilename('API', ['api.depthplan'])).toBe('api_2.depthplan');
+  await searchProject('api');
+  expect(
+    screen.getByRole('dialog', { name: 'Search Project' }),
+  ).toHaveTextContent('3 of 3 boards searched');
+  fireEvent.click(
+    within(screen.getByRole('dialog', { name: 'Search Project' })).getByRole(
+      'button',
+      { name: 'Close' },
+    ),
+  );
+  act(() => {
+    screen.getByLabelText('Project menu').closest('details')!.open = true;
+  });
+  await click('Save As…');
+  expect(window.desktop.fileSystem.saveDocument).not.toHaveBeenCalled();
+  act(() => {
+    screen.getByLabelText('Project menu').closest('details')!.open = true;
+  });
+  await click('Open Board…');
+  expect(screen.getByRole('dialog', { name: 'Open Board' })).toBeVisible();
 });
 
 test('autosaves accepted edits even in legacy manual projects and inactive boards without moving their target or undo history', async () => {
@@ -542,7 +569,7 @@ test('failed multi-board flush keeps all sessions without a review dialog and Sa
     .mocked(window.desktop.projects.writeBoard)
     .mockRejectedValue(new Error('Disk unavailable'));
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   expect(
     screen.queryByRole('dialog', { name: 'Review open boards' }),
   ).not.toBeInTheDocument();
@@ -558,7 +585,7 @@ test('failed multi-board flush keeps all sessions without a review dialog and Sa
   );
   jest.mocked(window.desktop.projects.writeBoard).mockImplementation(save);
   await click('Menu');
-  await click('Save Project');
+  await click('Save');
   expect(controller('a').owner.dirty).toBe(false);
   expect(controller('b').owner.dirty).toBe(false);
   expect(controller('a').files.failure).toBeNull();
@@ -681,7 +708,7 @@ test('restores local tabs/order, active board and cameras without source writes;
     ),
   );
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   jest.mocked(window.desktop.projects.workspace).mockResolvedValue({
     status: 'success',
     view: { ...view, tabs: [], active: null },
@@ -910,17 +937,30 @@ test('empty projects retain local MCP controls and project/access discovery with
 
 async function searchProject(query: string) {
   if (!screen.queryByRole('dialog', { name: 'Search Project' })) {
-    await click('Menu');
-    await click('Search Project…');
+    if (!screen.queryByRole('searchbox', { name: 'Search all boards' }))
+      await click('Search boards');
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Search all boards' }),
+      {
+        target: { value: query },
+      },
+    );
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('search'));
+    });
+  } else {
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Search content' }),
+      {
+        target: { value: query },
+      },
+    );
+    fireEvent.submit(
+      screen
+        .getByRole('dialog', { name: 'Search Project' })
+        .querySelector('form')!,
+    );
   }
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Search content' }), {
-    target: { value: query },
-  });
-  fireEvent.submit(
-    screen
-      .getByRole('dialog', { name: 'Search Project' })
-      .querySelector('form')!,
-  );
   await waitFor(() =>
     expect(
       screen.queryByRole('button', { name: 'Stop search' }),
@@ -1489,7 +1529,7 @@ test('closing a clean memory project requires a decision and resumes after its f
   project.location = null;
   await setup();
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   expect(window.desktop.transitions.confirm).toHaveBeenCalledWith(
     'document',
     'Architecture',
@@ -1501,11 +1541,11 @@ test('closing a clean memory project requires a decision and resumes after its f
     .mocked(window.desktop.projects.save)
     .mockResolvedValueOnce({ status: 'canceled' });
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   expect(mockWorkspace.project?.location).toBeNull();
   expect(mockWorkspace.busy).toBe(false);
   await click('Menu');
-  await click('Close Project');
+  await click('Close');
   await waitFor(() =>
     expect(window.desktop.projects.close).toHaveBeenCalledWith(
       'project-session',
@@ -1568,18 +1608,147 @@ test('recent projects are a submenu of at most five native recent entries', asyn
     .mockResolvedValue({ status: 'success', entries });
   await setup();
   await click('Menu');
-  const recent = document.querySelector(
-    'details.recent-projects',
-  ) as HTMLDetailsElement;
-  await act(async () => {
-    recent.open = true;
-    fireEvent(recent, new Event('toggle'));
-  });
-  expect(within(recent).getAllByRole('button')).toHaveLength(5);
+  await click('Open Recent');
+  const recent = screen.getByRole('menu', { name: 'Open Recent' });
+  expect(within(recent).getAllByRole('menuitem')).toHaveLength(5);
   expect(recent).not.toHaveTextContent('Project 5');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  const first = within(recent).getAllByRole('menuitem')[0];
+  first.focus();
+  fireEvent.keyDown(first, { key: 'ArrowDown' });
+  expect(within(recent).getAllByRole('menuitem')[1]).toHaveFocus();
+  fireEvent.keyDown(recent, { key: 'ArrowLeft' });
+  expect(screen.getByRole('button', { name: 'Open Recent' })).toHaveFocus();
+  expect(
+    screen.queryByRole('menu', { name: 'Open Recent' }),
+  ).not.toBeInTheDocument();
+  await click('Open Recent');
   await act(async () => {
-    fireEvent.click(within(recent).getAllByRole('button')[0]);
+    fireEvent.click(first);
   });
   expect(window.desktop.projects.openRecent).toHaveBeenCalledWith('0', false);
+});
+
+test.each([
+  ['Save', null],
+  ['Save As…', null],
+  ['Save', '/project/project.depthproject'],
+  ['Save As…', '/project/project.depthproject'],
+])('%s saves every project board (location: %s)', async (label, location) => {
+  project.location = location;
+  await setup();
+  drawer();
+  await click('Open Same name, b.depthplan');
+  act(() => {
+    controller('a').owner.transact(editObject('api', { name: 'Keep A' }));
+    controller('b').owner.transact(editObject('api', { name: 'Keep B' }));
+  });
+  await click('Menu');
+  await click(label!);
+  expect(controller('a').owner.dirty).toBe(false);
+  expect(controller('b').owner.dirty).toBe(false);
+  expect(documents.a.objects.api.name).toBe('Keep A');
+  expect(documents.b.objects.api.name).toBe('Keep B');
+  expect(window.desktop.fileSystem.saveDocument).not.toHaveBeenCalled();
+  expect(registry.sessions).toHaveLength(2);
+});
+
+test('the board menu has contextual actions in order and closes a standalone board safely', async () => {
+  await setup();
+  await click('Menu');
+  const menu = document.getElementById('document-menu')!;
+  expect(within(menu).getByText('Boards')).toBeVisible();
+  for (const name of [
+    'Save Project',
+    'Open Board in Project…',
+    'Search Project…',
+    'Close Project',
+    'Recent Projects',
+    'Save Copy…',
+  ])
+    expect(
+      within(menu).queryByRole('button', { name }),
+    ).not.toBeInTheDocument();
+  const labels = [...menu.querySelectorAll('button')].map((button) =>
+    button.textContent!.trim(),
+  );
+  expect(
+    labels.slice(labels.indexOf('Save'), labels.indexOf('Save') + 4),
+  ).toEqual(['Save', 'Save As…', 'Close', 'Open Recent']);
+  await click('Close');
+  expect(mockWorkspace.project).toBeNull();
+  const standaloneKey = registry.activeKey;
+  const owner = registry.controllers.get(standaloneKey)!.owner;
+  act(() =>
+    owner.transact((draft) => {
+      draft.metadata.title = 'Unsaved standalone';
+    }),
+  );
+  await click('Menu');
+  await click('Close');
+  expect(registry.activeKey).toBe(standaloneKey);
+  expect(owner.snapshot().document!.metadata.title).toBe('Unsaved standalone');
+  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
+  await click('Menu');
+  await click('Close');
+  expect(registry.activeKey).not.toBe(standaloneKey);
+  expect(registry.sessions[0].source).toBeNull();
+});
+
+test('Open Board offers Import or Standalone in a project and respects cancellation', async () => {
+  window.desktop.projects.importBoards = jest.fn(async () => ({
+    ...response(),
+    imported: [],
+    errors: [],
+  }));
+  await setup();
+  await click('Menu');
+  await click('Open Board…');
+  expect(screen.getByRole('dialog', { name: 'Open Board' })).toHaveTextContent(
+    'Import into the current Project',
+  );
+  expect(window.desktop.fileSystem.openDocument).not.toHaveBeenCalled();
+  await click('Import');
+  expect(window.desktop.projects.importBoards).toHaveBeenCalled();
+  expect(mockWorkspace.project).not.toBeNull();
+  const sessions = registry.sessions;
+  await click('Menu');
+  await click('Open Board…');
+  fireEvent(
+    screen.getByRole('dialog', { name: 'Open Board' }),
+    new Event('cancel', { bubbles: true, cancelable: true }),
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(window.desktop.fileSystem.openDocument).not.toHaveBeenCalled();
+  await click('Menu');
+  await click('Open Board…');
+  await click('Standalone');
+  expect(registry.sessions).toBe(sessions);
+  jest.mocked(window.desktop.fileSystem.openDocument).mockResolvedValue({
+    status: 'success',
+    document: clone(documents.b),
+    source: {
+      id: 'external',
+      path: '/standalone.depthplan',
+      fingerprint: 'external',
+    },
+  });
+  await click('Menu');
+  await click('Open Board…');
+  await click('Standalone');
+  expect(mockWorkspace.project).toBeNull();
+  expect(registry.sessions).toHaveLength(1);
+  expect(registry.sessions[0].source?.path).toBe('/standalone.depthplan');
+  await click('Menu');
+  await click('Save As…');
+  expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
+    expect.objectContaining({ id: 'b' }),
+    'external',
+    true,
+  );
+  await click('Menu');
+  await click('Open Board…');
+  expect(
+    screen.queryByRole('dialog', { name: 'Open Board' }),
+  ).not.toBeInTheDocument();
 });

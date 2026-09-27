@@ -63,7 +63,7 @@ export async function authoring(driver, probe) {
     await writeFile(file, data);
     await dialogs('open', file);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(async () => (await state()).source?.path === file);
     assert.deepEqual(await bookmarkOrder(), Object.keys(sample.namedViews));
     await sync(`document.querySelector('.recursive-bookmarks').open=true`);
@@ -292,7 +292,7 @@ export async function authoring(driver, probe) {
   );
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === target);
   assert.equal((await state()).canUndo, false);
   assert.deepEqual(

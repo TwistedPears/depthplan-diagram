@@ -213,18 +213,17 @@ try {
       4,
       'Switches must reuse live owners',
     );
-    await driver.click('Menu');
-    await driver.click('Search Project…');
+    await driver.click('Search boards');
     const searchStart = performance.now();
     await driver.sync(`
-      const input=document.querySelector('dialog input');
+      const input=document.getElementById('object-search-input');
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'object-0000000');
       input.dispatchEvent(new Event('input',{bubbles:true}));
     `);
     await driver.sync(`
       window.searchFrameGap=0;window.searchMeasuring=true;let last=performance.now();
       const frame=now=>{window.searchFrameGap=Math.max(window.searchFrameGap,now-last);last=now;if(window.searchMeasuring)requestAnimationFrame(frame)};
-      requestAnimationFrame(frame);document.querySelector('dialog form').requestSubmit();
+      requestAnimationFrame(frame);document.getElementById('object-search-form').requestSubmit();
     `);
     await driver.until(() =>
       driver.sync(

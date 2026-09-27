@@ -55,6 +55,7 @@ export default function ObjectSearchResults({
           {results.map((result) => (
             <li key={result.id}>
               <button type="button" onClick={() => onFocus(result.id)}>
+                <small>{document.metadata.title}</small>
                 <strong>{result.label}</strong>
                 {result.text && <span>{result.text}</span>}
               </button>

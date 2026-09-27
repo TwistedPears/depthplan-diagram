@@ -11,6 +11,7 @@ import ExportToolbar from './toolbars/ExportToolbar';
 import FileToolbar from './toolbars/FileToolbar';
 import useProjectWorkspace from '../hooks/useProjectWorkspace';
 import { ProjectMenu } from './ProjectNavigation';
+import RecentProjects from './RecentProjects';
 interface UnifiedToolbarProps {
   automation: ReturnType<typeof useAutomation>;
   operation: { kind: string; status: string; cancel: () => void } | null;
@@ -148,33 +149,25 @@ function UnifiedToolbar({
             {openDropdown === 'hamburger' && (
               <ProjectMenu onAction={closeDropdown} />
             )}
-            {/* File */}
             <FileToolbar
               isLoading={isLoading}
               hasSource={hasSource}
-              onReload={() => {
-                onReload();
-                closeDropdown();
-              }}
+              onReload={onReload}
               hasDocument={!!currentDocument}
-              onNewDocument={() => {
-                onNewDocument();
-                closeDropdown();
-              }}
-              onOpenFile={() => {
-                onOpenFile();
-                closeDropdown();
-              }}
-              onSave={() => {
-                onSave();
-                closeDropdown();
-              }}
+              onNewDocument={onNewDocument}
+              onOpenFile={onOpenFile}
+              onSave={onSave}
               isProject={!!project}
-              onSaveAs={() => {
-                onSaveAs();
-                closeDropdown();
+              onSaveAs={onSaveAs}
+              onClose={() => {
+                void workspace?.standalone();
               }}
+              onAction={closeDropdown}
             />
+            {openDropdown === 'hamburger' && (
+              <RecentProjects onAction={closeDropdown} />
+            )}
+            <div className="dropdown-separator" />
             {currentDocument && (
               <ExportToolbar
                 isLoading={isLoading}

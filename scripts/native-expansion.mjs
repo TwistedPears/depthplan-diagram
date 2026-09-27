@@ -126,7 +126,7 @@ export async function expansion(driver, probe) {
   await writeFile(target, JSON.stringify(document));
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === target);
   await click('Reset view');
   const save = async () => {
@@ -236,7 +236,7 @@ export async function expansion(driver, probe) {
   await save();
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   await click('Reveal children of a');
   assert.deepEqual(placements(await save()), placements(nested));
@@ -281,7 +281,7 @@ export async function expansion(driver, probe) {
   assert.deepEqual(rootGeometry(closed, 'b'), document.layouts.b[0].b);
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   await edit({ type: 'children', id: 'a', expanded: true });
   assert.deepEqual(placements(await save()), placements(manual));
@@ -597,7 +597,7 @@ export async function expansion(driver, probe) {
   }
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   await select('b1');
   const reopenedStyle = (await save()).objects.b1.style;
@@ -737,7 +737,7 @@ export async function expansion(driver, probe) {
     await writeFile(file, JSON.stringify(fixture));
     await dialogs('open', file);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(async () => (await state()).source?.path === file);
     await click('Reset view');
     for (const phase of types[0] === 'rectangle'
@@ -1174,7 +1174,7 @@ export async function expansion(driver, probe) {
   await writeFile(siblingFile, JSON.stringify(siblings));
   await dialogs('open', siblingFile);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === siblingFile);
   await click('Reveal children of a');
   await click('Reveal children of a1');
@@ -1228,7 +1228,7 @@ export async function expansion(driver, probe) {
     await writeFile(file, JSON.stringify(rotated));
     await dialogs('open', file);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(async () => {
       const current = await state();
       return (

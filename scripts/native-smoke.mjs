@@ -160,7 +160,7 @@ try {
   // Load through the renderer lifecycle, with only the native chooser automated.
   await dialogs('open', target);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(
     async () =>
       (await probe.call('depthplan_get_state')).data?.source?.path === target,
@@ -293,7 +293,7 @@ try {
     await writeFile(unsupportedPath, bytes);
     await dialogs('open', unsupportedPath);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(() =>
       sync(
         'return document.body.textContent.includes("unsupported document format")',

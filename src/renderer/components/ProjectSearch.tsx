@@ -21,7 +21,11 @@ const labels = {
   bookmarks: 'Bookmark',
 };
 
-export default function ProjectSearch() {
+export default function ProjectSearch({
+  initialQuery = '',
+}: {
+  initialQuery?: string;
+}) {
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
   const current = useRef(workspace);
@@ -29,7 +33,8 @@ export default function ProjectSearch() {
   const input = useRef<HTMLInputElement>(null);
   const generation = useRef(0);
   const searched = useRef({ sessionId: '', fingerprint: '' });
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+  const [request, setRequest] = useState({ query: initialQuery });
   const [groups, setGroups] = useState<Group[]>([]);
   const [failures, setFailures] = useState<string[]>([]);
   const [status, setStatus] = useState(
@@ -37,12 +42,6 @@ export default function ProjectSearch() {
   );
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
-  useEffect(
-    () => () => {
-      generation.current++;
-    },
-    [],
-  );
   const stop = () => {
     generation.current++;
     setSearching(false);
@@ -50,86 +49,95 @@ export default function ProjectSearch() {
       'Search stopped. These are partial results; search again to continue.',
     );
   };
-  const search = async () => {
-    const project = current.current.project;
-    if (!project || !query.trim()) return;
-    const run = ++generation.current;
-    searched.current = project;
-    setGroups([]);
-    setFailures([]);
-    setError('');
-    setSearching(true);
-    const found: Group[] = [],
-      failed: string[] = [];
-    let count = 0,
-      scanned = 0;
-    const summary = () =>
-      `${count} results · ${scanned} of ${project.manifest.boards.length} boards searched`;
-    const valid = () => generation.current === run;
-    try {
-      for (const board of project.manifest.boards) {
-        if (!valid()) return;
-        if (
-          current.current.project?.sessionId !== project.sessionId ||
-          current.current.project.fingerprint !== project.fingerprint
-        )
-          throw new Error('Project membership changed. Search again.');
-        try {
-          const owner = registry.controllers.get(
-            `${project.sessionId}:${board.id}`,
-          )?.owner;
-          const snapshot = owner?.snapshot();
-          const disk = snapshot
-            ? null
-            : await window.desktop.projects.readBoard(
-                project.sessionId,
-                board.id,
-              );
+  useEffect(() => {
+    let canceled = false;
+    const search = async () => {
+      const project = current.current.project;
+      if (!project || !request.query.trim()) return;
+      const run = ++generation.current;
+      searched.current = project;
+      setGroups([]);
+      setFailures([]);
+      setError('');
+      setSearching(true);
+      const found: Group[] = [],
+        failed: string[] = [];
+      let count = 0,
+        scanned = 0;
+      const summary = () =>
+        `${count} results · ${scanned} of ${project.manifest.boards.length} boards searched`;
+      const valid = () => !canceled && generation.current === run;
+      try {
+        for (const board of project.manifest.boards) {
           if (!valid()) return;
-          if (disk && disk.status !== 'success')
-            throw new Error(
-              disk.status === 'error' ? disk.error : 'Read canceled',
-            );
-          const document =
-            snapshot?.document ??
-            (disk?.status === 'success' ? disk.board.document : null);
-          if (!document) throw new Error('No board content available');
-          const version = snapshot
-            ? { sessionId: snapshot.sessionId, revision: snapshot.revision }
-            : {
-                fingerprint:
-                  disk!.status === 'success' ? disk!.board.fingerprint : '',
-              };
-          const items: Hit[] = [];
-          for (const { item } of searchItems(document, { query })) {
-            items.push(item);
-            if (++count === 500) break;
+          if (
+            current.current.project?.sessionId !== project.sessionId ||
+            current.current.project.fingerprint !== project.fingerprint
+          )
+            throw new Error('Project membership changed. Search again.');
+          try {
+            const owner = registry.controllers.get(
+              `${project.sessionId}:${board.id}`,
+            )?.owner;
+            const snapshot = owner?.snapshot();
+            const disk = snapshot
+              ? null
+              : await window.desktop.projects.readBoard(
+                  project.sessionId,
+                  board.id,
+                );
+            if (!valid()) return;
+            if (disk && disk.status !== 'success')
+              throw new Error(
+                disk.status === 'error' ? disk.error : 'Read canceled',
+              );
+            const document =
+              snapshot?.document ??
+              (disk?.status === 'success' ? disk.board.document : null);
+            if (!document) throw new Error('No board content available');
+            const version = snapshot
+              ? { sessionId: snapshot.sessionId, revision: snapshot.revision }
+              : {
+                  fingerprint:
+                    disk!.status === 'success' ? disk!.board.fingerprint : '',
+                };
+            const items: Hit[] = [];
+            for (const { item } of searchItems(document, {
+              query: request.query,
+            })) {
+              items.push(item);
+              if (++count === 500) break;
+            }
+            if (items.length) found.push({ board, items, version });
+          } catch (e) {
+            failed.push(`${board.name} (${board.path}): ${String(e)}`);
           }
-          if (items.length) found.push({ board, items, version });
-        } catch (e) {
-          failed.push(`${board.name} (${board.path}): ${String(e)}`);
+          scanned++;
+          setGroups([...found]);
+          setFailures([...failed]);
+          setStatus(`Searching… ${summary()}`);
+          // ponytail: one validated board per turn; add a worker only if single-board scans exceed the interaction budget.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          if (count === 500) break;
         }
-        scanned++;
-        setGroups([...found]);
-        setFailures([...failed]);
-        setStatus(`Searching… ${summary()}`);
-        // ponytail: one validated board per turn; add a worker only if single-board scans exceed the interaction budget.
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        if (count === 500) break;
+        if (valid())
+          setStatus(
+            `${summary()}. ${count === 500 ? 'Stopped at 500 results; refine your search.' : failed.length ? 'Partial results: some boards could not be read.' : 'Search complete.'}`,
+          );
+      } catch (e) {
+        if (valid()) {
+          setError(String(e));
+          setStatus(`${summary()}. Search stopped; results may be stale.`);
+        }
+      } finally {
+        if (valid()) setSearching(false);
       }
-      if (valid())
-        setStatus(
-          `${summary()}. ${count === 500 ? 'Stopped at 500 results; refine your search.' : failed.length ? 'Partial results: some boards could not be read.' : 'Search complete.'}`,
-        );
-    } catch (e) {
-      if (valid()) {
-        setError(String(e));
-        setStatus(`${summary()}. Search stopped; results may be stale.`);
-      }
-    } finally {
-      if (valid()) setSearching(false);
-    }
-  };
+    };
+    void search();
+    return () => {
+      canceled = true;
+    };
+  }, [request, registry.controllers]);
   const open = async (group: Group, hit: Hit) => {
     setError('');
     const opened = await workspace.run(async () => {
@@ -190,7 +198,7 @@ export default function ProjectSearch() {
       cancelDisabled={workspace.busy}
       cancelLabel="Close"
       onSubmit={() => {
-        void search();
+        setRequest({ query });
       }}
       submitLabel="Search"
       submitDisabled={!query.trim() || searching || workspace.busy}

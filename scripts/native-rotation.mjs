@@ -40,7 +40,7 @@ export async function rotation(driver, probe) {
     await writeFile(file, JSON.stringify(document));
     await dialogs('open', file);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(async () => (await state()).source?.path === file);
     await click('Reset view');
   };
@@ -364,7 +364,7 @@ export async function rotation(driver, probe) {
   await save();
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   assert.equal(Math.round((await pose('rectangle')).rotation), 57);
   assert.equal(Math.round((await pose('ellipse')).rotation), 62);
