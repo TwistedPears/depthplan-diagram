@@ -218,9 +218,12 @@ try {
     report.registration = {};
     for (const extension of ['depthplan', 'depthproject']) {
       const registration = JSON.parse(await ps('association', extension));
-      assert(registration.command.toLowerCase().includes(binary.toLowerCase()));
+      assert.equal(registration.command, `"${binary}" "%1"`);
       if (extension === 'depthproject')
-        assert(registration.icon.includes('project.ico'));
+        assert.equal(
+          registration.icon,
+          `"${path.join(appPath, 'project.ico')}",0`,
+        );
       report.registration[extension] = registration;
     }
     await access(path.join(appPath, 'project.ico'));

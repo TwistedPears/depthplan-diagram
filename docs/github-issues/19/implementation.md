@@ -84,3 +84,23 @@ Correctness review checked spawn errors, bounded process detection, exact binary
 identity and unchanged macOS/Windows paths. Ponytail review: **Lean already. Ship.**
 Readiness lesson: test OS-specific installer helpers against native process and
 launcher semantics, and bound the installed phase rather than only the whole job.
+
+## Installed Windows evidence review
+
+The first Windows installed run passed file opening, but reviewing its registry
+report found a literal `$` in the project-icon value and unquoted executable
+paths. The NSIS post-install hook now writes exact quoted commands for both
+extensions and the exact quoted project icon path. The installed probe compares
+those complete values rather than accepting a substring. Quoting follows the
+[NSIS string contract](https://nsis.sourceforge.io/Docs/Chapter4.html#4.1.1).
+
+All four macOS installed screenshots showed the expected cold/warm project and
+standalone state. The Windows screenshots showed the same states but exposed an
+initial window extending below the desktop work area. The native builder now
+uses Tauri's existing `prevent_overflow()` option. This changes initial fitting;
+ordinary user resize remains native. Follow-up installed screenshots must prove
+the taskbar no longer covers the bottom controls.
+
+Correctness review checked both association classes, paths with spaces/Unicode,
+exact registry values and all three create-window callers. Ponytail review:
+**Lean already. Ship.** Native window fitting replaces any custom geometry code.

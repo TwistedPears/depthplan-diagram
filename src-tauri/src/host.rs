@@ -1150,6 +1150,7 @@ fn create_window(app: &AppHandle) -> tauri::Result<()> {
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("DepthPlan")
         .inner_size(1024.0, 728.0)
+        .prevent_overflow()
         // WKWebView ignores data_directory. Non-production WebViews must still
         // stay separate from the user's persisted website data on every OS.
         .incognito(cfg!(debug_assertions) || cfg!(feature = "automation"))
