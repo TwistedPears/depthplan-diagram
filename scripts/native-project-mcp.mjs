@@ -30,8 +30,8 @@ export async function projectMcp(driver) {
   // This journey exercises explicit MCP saves, controlled by the app setting.
   await click('Menu');
   await click('Settings');
-  await sync(
-    `const autosave=document.querySelector('[aria-label="Autosave"]'); if(autosave.getAttribute('aria-checked')==='true') autosave.click();`,
+  const autosave = await sync(
+    `const button=document.querySelector('[aria-label="Autosave"]'), enabled=button.getAttribute('aria-checked')==='true'; if(enabled) button.click(); return enabled;`,
   );
   if (!(await native('automation:status')).enabled) {
     await sync(
@@ -261,6 +261,12 @@ export async function projectMcp(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).ok, true);
     assert.equal((await receipt()).status, 'completed');
+    if (autosave) {
+      await click('Menu');
+      await click('Settings');
+      await click('Autosave');
+      await click('Menu');
+    }
     console.log(
       `PASS project MCP: explicit same-name targets, grants, delayed overwrite after tab switch, export, stale handles, receipts and retries. Evidence: ${profile}`,
     );
