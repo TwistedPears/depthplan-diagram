@@ -175,7 +175,6 @@ function UnifiedToolbar({
               </button>
             )}
           </div>
-          <div className="dropdown-separator" />
           <SettingsMenu
             active={openDropdown === 'hamburger'}
             automation={automation}

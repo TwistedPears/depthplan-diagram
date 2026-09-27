@@ -1035,8 +1035,7 @@ async fn desktop(
             request_close(&app, false);
             Ok(Value::Null)
         }
-        #[cfg(feature = "automation")]
-        "test:quit" => {
+        "app:quit" => {
             request_close(&app, true);
             Ok(Value::Null)
         }

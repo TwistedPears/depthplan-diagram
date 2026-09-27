@@ -278,7 +278,7 @@ try {
     await pending;
     if (memoryError) throw memoryError;
     assert.deepEqual(await driver.sync('return window.nativeErrors'), []);
-    await driver.native('test:quit').catch(() => {});
+    await driver.native('app:quit').catch(() => {});
     await driver.until(() => driver.app.exitCode !== null);
     assert.equal(driver.app.exitCode, 0);
     await driver.close();

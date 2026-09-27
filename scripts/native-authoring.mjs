@@ -350,14 +350,16 @@ export async function authoring(driver, probe) {
   await edit({ type: 'edit_object', id: 'peer', name: 'Retain on cancel' });
   const dirty = await state();
   await dialogs('message', 'Cancel');
-  await driver.native('test:quit');
+  await click('Menu');
+  await click('Quit DepthPlan');
   await until(async () => !(await state()).busyReasons.length);
   assert.deepEqual(await state(), dirty);
   await save();
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   probe.close();
+  await click('Menu');
   await sync(
-    'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"test:quit",args:[]}),100)',
+    `const button=[...document.querySelectorAll('#document-menu button')].find(b=>b.textContent.trim()==='Quit DepthPlan');if(!button)throw new Error('Quit item missing');setTimeout(()=>button.click(),100)`,
   );
   await until(() => driver.app.exitCode !== null);
   assert.equal(driver.app.exitCode, 0, driver.diagnostics());

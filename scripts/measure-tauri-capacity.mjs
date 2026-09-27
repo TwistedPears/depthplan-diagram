@@ -803,7 +803,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await measure('normalClose', async () => {
       // The same native Quit guard as the menu, not a SIGTERM shortcut.
       await driver.sync(
-        'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"test:quit",args:[]}),100)',
+        'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"app:quit",args:[]}),100)',
       );
       await until(() => driver.app.exitCode !== null, 'normal process exit');
       assert.equal(driver.app.exitCode, 0);

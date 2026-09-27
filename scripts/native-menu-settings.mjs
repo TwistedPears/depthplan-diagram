@@ -40,11 +40,17 @@ export async function menuSettings(driver) {
       'Close All',
       'Export',
       'Settings',
+      'Quit DepthPlan',
     ],
   );
   assert(
     await sync(
       `return !document.querySelector('#document-menu svg') && document.querySelector('.recent-projects').nextElementSibling.matches('.dropdown-separator')`,
+    ),
+  );
+  assert(
+    await sync(
+      `const menu=document.querySelector('#document-menu');const settings=menu.querySelector('[aria-label="Settings"]').closest('.menu-flyout');return settings.previousElementSibling.lastElementChild.textContent.trim()==='Export' && menu.lastElementChild.textContent.trim()==='Quit DepthPlan' && menu.lastElementChild.previousElementSibling.matches('.dropdown-separator')`,
     ),
   );
   for (const label of ['Open Recent', 'Settings']) {

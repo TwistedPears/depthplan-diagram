@@ -332,6 +332,7 @@ const desktopHandler = {
   },
   openLink: (url: string): Promise<void> => native('link:open', url),
   getAppInstanceId: (): Promise<string> => native('app:instance-id'),
+  quit: (): Promise<void> => native('app:quit'),
   editHistory: (direction: 'undo' | 'redo'): Promise<void> => {
     if (direction !== 'undo' && direction !== 'redo')
       throw new Error('Invalid edit action');

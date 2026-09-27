@@ -13,20 +13,32 @@ export default function SettingsMenu({
 }) {
   const workspace = useProjectWorkspace()!;
   return (
-    <MenuFlyout label="Settings" active={active}>
+    <>
+      <MenuFlyout label="Settings" active={active}>
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-label="Autosave"
+          aria-checked={workspace.autosave}
+          onClick={workspace.toggleAutosave}
+        >
+          <span>Autosave</span>
+          <span className="automation-state">
+            {workspace.autosave ? 'On' : 'Off'}
+          </span>
+        </button>
+        <AutomationControl {...automation} onShowDetails={onAction} />
+      </MenuFlyout>
+      <div className="dropdown-separator" />
       <button
         type="button"
-        role="menuitemcheckbox"
-        aria-label="Autosave"
-        aria-checked={workspace.autosave}
-        onClick={workspace.toggleAutosave}
+        onClick={() => {
+          onAction();
+          void window.desktop.quit();
+        }}
       >
-        <span>Autosave</span>
-        <span className="automation-state">
-          {workspace.autosave ? 'On' : 'Off'}
-        </span>
+        Quit DepthPlan
       </button>
-      <AutomationControl {...automation} onShowDetails={onAction} />
-    </MenuFlyout>
+    </>
   );
 }

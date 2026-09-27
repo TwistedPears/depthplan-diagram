@@ -109,6 +109,7 @@ beforeEach(() => {
   };
   window.desktop = {
     getAppInstanceId: async () => 'app',
+    quit: jest.fn().mockResolvedValue(undefined),
     events: { on: noop },
     transitions: {
       onRequest: jest.fn().mockReturnValue(() => {}),
@@ -485,6 +486,16 @@ test('closing every board leaves an empty project with create/import actions and
   await action('a', 'Close board');
   expect(screen.queryByTestId('drawing-surface')).not.toBeInTheDocument();
   expect(screen.getByText('Choose a board to begin.')).toBeVisible();
+  const emptyMenu = screen.getByLabelText('Project menu').closest('details')!;
+  act(() => {
+    emptyMenu.open = true;
+  });
+  const quit = screen.getByRole('button', { name: 'Quit DepthPlan' });
+  expect(quit.parentElement!.lastElementChild).toBe(quit);
+  expect(quit.previousElementSibling).toHaveClass('dropdown-separator');
+  await click('Quit DepthPlan');
+  expect(window.desktop.quit).toHaveBeenCalledTimes(1);
+  expect(emptyMenu.open).toBe(false);
   expect(project.manifest.boards).toHaveLength(3);
   expect(projectFilename('CON', [])).toBe('board_con.depthplan');
   expect(
@@ -1753,6 +1764,19 @@ test('the board menu has contextual actions in order and closes a standalone boa
     labels.slice(labels.indexOf('Save All'), labels.indexOf('Save All') + 2),
   ).toEqual(['Save All', 'Close All']);
   expect(labels).not.toContain('Save As…');
+  const quit = within(menu).getByRole('button', { name: 'Quit DepthPlan' });
+  expect(menu.lastElementChild).toBe(quit);
+  expect(quit.previousElementSibling).toHaveClass('dropdown-separator');
+  const settings = within(menu)
+    .getByRole('button', { name: 'Settings' })
+    .closest('.menu-flyout')!;
+  expect(settings.previousElementSibling!.lastElementChild).toHaveTextContent(
+    'Export',
+  );
+  await click('Quit DepthPlan');
+  expect(window.desktop.quit).toHaveBeenCalledTimes(1);
+  expect(menu).not.toBeVisible();
+  await click('Menu');
   await click('Close All');
   expect(mockWorkspace.project).toBeNull();
   const standaloneKey = registry.activeKey;

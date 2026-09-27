@@ -259,7 +259,11 @@ export async function projectNavigation(driver) {
     ),
   );
   assert.equal(menuLabels[0], 'Open Recent');
-  assert.equal(menuLabels.at(-1), 'Settings');
+  assert.deepEqual(menuLabels.slice(-3), [
+    'Export',
+    'Settings',
+    'Quit DepthPlan',
+  ]);
   assert(
     await sync(
       `return !document.querySelector('#document-menu svg') && [...document.querySelectorAll('#document-menu .dropdown-label')].map(n=>n.textContent).join(',') === 'Boards,Projects' && [...document.querySelectorAll('#document-menu .dropdown-label')].every(n=>getComputedStyle(n).userSelect==='none' || getComputedStyle(n).webkitUserSelect==='none')`,
