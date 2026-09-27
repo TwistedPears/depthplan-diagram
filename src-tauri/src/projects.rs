@@ -111,7 +111,14 @@ pub(crate) fn regular(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn lock(root: &Path) -> Result<File> {
+pub struct ProjectLock(File);
+impl Drop for ProjectLock {
+    fn drop(&mut self) {
+        // A child spawned concurrently may still hold a duplicate descriptor.
+        let _ = self.0.unlock();
+    }
+}
+fn lock(root: &Path) -> Result<ProjectLock> {
     let path = root.join(LOCK);
     let file = match File::create_new(&path) {
         Ok(file) => file,
@@ -127,18 +134,19 @@ fn lock(root: &Path) -> Result<File> {
     };
     file.try_lock()
         .map_err(|e| format!("Project is in use or cannot be locked: {e}"))?;
+    let owner = ProjectLock(file);
     regular(&path)?;
-    if same_file::Handle::from_file(file.try_clone().map_err(|e| e.to_string())?)
+    if same_file::Handle::from_file(owner.0.try_clone().map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?
         != same_file::Handle::from_path(&path).map_err(|e| e.to_string())?
     {
         return Err("Project lock was replaced; reopen the project".into());
     }
     // Never unlink the lock: OS ownership is released even when a process crashes.
-    Ok(file)
+    Ok(owner)
 }
 /// Standalone/MCP writes must respect a project's live writer too.
-pub fn lock_for_file(path: &Path) -> Result<Option<File>> {
+pub fn lock_for_file(path: &Path) -> Result<Option<ProjectLock>> {
     let parent = path
         .parent()
         .ok_or("Missing destination directory")?
@@ -230,7 +238,7 @@ struct Disk {
     root: PathBuf,
     root_handle: same_file::Handle,
     path: PathBuf,
-    owner: File,
+    owner: ProjectLock,
 }
 pub struct Project {
     disk: Option<Disk>,
@@ -403,8 +411,10 @@ impl Project {
             || same_file::Handle::from_path(&disk.root).map_err(|e| e.to_string())?
                 != disk.root_handle
             || same_file::Handle::from_path(disk.root.join(LOCK)).map_err(|e| e.to_string())?
-                != same_file::Handle::from_file(disk.owner.try_clone().map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?
+                != same_file::Handle::from_file(
+                    disk.owner.0.try_clone().map_err(|e| e.to_string())?,
+                )
+                .map_err(|e| e.to_string())?
         {
             return Err("Project folder or ownership changed; reopen before writing".into());
         }

@@ -533,9 +533,12 @@ fn locks_block_second_writers_and_release_without_stale_pid_recovery() {
     )
     .is_err());
     let path = project.disk().unwrap().path.clone();
+    // A concurrently spawned child can briefly retain a duplicate descriptor.
+    let inherited = project.disk().unwrap().owner.0.try_clone().unwrap();
     drop(project);
     assert!(path.parent().unwrap().join(LOCK).exists());
     assert!(Project::open(&path).is_ok());
+    drop(inherited);
 }
 #[test]
 fn relocation_and_copy_keep_members_but_separate_local_workspace_keys() {
