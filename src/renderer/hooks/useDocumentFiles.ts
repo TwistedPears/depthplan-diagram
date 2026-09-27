@@ -67,7 +67,10 @@ export default function useDocumentFiles(
     if (locked.current || !captured.document || access.permit?.() === false)
       return result('canceled');
     busy(true, access.background);
-    onStatus('Saving...');
+    const notify = (message: string) => {
+      if (!access.background) onStatus(message);
+    };
+    notify('Saving...');
     try {
       const saved = await (access.write
         ? access.write(
@@ -90,13 +93,13 @@ export default function useDocumentFiles(
             ));
       if (saved.status === 'error') throw new Error(saved.error);
       if (saved.status === 'canceled') {
-        onStatus('Save canceled');
+        notify('Save canceled');
         return result('canceled');
       }
       if (owner.snapshot().sessionId !== captured.sessionId)
         return result('stale');
       if (project && (saveAs || ('copied' in saved && saved.copied))) {
-        onStatus(`Saved copy: ${saved.source?.path}`);
+        notify(`Saved copy: ${saved.source?.path}`);
         return { ...result('success'), source: saved.source, copied: true };
       }
       owner.markSaved(
@@ -108,7 +111,7 @@ export default function useDocumentFiles(
       setSavedAt(Date.now());
       if (saved.source)
         await recovery?.saved(captured.sessionId, captured.revision);
-      onStatus(
+      notify(
         saved.source
           ? `Saved: ${saved.source.path.split(/[\\/]/).pop()}`
           : 'In memory',
@@ -125,12 +128,10 @@ export default function useDocumentFiles(
               message,
             ),
         });
-      onStatus(
-        `Failed to save document: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      notify(`Failed to save document: ${message}`);
       return {
         ...result('error'),
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       };
     } finally {
       busy(false);

@@ -88,7 +88,7 @@ export async function projectLinks(driver) {
     command('depthplan_selection', { action: 'set', objects: ['app'] });
   const save = async () => {
     await click('Menu');
-    await click('Save All');
+    await click('Save Project');
     await until(async () => {
       const reply = await probe.call('depthplan_get_state');
       return reply.ok && !reply.data.dirty;
@@ -131,12 +131,6 @@ export async function projectLinks(driver) {
             'return !!document.querySelector("[role=tab], .select-visible-control")',
           ),
           false,
-        );
-        assert.equal(
-          await sync(
-            `const toggle=document.querySelector('.project-drawer-toggle'); const rect=toggle.getBoundingClientRect(); return Math.abs(rect.right-innerWidth)<1 && rect.height>rect.width && getComputedStyle(toggle).writingMode==='vertical-rl'`,
-          ),
-          true,
         );
       }
       await writeFile(

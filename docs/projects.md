@@ -11,9 +11,11 @@ Use **Menu → New Project** to start immediately with an **Untitled Project** a
 **Untitled Board** in memory. New boards also start in memory without a naming
 prompt. No project folder or board file is created yet.
 
-The first **Save**, **Save As** or **Save All** asks for the project name and every
-board's name. Choose the `.depthproject` file in the native save dialog; all boards,
-including closed boards, are saved beside it. Board filenames use snake_case
+Double-click the project title above the Boards list or a board name to edit it
+inline. Enter or Tab commits; Escape cancels. Keyboard users can press F2 on the
+focused name. The first **Save**, **Save As** or **Save Project** opens only the
+native save dialog, suggesting the project name in snake_case. Choose the
+`.depthproject` file; all boards, including closed boards, are saved beside it. Board filenames use snake_case
 (`API Details` becomes `api_details.depthplan`); repeated names receive `_2`, `_3`
 and so on. Existing files are never overwritten by the first save. Canceling or
 failing the save keeps the project in memory. Successful saving preserves open
@@ -23,13 +25,14 @@ Closing or replacing an unsaved project asks **Save / Discard / Cancel**, even
 if its boards have no edits. Applying or discarding an editor draft is separate
 from saving accepted work. Canceling any required guard keeps the workspace.
 
-**Open Project…**, **Recent Projects…** and native file-open events use the same
+**Open Project…**, **Recent Projects** and native file-open events use the same
 lifecycle guards. Opening the same canonical project focuses the existing
 workspace. A second application cannot acquire its writer lock. A copied folder
 is a different local workspace even when its persistent project ID is unchanged.
 
-Use the vertical **Boards / Project** label on the right edge to open the drawer
-and switch boards. Boards sort by name, ignoring case and ordering numbers naturally
+Use the vertical **Project** button on the right edge to open the drawer and
+switch boards. The button hides while the drawer or a project dialog is open.
+The drawer’s right-pointing arrow closes it and restores the button. Boards sort by name, ignoring case and ordering numbers naturally
 (for example, Board 2 before Board 10). Names can repeat, so filenames distinguish
 them. Filter by board name. Use arrow keys and Home/End in the drawer;
 Enter/Space activates a focused control. Switch boards without losing accepted
@@ -52,8 +55,11 @@ focused board. Ordering updates automatically when a board is added or renamed.
   retain successful copies.
 - **Duplicate** copies accepted content, geometry, connections and bookmarks with
   a fresh document ID. Unapplied form drafts are not part of a copy.
-- **Rename** changes the member label and reviewed filename after resolving that
-  board's pending work. Unsafe names, collisions and unsupported case-only renames
+- **Rename** edits the name inline and generates its snake_case filename after
+  resolving that board's pending work. Double-click the filename below the name
+  to choose the exact filename instead; Enter or Tab saves that change on disk,
+  appending `.depthplan` when needed. Escape keeps the previous filename. This
+  also works for saved standalone boards. Unsafe names, collisions and unsupported case-only renames
   are rejected without silently overwriting another file.
 - **Remove from Project** removes membership after resolving the open board. Its
   saved file remains on disk; an unsaved board is discarded. Removing the home
@@ -63,11 +69,11 @@ An unlisted board is retained and reported for explicit import; it is never
 silently adopted or deleted. Interrupted create/import/rename work can leave
 recoverable output with a persistent diagnostic. Inspect it before retrying.
 
-## Shared settings and local navigation
+## Project title and local navigation
 
-**Project Settings…** stores the name, description and home board
-in the shared manifest. Apply writes accepted settings atomically; Cancel changes
-nothing. These settings have no board-level Undo action.
+Editing the project title updates the shared manifest atomically once saved.
+It has no board-level Undo action. The Project Settings dialog has been removed;
+existing description and home-board metadata remain compatible.
 
 Open boards, active board, cameras, drawer state, window size and Recent Projects
 are local preferences. Reopening restores valid local boards first. With no usable
@@ -75,8 +81,8 @@ local state, DepthPlan tries the home board, then the first healthy member. A
 saved workspace with no open boards stays empty. Missing boards are skipped and
 reported; malformed preferences fall back without changing project files.
 
-Recent Projects keeps up to 20 entries. Removing an entry forgets local navigation
-and does not delete files. **Locate…** can find a moved folder; matching project
+The **Recent Projects** submenu shows the latest five projects from local history.
+Selecting an unavailable entry opens **Locate…** to find a moved folder; matching project
 identity with a missing old location offers a choice to restore its workspace or
 start fresh. Copying a folder does not silently inherit the original location's
 navigation state.
@@ -89,12 +95,15 @@ gestures, file operations, transitions and MCP decisions defer that work. Hidden
 open boards retain their own autosave owner. No unapplied draft is written.
 
 Autosave is always enabled for project boards, including older projects saved
-with autosave disabled. Save and Save All can also flush pending edits immediately.
-Status distinguishes Saved, Saving, Conflict, Save failed and Draft not saved.
-An older write acknowledgement cannot mark newer edits saved.
+with autosave disabled. Save and Save Project also flush pending edits immediately.
+A superscript `*` after a board name marks unsaved work, including unapplied drafts;
+its tooltip includes “Unsaved”. The filename appears below the name. Autosave
+shows no transient notifications. Manual operation messages appear as plain text
+at the bottom of the canvas. An older write acknowledgement cannot mark newer
+edits saved.
 
 A failed save pauses automatic retries for that board and retains accepted work.
-Use its persistent save status to retry, save a copy, reload through guards, or
+Use its persistent conflict/error control in the drawer to retry, save a copy, reload through guards, or
 explicitly overwrite the observed source. Board and manifest changes on disk are
 checked separately. A second external change invalidates the previous overwrite
 consent. Healthy boards can continue saving while another has a conflict.
@@ -137,7 +146,7 @@ unrelated files.
 ## Technical boundaries
 
 The version-1 `autosave` field remains readable for compatibility; it no longer
-disables automatic saving in the app. Applying settings writes it as `true`.
+disables automatic saving in the app. Editing the project title writes it as `true`.
 
 The manifest is strict version 1 JSON, at most 1 MiB and 1,000 members. Member IDs
 must match their document IDs. Paths are relative, contained, portable and unique

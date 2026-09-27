@@ -173,25 +173,34 @@ export async function projectPersistence(driver) {
     const manifest = JSON.parse(await readFile(project.location, 'utf8'));
     manifest.description = 'External manifest change';
     await writeFile(project.location, JSON.stringify(manifest));
-    await click('Menu');
-    await click('Project Settings…');
     await sync(
-      `const input=document.querySelector('dialog textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,'Updated description'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      `document.querySelector('.project-title').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));`,
     );
-    await click('Apply');
+    await until(() =>
+      sync('return !!document.querySelector("[data-inline-edit]")'),
+    );
+    await sync(
+      `const input=document.querySelector('[data-inline-edit]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Updated Project'); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+    );
     await until(() =>
       sync(
-        'return document.querySelector("dialog [role=alert]")?.textContent.includes("manifest changed")',
+        'return document.querySelector(".project-notice")?.textContent.includes("manifest changed")',
       ),
     );
     await click('Reload project definition…');
     await until(() =>
-      sync(
-        'return !Array.from(document.querySelectorAll("dialog button")).find(b=>b.textContent==="Apply")?.disabled',
-      ),
+      sync('return !document.querySelector(".project-notice")'),
     );
-    await click('Apply');
-    await until(() => sync('return !document.querySelector("dialog[open]")'));
+    await sync(
+      `document.querySelector('[data-inline-edit]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+    );
+    await until(() =>
+      sync('return !document.querySelector("[data-inline-edit]")'),
+    );
+    assert.equal(
+      JSON.parse(await readFile(project.location, 'utf8')).name,
+      'Updated Project',
+    );
     assert.equal(
       JSON.parse(await readFile(project.location, 'utf8')).autosave,
       true,
@@ -245,7 +254,7 @@ export async function projectPersistence(driver) {
     );
     assert.equal(
       await restored.sync(
-        'return document.querySelector("dialog").textContent.includes("Persistence Project")',
+        'return document.querySelector("dialog").textContent.includes("Updated Project")',
       ),
       true,
     );

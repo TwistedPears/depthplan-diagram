@@ -96,7 +96,7 @@ fn settings_failures_preserve_policy_and_boards_and_move_with_the_folder() {
         bytes
     );
     assert_eq!(
-        project.location().unwrap(),
+        project.disk().unwrap().path,
         dir.path()
             .join("project/project.depthproject")
             .canonicalize()

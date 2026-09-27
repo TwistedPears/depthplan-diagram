@@ -453,6 +453,7 @@ try {
     }
   });
   await dialogs('message', 'Cancel');
+  await click('Menu');
   await click('New');
   await until(async () => (await probe.call('depthplan_get_context')).ok);
   assert.equal(
@@ -481,6 +482,7 @@ try {
   await resumed.until(
     async () => (await resumed.native('automation:status')).enabled,
   );
+  await resumed.click('Menu');
   const resumedDescriptor = (await resumed.native('automation:status'))
     .descriptor;
   probe = client(resumed.adapter, resumedDescriptor);

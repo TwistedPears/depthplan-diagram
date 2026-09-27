@@ -1,4 +1,5 @@
 import useMcpWorkflows from './hooks/useMcpWorkflows';
+import { projectNameSchema } from '../shared/projectContract';
 import type { RecursiveExportHandle } from './components/RecursiveExport';
 import {
   editorStamp,
@@ -437,10 +438,61 @@ function BoardWorkspace({
       blocked={transitions.active || !!mcpWorkflows.activeOperation}
       currentDocument={currentDocument}
       hasSource={!!currentFilePath}
-      documentStatus={
-        boardStatus === 'Saved' && !currentFilePath
-          ? 'New document'
-          : boardStatus
+      filename={
+        session.project
+          ? projectWorkspace.project?.manifest.boards
+              .find((board) => board.id === session.project!.boardId)
+              ?.path.split('/')
+              .at(-1)
+          : currentFilePath?.split(/[\\/]/).at(-1)
+      }
+      unsaved={!owner.source || dirty || hasDrafts}
+      onRenameDocument={
+        session.project
+          ? (name) =>
+              projectWorkspace.renameBoard(session.project!.boardId, name)
+          : (name) =>
+              projectWorkspace.run(async () => {
+                if (!projectNameSchema.safeParse(name).success)
+                  throw new Error('Enter a valid board name.');
+                return (
+                  owner.transact((draft) => {
+                    draft.metadata.title = name;
+                  })?.status !== 'rejected'
+                );
+              })
+      }
+      onRenameFile={
+        session.project
+          ? (name) =>
+              projectWorkspace.renameFilename(session.project!.boardId, name)
+          : owner.source
+            ? (name) =>
+                projectWorkspace.run(async () => {
+                  if (!(await registry.prepare([session.key], session.key)))
+                    return false;
+                  if (
+                    owner.snapshot().dirty &&
+                    (await files.save()).status !== 'success'
+                  )
+                    return false;
+                  const current = owner.snapshot();
+                  const filename =
+                    name.replace(/\.depthplan(?:\.json)?$/i, '') + '.depthplan';
+                  if (!name) throw new Error('Enter a filename.');
+                  const result = await window.desktop.fileSystem.renameDocument(
+                    current.source!.id,
+                    filename,
+                  );
+                  if (result.status === 'error') throw new Error(result.error);
+                  if (result.status !== 'success') return false;
+                  owner.relocate(
+                    current.document!.metadata.title,
+                    result.source,
+                  );
+                  return true;
+                })
+            : undefined
       }
       onReload={handleReloadFile}
       isLoading={isLoading}

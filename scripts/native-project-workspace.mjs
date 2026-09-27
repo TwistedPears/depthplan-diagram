@@ -162,10 +162,12 @@ export async function projectWorkspace(driver) {
     assert.equal(await active(), b.id);
     await closeProject();
     await current.click('Menu');
-    await current.click('Recent Projects…');
+    await current.sync(
+      'document.querySelector("details.recent-projects summary").click()',
+    );
     await current.until(() =>
       current.sync(
-        'return document.querySelector("dialog")?.textContent.includes("Resume Project")',
+        'return document.querySelector(".recent-projects-menu")?.textContent.includes("Resume Project")',
       ),
     );
     await capture('project-recents');
@@ -203,11 +205,13 @@ export async function projectWorkspace(driver) {
     await rename(originalRoot, movedRoot);
     project.location = path.join(movedRoot, 'project.depthproject');
     await current.click('Menu');
-    await current.click('Recent Projects…');
+    await current.sync(
+      'document.querySelector("details.recent-projects summary").click()',
+    );
     await current.until(() =>
-      current.sync(
-        'return !!Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Locate Resume Project…")',
-      ),
+      current.sync('return !!document.querySelector(arguments[0])', [
+        '[aria-label="Locate Resume Project…"]',
+      ]),
     );
     await current.native('test:dialogs', [
       { kind: 'project-open', value: project.location },

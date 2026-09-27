@@ -1,17 +1,13 @@
 import AutomationControl from './AutomationControl';
 import type useAutomation from '../hooks/useAutomation';
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
-import {
-  projectFilename,
-  projectNameSchema,
-  type ProjectManifest,
-} from '../../shared/projectContract';
+import { projectNameSchema } from '../../shared/projectContract';
 import useDocumentSessions from '../hooks/useDocumentSessions';
 import useProjectWorkspace, {
   type ProjectDialog,
 } from '../hooks/useProjectWorkspace';
 import FormDialog from './FormDialog';
-import ProjectSettings from './ProjectSettings';
+import InlineEdit from './InlineEdit';
 import ProjectSaveIssue from './ProjectSaveIssue';
 import ProjectDefinitionActions from './ProjectDefinitionActions';
 import RecentProjects from './RecentProjects';
@@ -74,16 +70,7 @@ export function ProjectMenu({
               onAction();
             }}
           >
-            Save All
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => {
-              setDialog({ kind: 'settings' });
-              onAction();
-            }}
-          >
-            Project Settings…
+            Save Project
           </button>
           <button
             disabled={busy}
@@ -114,15 +101,7 @@ export function ProjectMenu({
           </button>
         </>
       )}
-      <button
-        disabled={busy}
-        onClick={() => {
-          setDialog({ kind: 'recents' });
-          onAction();
-        }}
-      >
-        Recent Projects…
-      </button>
+      <RecentProjects onAction={onAction} />
     </div>
   );
 }
@@ -130,10 +109,7 @@ export function ProjectMenu({
 function ProjectForm({
   action,
 }: {
-  action: Exclude<
-    ProjectDialog,
-    { kind: 'settings' | 'saveIssue' | 'recents' | 'search' | 'saveProject' }
-  >;
+  action: Exclude<ProjectDialog, { kind: 'saveIssue' | 'search' }>;
 }) {
   const workspace = useProjectWorkspace()!;
   const board = workspace.project?.manifest.boards.find(
@@ -152,7 +128,6 @@ function ProjectForm({
   const path = workspace.filename(trimmed);
   const title = {
     createBoard: 'New Board',
-    renameBoard: 'Rename Board',
     duplicateBoard: 'Duplicate Board',
     removeBoard: 'Remove from Project',
   }[action.kind];
@@ -172,11 +147,9 @@ function ProjectForm({
           ? 'Working…'
           : removing
             ? 'Remove board'
-            : action.kind === 'renameBoard'
-              ? 'Rename board'
-              : action.kind === 'duplicateBoard'
-                ? 'Duplicate board'
-                : 'Create board'
+            : action.kind === 'duplicateBoard'
+              ? 'Duplicate board'
+              : 'Create board'
       }
       destructive={removing}
       submitDisabled={workspace.busy}
@@ -231,96 +204,6 @@ function ProjectForm({
   );
 }
 
-function SaveProject() {
-  const workspace = useProjectWorkspace()!;
-  const [manifest, setManifest] = useState<ProjectManifest>(
-    workspace.project!.manifest,
-  );
-  const [saving, setSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-  const occupied: string[] = [];
-  const candidate = {
-    ...manifest,
-    name: manifest.name.trim(),
-    boards: manifest.boards.map((board) => {
-      const name = board.name.trim();
-      const path = projectFilename(name, occupied);
-      occupied.push(path);
-      return { ...board, name, path };
-    }),
-  };
-  const valid = [candidate.name, ...candidate.boards.map((b) => b.name)].every(
-    (name) => projectNameSchema.safeParse(name).success,
-  );
-  return (
-    <FormDialog
-      title="Save Project"
-      description="Name your project and boards, then choose where to save the .depthproject file. Boards save beside it and continue saving automatically."
-      initialFocus={input}
-      submitLabel={saving ? 'Saving…' : 'Choose location and save'}
-      submitDisabled={saving}
-      cancelDisabled={saving}
-      onCancel={() => {
-        workspace.finishSave(false);
-        workspace.setError('');
-      }}
-      onSubmit={() => {
-        setSubmitted(true);
-        if (!valid || saving) return;
-        setSaving(true);
-        void workspace.saveProject(candidate).finally(() => setSaving(false));
-      }}
-    >
-      <label className="form-dialog-field">
-        Project name
-        <input
-          ref={input}
-          maxLength={120}
-          value={manifest.name}
-          disabled={saving}
-          onChange={(e) => setManifest({ ...manifest, name: e.target.value })}
-        />
-      </label>
-      <p className="form-dialog-hint">
-        {projectFilename(candidate.name, [], '.depthproject')}
-      </p>
-      {manifest.boards.map((board, index) => (
-        <div key={board.id}>
-          <label className="form-dialog-field">
-            Board {index + 1} name
-            <input
-              maxLength={120}
-              value={board.name}
-              disabled={saving}
-              onChange={(e) =>
-                setManifest({
-                  ...manifest,
-                  boards: manifest.boards.map((b) =>
-                    b.id === board.id ? { ...b, name: e.target.value } : b,
-                  ),
-                })
-              }
-            />
-          </label>
-          <p className="form-dialog-hint">{candidate.boards[index].path}</p>
-        </div>
-      ))}
-      {submitted && !valid && (
-        <p role="alert" className="project-error">
-          Enter a name for the project and every board without path separators,
-          control characters or a trailing period.
-        </p>
-      )}
-      {workspace.error && (
-        <p role="alert" className="project-error">
-          {workspace.error}
-        </p>
-      )}
-    </FormDialog>
-  );
-}
-
 export default function ProjectNavigation({
   automation,
 }: {
@@ -340,6 +223,15 @@ export default function ProjectNavigation({
     search,
   } = workspace;
   const list = useRef<HTMLElement>(null);
+  const [editing, setEditing] = useState('');
+  const editor = (id: string) => ({
+    editing: editing === id,
+    onEditing: (on: boolean) => setEditing(on ? id : ''),
+  });
+  const hideDrawer = () => {
+    setDrawer(false);
+    requestAnimationFrame(() => toggle.current?.focus());
+  };
   const menu = useRef<HTMLDivElement>(null);
   const [context, setContext] = useState<{
     id: string;
@@ -454,16 +346,18 @@ export default function ProjectNavigation({
               <span>{project.manifest.name}</span>
             </div>
           )}
-          <button
-            className="project-drawer-toggle"
-            ref={toggle}
-            aria-label="Toggle project boards"
-            aria-expanded={drawer}
-            aria-controls="project-drawer"
-            onClick={() => setDrawer(!drawer)}
-          >
-            Boards / Project
-          </button>
+          {!drawer && !workspace.dialog && (
+            <button
+              className="project-drawer-toggle"
+              ref={toggle}
+              aria-label="Toggle project boards"
+              aria-expanded={drawer}
+              aria-controls="project-drawer"
+              onClick={() => setDrawer(!drawer)}
+            >
+              Project
+            </button>
+          )}
           {drawer && (
             <aside
               ref={list}
@@ -471,12 +365,13 @@ export default function ProjectNavigation({
               aria-label="Project boards"
               className="project-drawer"
               onKeyDownCapture={(e) => {
+                if ((e.target as HTMLElement).matches('[data-inline-edit]'))
+                  return;
                 if (e.key === 'Escape') {
                   e.preventDefault();
                   if (filter) setFilter('');
                   else {
-                    setDrawer(false);
-                    toggle.current?.focus();
+                    hideDrawer();
                   }
                 } else if (
                   e.target === search.current &&
@@ -503,20 +398,25 @@ export default function ProjectNavigation({
               }}
             >
               <header>
-                <h2>
-                  Boards <span>{project.manifest.boards.length}</span>
-                </h2>
+                <InlineEdit
+                  {...editor('project')}
+                  value={project.manifest.name || 'Untitled Project'}
+                  label="Project name"
+                  className="project-title"
+                  onSave={workspace.renameProject}
+                  disabled={busy}
+                />
                 <button
                   aria-label="Close board drawer"
-                  title="Close board drawer"
-                  onClick={() => {
-                    setDrawer(false);
-                    toggle.current?.focus();
-                  }}
+                  title="Hide project"
+                  onClick={hideDrawer}
                 >
-                  <Icon name="xmark" />
+                  <Icon name="arrow-down-to-line" rotation={-90} />
                 </button>
               </header>
+              <h2>
+                Boards <span>{project.manifest.boards.length}</span>
+              </h2>
               <label className="project-filter">
                 <Icon name="magnifying-glass" />
                 <input
@@ -540,7 +440,18 @@ export default function ProjectNavigation({
                       key={member.id}
                       data-active={sessionKey === registry.activeKey}
                     >
-                      <button
+                      <InlineEdit
+                        {...editor(`${member.id}:name`)}
+                        value={member.name}
+                        label="Board name"
+                        onSave={(name) =>
+                          workspace.renameBoard(member.id, name)
+                        }
+                        unsaved={
+                          !project.location ||
+                          !!registry.controllers.get(sessionKey)?.owner.dirty ||
+                          !!registry.controllers.get(sessionKey)?.hasDrafts
+                        }
                         className="project-board-open"
                         id={`board-link-${member.id}`}
                         aria-current={
@@ -581,25 +492,19 @@ export default function ProjectNavigation({
                           }
                         }}
                         aria-label={`Open ${member.name}, ${member.path}`}
-                        title={`${member.name} — ${member.path}`}
                         disabled={busy}
                         onClick={() => open(member.id)}
-                      >
-                        <Icon name="file" />
-                        <span>
-                          {member.name}
-                          <small>
-                            {workspace.loadingBoard === member.id
-                              ? 'Loading…'
-                              : diagnostic
-                                ? 'Unavailable — retry opening'
-                                : (registry.statuses[sessionKey] ??
-                                  (member.id === project.manifest.homeBoardId
-                                    ? 'Home board'
-                                    : member.path))}
-                          </small>
-                        </span>
-                      </button>
+                      />
+                      <InlineEdit
+                        {...editor(`${member.id}:filename`)}
+                        value={member.path.split('/').at(-1)!}
+                        label="Board filename"
+                        className="project-board-filename"
+                        disabled={busy}
+                        onSave={(name) =>
+                          workspace.renameFilename(member.id, name)
+                        }
+                      />
                       {failure && (
                         <button
                           className="project-error"
@@ -691,9 +596,19 @@ export default function ProjectNavigation({
                   );
               }}
             >
+              <button
+                role="menuitem"
+                tabIndex={-1}
+                disabled={busy}
+                onClick={() => {
+                  closeMenu();
+                  setEditing(`${context.id}:name`);
+                }}
+              >
+                Rename
+              </button>
               {(
                 [
-                  ['renameBoard', 'Rename…'],
                   ['duplicateBoard', 'Duplicate…'],
                   ['removeBoard', 'Remove from Project…'],
                 ] as const
@@ -752,16 +667,10 @@ export default function ProjectNavigation({
           <button onClick={() => workspace.setError('')}>Dismiss</button>
         </div>
       )}
-      {workspace.dialog?.kind === 'saveProject' ? (
-        <SaveProject />
-      ) : workspace.dialog?.kind === 'search' ? (
+      {workspace.dialog?.kind === 'search' ? (
         <ProjectSearch />
       ) : workspace.dialog?.kind === 'saveIssue' ? (
         <ProjectSaveIssue boardId={workspace.dialog.boardId} />
-      ) : workspace.dialog?.kind === 'settings' ? (
-        <ProjectSettings />
-      ) : workspace.dialog?.kind === 'recents' ? (
-        <RecentProjects />
       ) : (
         workspace.dialog && (
           <ProjectForm

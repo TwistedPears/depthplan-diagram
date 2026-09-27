@@ -1,25 +1,47 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile, readdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-// The real project UI and native storage, using only disposable files/dialog choices.
+// Exercise the actual drawer, inline edits, system Save and recent-project submenu.
 export async function projectNavigation(driver) {
-  const { click, sync, until, dialogs, profile, request, session } = driver;
-  const fillName = (value, index = 0) =>
-    sync(
-      `const input=document.querySelectorAll('dialog[open] input')[arguments[1]];
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[0]);
-    input.dispatchEvent(new Event('input',{bubbles:true})); return true`,
-      [value, index],
-    );
-  const dialogGone = () =>
-    until(
-      () => sync('return !document.querySelector("dialog[open]")'),
-      'Project dialog did not complete',
-    );
+  const { click, sync, until, dialogs, native, profile, request, session } =
+    driver;
   const drawer = async () => {
+    await until(() =>
+      sync(
+        'return !!document.querySelector("#project-drawer, .project-drawer-toggle")',
+      ),
+    );
     if (!(await sync('return !!document.querySelector("#project-drawer")')))
       await click('Toggle project boards');
+  };
+  const edit = async (selector, value, key = 'Enter') => {
+    await sync(
+      '[...document.querySelectorAll(arguments[0])].find(n=>n.getClientRects().length).dispatchEvent(new MouseEvent("dblclick",{bubbles:true}));',
+      [selector],
+    );
+    await until(() =>
+      sync('return !!document.querySelector("[data-inline-edit]")'),
+    );
+    await sync(
+      `const input=[...document.querySelectorAll('[data-inline-edit]')].find(n=>n.getClientRects().length);
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[0]);
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      if(arguments[1]==='Tab') input.blur();
+      else input.dispatchEvent(new KeyboardEvent('keydown',{key:arguments[1],bubbles:true,cancelable:true}));`,
+      [value, key],
+    );
+    await until(
+      () =>
+        sync(
+          'return ![...document.querySelectorAll("[data-inline-edit]")].some(n=>n.getClientRects().length)',
+        ),
+      'Inline edit did not finish',
+    ).catch(async (error) => {
+      throw new Error(
+        `${error.message}: ${await sync('return [...document.querySelectorAll(".project-notice,[data-inline-edit]")].map(n=>n.textContent||n.value).join(" | ")')}`,
+      );
+    });
   };
   const capture = async (name) => {
     for (const [width, height] of [
@@ -44,235 +66,247 @@ export async function projectNavigation(driver) {
       );
     }
   };
-  const boardAction = async (name, action) => {
-    const board = (await current()).boards.find((board) => board.name === name);
-    await driver.boardAction(board.id, action);
-  };
   await click('Menu');
   await click('New Project');
-  await until(() =>
-    sync(
-      'return !!document.querySelector("[data-board-session][data-active=true]")',
+  await drawer();
+  assert.equal(
+    await sync('return document.querySelector(".project-title").textContent'),
+    'Untitled Project',
+  );
+  assert.equal(
+    await sync('return !!document.querySelector(".project-drawer-toggle")'),
+    false,
+  );
+  assert.deepEqual(
+    await sync(
+      'const icon=document.querySelector("#project-drawer header svg"); return [icon.querySelector("use").getAttribute("href"),icon.style.transform]',
     ),
+    ['#icon-arrow-down-to-line', 'rotate(-90deg) scaleX(1)'],
+  );
+  await click('Close board drawer');
+  assert.equal(
+    await sync(
+      'return document.querySelector(".project-drawer-toggle").textContent',
+    ),
+    'Project',
+  );
+  await drawer();
+  await edit('.project-title', 'Discarded', 'Escape');
+  assert.equal(
+    await sync('return document.querySelector(".project-title").textContent'),
+    'Untitled Project',
+  );
+  await edit('.project-title', 'Navigation Project', 'Tab');
+  const initialFiles = await readdir(profile);
+  const firstId = await sync(
+    'return document.querySelector(".project-board-open").dataset.boardId',
+  );
+  await edit(`#board-link-${firstId}`, 'Overview');
+  await sync(`const input=document.querySelector('[aria-label="New bookmark name"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Memory bookmark');
+    input.dispatchEvent(new Event('input',{bubbles:true}));`);
+  await click('Add bookmark');
+  await click('New Board');
+  await until(() =>
+    sync('return document.querySelectorAll("[data-board-session]").length===2'),
+  );
+  await edit('.document-caption .document-name', 'Detail Board');
+  await edit('.document-caption .document-state', 'Custom Board', 'Tab');
+  await driver.boardAction(firstId, 'Close board');
+  assert.deepEqual(await readdir(profile), initialFiles);
+  await dialogs('project-save', null);
+  await click('Save document');
+  await until(
+    async () => (await native('test:last-file-dialog')).kind === 'project-save',
+  );
+  assert.deepEqual(await native('test:last-file-dialog'), {
+    kind: 'project-save',
+    name: 'navigation_project.depthproject',
+  });
+  await until(() =>
+    sync('return !document.querySelector(".quick-save").disabled'),
   );
   assert.equal(
     await sync('return !!document.querySelector("dialog[open]")'),
     false,
   );
-  const initialFiles = await readdir(profile);
-  const firstId = await sync(
-    'return document.querySelector("[data-board-session][data-active=true]").id.slice(6)',
-  );
-  await sync(`const input=document.querySelector('[aria-label="New bookmark name"]');
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Memory bookmark');
-    input.dispatchEvent(new Event('input',{bubbles:true}));`);
-  await click('Add bookmark');
-  await drawer();
-  await click('New Board');
-  await until(() =>
-    sync('return document.querySelectorAll("[data-board-session]").length===2'),
-  );
-  await driver.boardAction(firstId, 'Close board');
-  await until(() =>
-    sync('return document.querySelectorAll("[data-board-session]").length===1'),
-  );
-  assert.deepEqual(
-    (await readdir(profile)).filter(
-      (name) => !name.startsWith('project-first-save-'),
-    ),
-    initialFiles,
-  );
-  await click('Save document');
-  await fillName('Navigation Project');
-  await fillName('Overview', 1);
-  await fillName('Overview', 2);
-  await capture('project-first-save');
-  await dialogs('project-save', null);
-  await click('Choose location and save');
-  await until(() =>
-    sync(
-      'return [...document.querySelectorAll("dialog button")].some(b=>b.textContent==="Choose location and save" && !b.disabled)',
-    ),
-  );
-  assert.deepEqual(
-    (await readdir(profile)).filter(
-      (name) => !name.startsWith('project-first-save-'),
-    ),
-    initialFiles,
-  );
-  const actualPath = path.join(profile, 'navigation_project.depthproject');
+  assert.deepEqual(await readdir(profile), initialFiles);
+  const projectRoot = path.join(profile, 'navigation-project');
+  await mkdir(projectRoot);
+  const actualPath = path.join(projectRoot, 'navigation_project.depthproject');
   await dialogs('project-save', actualPath);
-  await click('Choose location and save');
-  await dialogGone();
-  const project = JSON.parse(await readFile(actualPath, 'utf8'));
+  await click('Save document');
+  const current = async () => JSON.parse(await readFile(actualPath, 'utf8'));
+  await until(async () => {
+    try {
+      return (await current()).boards.length === 2;
+    } catch {
+      return false;
+    }
+  });
+  const project = await current();
   assert.deepEqual(
     project.boards.map((b) => b.path),
-    ['overview.depthplan', 'overview_2.depthplan'],
+    ['overview.depthplan', 'Custom Board.depthplan'],
   );
-  assert.equal(project.boards[0].id, firstId);
-  const root = path.dirname(actualPath);
   const memoryBoard = JSON.parse(
-    await readFile(path.join(root, project.boards[0].path), 'utf8'),
+    await readFile(path.join(projectRoot, project.boards[0].path), 'utf8'),
   );
   assert.ok(
     Object.values(memoryBoard.namedViews).some(
       (view) => view.name === 'Memory bookmark',
     ),
   );
-  const current = async () => JSON.parse(await readFile(actualPath, 'utf8'));
-  await driver.boardAction(project.boards[1].id, 'Remove from Project…');
-  await click('Remove board');
-  await dialogGone();
-  await click('Open Overview, overview.depthplan');
-  const a = path.join(profile, 'navigation-source.depthplan');
-  const b = path.join(profile, 'navigation-legacy.depthplan.json');
-  const original = await readFile('docs/sample/recursive_document.depthplan');
-  const second = await readFile('docs/sample/workflow_document.depthplan');
-  await writeFile(a, original);
-  await writeFile(b, second);
-  await drawer();
-  await dialogs('project-import', [a, b]);
-  await click('Import Boards…');
-  await until(async () => (await current()).boards.length === 3);
   await until(() =>
-    sync('return document.querySelectorAll("[data-board-session]").length===2'),
+    sync('return !document.querySelector(".document-name sup")'),
   );
-  assert.deepEqual(await readFile(a), original);
-  assert.deepEqual(await readFile(b), second);
-  await click('New Board');
-  await fillName('設計 API');
-  await click('Create board');
-  await dialogGone();
-  const newId = (await current()).boards.at(-1).id;
-  await boardAction('設計 API', 'Rename…');
-  await fillName('API Details');
-  await click('Rename board');
-  await dialogGone();
-  assert.equal((await current()).boards.at(-1).id, newId);
-  await boardAction('API Details', 'Duplicate…');
-  await click('Duplicate board');
-  await dialogGone();
-  const duplicate = (await current()).boards.at(-1);
-  assert.notEqual(duplicate.id, newId);
-  const names = await sync(
-    'return [...document.querySelectorAll(".project-board-open span")].map(span=>span.firstChild.textContent)',
+  await edit(
+    '.document-caption .document-state',
+    'discarded.depthplan',
+    'Escape',
   );
-  assert.deepEqual(
-    names,
-    [...names].sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+  assert.equal((await current()).boards[1].path, 'Custom Board.depthplan');
+  await edit('.document-caption .document-state', 'Exact Board Name.depthplan');
+  assert.equal((await current()).boards[1].path, 'Exact Board Name.depthplan');
+  assert.ok(!(await readdir(projectRoot)).includes('Custom Board.depthplan'));
+  assert.equal(
+    JSON.parse(
+      await readFile(
+        path.join(projectRoot, 'Exact Board Name.depthplan'),
+        'utf8',
+      ),
+    ).id,
+    project.boards[1].id,
+  );
+  await until(() =>
+    sync('return !document.querySelector(".workspace-notice")'),
+  );
+  await sync(`window.saveNotices=[]; new MutationObserver(()=>{ const text=document.querySelector('.workspace-notice')?.textContent; if(text) window.saveNotices.push(text); }).observe(document.body,{subtree:true,childList:true,characterData:true});
+    const input=document.querySelector('[aria-label="New bookmark name"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Autosave check'); input.dispatchEvent(new Event('input',{bubbles:true}));`);
+  await click('Add bookmark');
+  assert.equal(
+    await sync(
+      'return document.querySelector(".document-name sup")?.textContent',
     ),
+    '*',
+  );
+  assert.equal(
+    await sync('return document.querySelector(".document-name").title'),
+    'Detail Board — Unsaved',
+  );
+  await until(async () =>
+    Object.values(
+      JSON.parse(
+        await readFile(
+          path.join(projectRoot, 'Exact Board Name.depthplan'),
+          'utf8',
+        ),
+      ).namedViews ?? {},
+    ).some((v) => v.name === 'Autosave check'),
+  );
+  await until(() =>
+    sync('return !document.querySelector(".document-name sup")'),
   );
   assert.equal(
     await sync(
-      'return !!document.querySelector("[role=tab], .select-visible-control, .project-board-row summary")',
+      'return window.saveNotices.some(text=>/^(Saving|Saved:|In memory)/.test(text))',
     ),
     false,
   );
-  await boardAction('API Details', 'Remove from Project…');
-  await click('Remove board');
-  await dialogGone();
-  assert.ok(!(await current()).boards.some((board) => board.id === newId));
-  assert.equal(
-    JSON.parse(await readFile(path.join(root, 'api_details.depthplan'), 'utf8'))
-      .id,
-    newId,
-  );
-  await boardAction(duplicate.name, 'Close board');
-  assert.ok(
-    (await current()).boards.some((board) => board.id === duplicate.id),
-  );
-  const beforeSettings = await current();
-  const boardBytes = await Promise.all(
-    beforeSettings.boards.map((board) => readFile(path.join(root, board.path))),
-  );
-  await click('Menu');
-  await click('Project Settings…');
-  await fillName('Canceled name');
-  await click('Cancel');
-  assert.deepEqual(await current(), beforeSettings);
-  await click('Menu');
-  await click('Project Settings…');
-  await fillName('Project Settings Journey');
-  await sync(
-    `const textarea=document.querySelector('dialog textarea');
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(textarea,'Shared across project locations');
-    textarea.dispatchEvent(new Event('input',{bubbles:true}));
-    const select=document.querySelector('dialog select'); select.value=arguments[0]; select.dispatchEvent(new Event('change',{bubbles:true}));`,
-    [duplicate.id],
-  );
-  await capture('project-settings');
-  const manifestBytes = await readFile(actualPath);
-  await writeFile(
-    actualPath,
-    Buffer.concat([manifestBytes, Buffer.from('\n')]),
-  );
-  await click('Apply');
-  await until(() =>
-    sync('return !!document.querySelector("dialog [role=alert]")'),
-  );
-  await writeFile(
-    path.join(profile, 'project-settings-error-900.png'),
-    Buffer.from(
-      await request(`/session/${session}/screenshot`, undefined, 'GET'),
-      'base64',
-    ),
-  );
-  assert.equal(
-    await sync(`const alert=document.querySelector('dialog [role=alert]');
-    const field=alert.closest('.form-dialog-fields');
-    const a=alert.getBoundingClientRect(), b=field.getBoundingClientRect();
-    return a.bottom<=b.bottom+1 && a.top>=b.top-1;`),
-    true,
-  );
-  await writeFile(actualPath, manifestBytes);
-  await click('Apply');
-  await dialogGone();
-  const persisted = await current();
-  assert.equal(persisted.name, 'Project Settings Journey');
-  assert.equal(persisted.homeBoardId, duplicate.id);
-  assert.equal(persisted.autosave, true);
-  assert.equal(persisted.description, 'Shared across project locations');
-  assert.deepEqual(
-    await Promise.all(
-      persisted.boards.map((board) => readFile(path.join(root, board.path))),
-    ),
-    boardBytes,
-  );
-  await click('Menu');
-  await click('Close Project');
-  await until(() =>
-    sync('return !document.querySelector(".project-navigation")'),
-  );
-  // Settings choose the home for a fresh local workspace; valid saved open boards win otherwise.
-  const recent = (await driver.native('project:recents')).entries.find(
-    (entry) => entry.id === persisted.id,
-  );
-  await driver.native('project:forget', recent.key);
-  await click('Menu');
-  await dialogs('project-open', actualPath);
-  await click('Open Project…');
+  await click('Save document');
   await until(() =>
     sync(
-      'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
-      [`board-${duplicate.id}`],
+      'return document.querySelector(".workspace-notice")?.textContent.startsWith("Saved:")',
     ),
   );
-  assert.deepEqual(await current(), persisted);
   assert.equal(
     await sync(
-      'return document.querySelector("[data-board-session][data-active=true]").id',
+      'const n=document.querySelector(".workspace-notice");return n.getBoundingClientRect().top > innerHeight/2 && getComputedStyle(n).borderTopWidth==="0px"',
     ),
-    `board-${duplicate.id}`,
+    true,
   );
-  await drawer();
-  await capture('project');
-  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  await capture('project-inline');
+  await click('Menu');
+  assert.equal(
+    await sync(
+      'return [...document.querySelectorAll("#document-menu button")].some(b=>b.textContent.includes("Project Settings"))',
+    ),
+    false,
+  );
+  await click('Save Project');
   await click('Menu');
   await click('Close Project');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
+  for (let n = 0; n < 6; n++) {
+    await dialogs('folder', profile);
+    const created = await native(
+      'project:create',
+      `Recent ${n}`,
+      `recent_${n}`,
+    );
+    assert.equal(created.status, 'success');
+    await native('project:remember', created.project.sessionId, null);
+    await native('project:close', created.project.sessionId);
+  }
+  const recents = (await native('project:recents')).entries.slice(0, 5);
+  await click('Menu');
+  await sync(
+    'document.querySelector("details.recent-projects summary").click()',
+  );
+  await until(() =>
+    sync(
+      'return document.querySelectorAll(".recent-projects-menu button").length===5',
+    ),
+  );
+  assert.deepEqual(
+    await sync(
+      'return [...document.querySelectorAll(".recent-projects-menu button")].map(b=>b.firstChild.textContent)',
+    ),
+    recents.map((p) => p.name),
+  );
+  assert.equal(
+    await sync('return !!document.querySelector("dialog[open]")'),
+    false,
+  );
+  await capture('project-recents');
+  await sync('document.querySelector(".recent-projects-menu button").click()');
+  await until(() =>
+    sync('return !!document.querySelector(".project-navigation")'),
+  );
+  await drawer();
+  assert.equal(
+    await sync('return document.querySelector(".project-title").textContent'),
+    recents[0].name,
+  );
+  await click('Menu');
+  await click('Close Project');
+  await until(() =>
+    sync('return !document.querySelector(".project-navigation")'),
+  );
+  const standalone = path.join(profile, 'standalone.depthplan');
+  await writeFile(standalone, JSON.stringify(memoryBoard));
+  await native('test:open-files', [standalone]);
+  await until(() =>
+    sync(
+      'return document.querySelector(".document-state")?.textContent === "standalone.depthplan"',
+    ),
+  );
+  await edit('.document-name', 'Standalone title');
+  await edit('.document-state', 'Standalone exact', 'Tab');
+  const renamed = JSON.parse(
+    await readFile(path.join(profile, 'Standalone exact.depthplan'), 'utf8'),
+  );
+  assert.equal(renamed.id, memoryBoard.id);
+  assert.equal(renamed.metadata.title, 'Standalone title');
+  assert.ok(!(await readdir(profile)).includes('standalone.depthplan'));
+  assert.equal(
+    await sync('return !!document.querySelector(".project-notice")'),
+    false,
+  );
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
   await request(`/session/${session}/window/rect`, {
     width: 1280,
     height: 900,

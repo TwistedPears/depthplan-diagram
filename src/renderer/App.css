@@ -603,15 +603,14 @@ kbd {
 }
 .workspace-notice {
   position: absolute;
-  top: 88px;
-  right: 18px;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1300;
-  max-width: min(390px, calc(100vw - 36px));
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  font-size: 13px;
+  max-width: min(560px, calc(100vw - 36px));
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
   pointer-events: none;
 }
 
@@ -766,9 +765,6 @@ dialog label {
   .object-search-results,
   .selection-reopen {
     top: 150px;
-  }
-  .workspace-notice {
-    top: 144px;
   }
   .drawing-hint {
     top: 138px;

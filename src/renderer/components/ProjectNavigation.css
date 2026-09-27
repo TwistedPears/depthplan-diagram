@@ -63,34 +63,20 @@
 }
 .project-board-list li {
   border-radius: 6px;
+  padding: 8px 6px;
 }
 .project-board-list li[data-active='true'] {
   background: var(--accent-soft);
 }
 .project-board-open {
   display: flex;
-  align-items: center;
-  gap: 9px;
+  align-items: baseline;
   width: 100%;
-  min-width: 0;
-  padding: 9px 6px;
-  text-align: left;
-  border: 0;
-  background: transparent;
-}
-.project-board-open span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 13px;
   white-space: nowrap;
 }
-.project-board-open small {
-  display: block;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 4px;
-  font-size: 11px;
-  font-weight: 400;
+.project-board-open sup {
+  align-self: start;
 }
 .project-drawer footer {
   border-top: 1px solid var(--line);
@@ -186,10 +172,6 @@
   box-shadow: var(--floating-shadow);
   font-size: 12px;
 }
-.project-drawer-toggle[aria-expanded='true'] {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
 @media (max-width: 1100px) {
   .project-drawer {
     top: 144px;
@@ -213,4 +195,79 @@
 }
 .project-search-results small {
   color: var(--muted);
+}
+
+.inline-edit {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+}
+.inline-edit:disabled {
+  background: transparent;
+}
+.inline-edit span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inline-edit sup {
+  color: var(--accent);
+  margin-left: 2px;
+}
+.inline-edit-input {
+  width: 100%;
+  min-width: 0;
+}
+.project-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.project-drawer header .project-title {
+  padding: 0;
+}
+.project-drawer > h2 {
+  margin: 16px 0 10px;
+}
+.project-board-filename {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-projects summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.recent-projects summary::marker {
+  content: '';
+}
+.recent-projects-menu {
+  margin: 0 6px 6px 14px;
+  border-left: 1px solid var(--line);
+}
+.recent-projects-menu button {
+  flex-direction: column;
+  align-items: start;
+  gap: 2px;
+}
+.recent-projects-menu small {
+  display: block;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-projects-menu p {
+  padding: 6px 10px;
+  font-size: 12px;
 }

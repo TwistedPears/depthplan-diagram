@@ -48,7 +48,7 @@ test('startup waits for the application document before executing page scripts',
   }
 });
 
-test('timed clicks pass labels as data and retain timing and errors', async () => {
+test('timed clicks ignore hidden controls, pass labels as data and retain timing and errors', async () => {
   const label =
     '\'"\\\n</script><script>throw new Error("injected")</script>\u2028\u2029 end';
   let frames = 0;
@@ -72,14 +72,20 @@ test('timed clicks pass labels as data and retain timing and errors', async () =
   for (const match of ['aria-label', 'text', 'title']) {
     buttons = [
       {
+        getClientRects: () => [1],
         getAttribute: () => (match === 'aria-label' ? label : null),
         textContent: match === 'text' ? ` ${label} ` : '',
         title: match === 'title' ? label : '',
         click: () => clicks++,
       },
     ];
+    buttons.unshift({
+      ...buttons[0],
+      getClientRects: () => [],
+      click: () => assert.fail('Hidden button clicked'),
+    });
     assert.equal(await clickToPaint(driver, label), 32);
-    buttons[0].disabled = true;
+    buttons[1].disabled = true;
     await assert.rejects(clickToPaint(driver, label), {
       message: `Missing/disabled button ${label}`,
     });

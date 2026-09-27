@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import AutomationControl from './AutomationControl';
 import type useAutomation from '../hooks/useAutomation';
 import Icon from './Icon';
+import InlineEdit from './InlineEdit';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 
@@ -17,7 +18,10 @@ interface UnifiedToolbarProps {
   currentDocument: RecursiveDocument | null;
   isLoading: boolean;
   hasSource: boolean;
-  documentStatus?: string;
+  filename?: string;
+  unsaved?: boolean;
+  onRenameDocument?: (name: string) => Promise<boolean>;
+  onRenameFile?: (name: string) => Promise<boolean>;
   onReload: () => void;
   onNewDocument: () => void;
   onOpenFile: () => void;
@@ -34,7 +38,10 @@ function UnifiedToolbar({
   currentDocument,
   isLoading,
   hasSource,
-  documentStatus,
+  filename,
+  unsaved = false,
+  onRenameDocument,
+  onRenameFile,
   onReload,
   onNewDocument,
   onOpenFile,
@@ -46,6 +53,11 @@ function UnifiedToolbar({
   const workspace = useProjectWorkspace();
   const project = workspace?.project;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [editing, setEditing] = useState('');
+  const editor = (field: string) => ({
+    editing: editing === field,
+    onEditing: (on: boolean) => setEditing(on ? field : ''),
+  });
   const toolbarRef = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -109,19 +121,23 @@ function UnifiedToolbar({
         </button>
 
         <div className="document-caption">
-          <span
+          <InlineEdit
+            {...editor('name')}
             className="document-name"
-            title={project?.manifest.name ?? currentDocument?.metadata.title}
-          >
-            {project?.manifest.name ??
-              currentDocument?.metadata.title ??
-              'DepthPlan'}
-          </span>
-          <span className="document-state" role="status">
-            {project &&
-              `${currentDocument?.metadata.title ?? 'No open board'} · `}
-            {documentStatus ?? 'Local document'}
-          </span>
+            label="Board name"
+            value={currentDocument?.metadata.title ?? 'Untitled Board'}
+            disabled={isLoading || !onRenameDocument}
+            unsaved={unsaved}
+            onSave={onRenameDocument ?? (async () => false)}
+          />
+          <InlineEdit
+            {...editor('filename')}
+            className="document-state"
+            label="Board filename"
+            value={filename ?? 'Not saved yet'}
+            disabled={isLoading || !onRenameFile}
+            onSave={onRenameFile ?? (async () => false)}
+          />
         </div>
         <div
           className="dropdown-menu"
@@ -129,7 +145,9 @@ function UnifiedToolbar({
           hidden={openDropdown !== 'hamburger'}
         >
           <div inert={blocked}>
-            <ProjectMenu onAction={closeDropdown} />
+            {openDropdown === 'hamburger' && (
+              <ProjectMenu onAction={closeDropdown} />
+            )}
             {/* File */}
             <FileToolbar
               isLoading={isLoading}

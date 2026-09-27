@@ -72,7 +72,6 @@ const menuChannels = [
   'menu:new-project',
   'menu:open-project',
   'menu:close-project',
-  'menu:project-settings',
   'menu:project-board',
   'menu:close-tab',
   'menu:reload-document',
@@ -110,8 +109,6 @@ const desktopHandler = {
       ),
     recents: () =>
       native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
-    forget: (key: string) =>
-      native<FileResult<Record<string, never>>>('project:forget', key),
     openRecent: (key: string, locate = false) =>
       projectCall('project:recent-open', key, locate),
     workspace: (sessionId: string) =>
@@ -126,7 +123,6 @@ const desktopHandler = {
         view,
       ),
     open: () => projectCall('project:open'),
-    reveal: (sessionId: string) => native('project:reveal', sessionId),
     importBoards: async (
       sessionId: string,
       expected: string,
@@ -361,6 +357,12 @@ const desktopHandler = {
       native('transition:reply', id, approved),
   },
   fileSystem: {
+    renameDocument: (sourceId: string, filename: string) =>
+      native<FileResult<{ source: SourceFile }>>(
+        'file:rename',
+        sourceId,
+        filename,
+      ),
     onOpenRequested: (callback: (id: string) => void) => {
       let active = true;
       const delivered = new Set<string>();

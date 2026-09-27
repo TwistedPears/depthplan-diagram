@@ -101,7 +101,7 @@ fn read_manifest(path: &Path) -> Result<(Manifest, String)> {
         files::fingerprint(&bytes),
     ))
 }
-fn regular(path: &Path) -> Result<()> {
+pub(crate) fn regular(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     if !metadata.is_file() {
         return Err(format!(
@@ -151,7 +151,7 @@ pub fn lock_for_file(path: &Path) -> Result<Option<File>> {
     }
     Ok(None)
 }
-fn vacant(path: &Path) -> Result<()> {
+pub(crate) fn vacant(path: &Path) -> Result<()> {
     let name = path
         .file_name()
         .ok_or("Missing filename")?
@@ -422,11 +422,6 @@ impl Project {
             return Err(CONFLICT.into());
         }
         Ok(())
-    }
-    pub fn location(&self) -> Result<&Path> {
-        self.check_location()?;
-        regular(&self.disk()?.path)?;
-        Ok(&self.disk()?.path)
     }
     pub fn recovery_context(&self, board_id: &str) -> Result<Value> {
         if !self

@@ -261,7 +261,11 @@ it('preserves unapplied form and rich-text drafts, focus, and text undo through 
   const input = board().getByLabelText('Name');
   fireEvent.input(input, { target: { value: 'Unapplied A' } });
   input.focus();
-  expect(screen.getByText('Draft not saved')).toBeVisible();
+  expect(
+    screen
+      .getByRole('button', { name: 'Edit board name' })
+      .querySelector('sup'),
+  ).toBeVisible();
   const original = controller('A').owner.snapshot();
   fireEvent.paste(board().getByRole('textbox', { name: 'Text' }), {
     clipboardData: {

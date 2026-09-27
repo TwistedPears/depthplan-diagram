@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { RecentProject } from '../../shared/projectContract';
 import useProjectWorkspace from '../hooks/useProjectWorkspace';
-import FormDialog from './FormDialog';
 
-export default function RecentProjects() {
+export default function RecentProjects({ onAction }: { onAction: () => void }) {
   const workspace = useProjectWorkspace()!;
   const [entries, setEntries] = useState<RecentProject[]>([]);
   const [error, setError] = useState('');
-  useEffect(() => {
+  const load = () => {
+    setError('');
     void window.desktop.projects
       .recents()
       .then((result) => {
@@ -15,72 +15,42 @@ export default function RecentProjects() {
         else if (result.status === 'error') setError(result.error);
       })
       .catch((e) => setError(String(e)));
-  }, []);
+  };
   return (
-    <FormDialog
-      title="Recent Projects"
-      description="Tabs and camera positions are saved on this computer. Undo history starts fresh when a board reopens."
-      onCancel={() => workspace.setDialog(null)}
-      cancelDisabled={workspace.busy}
+    <details
+      className="recent-projects"
+      onToggle={(event) => {
+        if (event.currentTarget.open) load();
+      }}
     >
-      {!entries.length && <p>No recent projects on this computer.</p>}
-      {entries.map((entry) => (
-        <section
-          className="form-dialog-section"
-          key={entry.key}
-          aria-label={entry.name}
-        >
-          <h3>{entry.name}</h3>
-          <p>{entry.location}</p>
-          {!entry.available && (
-            <p>
-              Project unavailable. Locate its new location, or remove this
-              recent entry.
-            </p>
-          )}
-          <div className="form-dialog-inline-actions">
-            <button
-              type="button"
-              disabled={workspace.busy}
-              onClick={() => {
-                void workspace
-                  .openProject(() =>
-                    window.desktop.projects.openRecent(
-                      entry.key,
-                      !entry.available,
-                    ),
-                  )
-                  .then((opened) => {
-                    if (opened) workspace.setDialog(null);
-                  });
-              }}
-            >
-              {entry.available ? `Open ${entry.name}` : `Locate ${entry.name}…`}
-            </button>
-            <button
-              type="button"
-              disabled={workspace.busy}
-              onClick={() => {
-                void window.desktop.projects
-                  .forget(entry.key)
-                  .then((result) => {
-                    if (result.status === 'success')
-                      setEntries((all) =>
-                        all.filter((item) => item.key !== entry.key),
-                      );
-                    else if (result.status === 'error') setError(result.error);
-                  })
-                  .catch((e) => setError(String(e)));
-              }}
-            >
-              Remove {entry.name} from Recents
-            </button>
-          </div>
-        </section>
-      ))}
-      {(error || workspace.error) && (
-        <p role="alert">{error || workspace.error}</p>
-      )}
-    </FormDialog>
+      <summary>
+        Recent Projects <span aria-hidden="true">›</span>
+      </summary>
+      <div className="recent-projects-menu" aria-label="Recent projects">
+        {!entries.length && <p>No recent projects.</p>}
+        {entries.slice(0, 5).map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            disabled={workspace.busy}
+            title={entry.location}
+            aria-label={
+              entry.available ? `Open ${entry.name}` : `Locate ${entry.name}…`
+            }
+            onClick={() => {
+              onAction();
+              void workspace.openProject(() =>
+                window.desktop.projects.openRecent(entry.key, !entry.available),
+              );
+            }}
+          >
+            {entry.name}
+            {!entry.available && ' (locate…)'}
+            <small>{entry.location}</small>
+          </button>
+        ))}
+        {error && <p role="alert">{error}</p>}
+      </div>
+    </details>
   );
 }

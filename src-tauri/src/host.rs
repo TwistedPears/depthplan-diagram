@@ -312,6 +312,15 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
             value["status"] = "success".into();
             Ok(value)
         }
+        "file:rename" => {
+            let source = host
+                .storage
+                .lock()
+                .unwrap()
+                .files
+                .rename(string(arg(args, 0))?, string(arg(args, 1))?)?;
+            Ok(json!({"status":"success","source":source}))
+        }
         "file:save" => save(
             app,
             arg(args, 0),
@@ -329,13 +338,6 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
     match method {
         "project:recents" => {
             Ok(json!({"status":"success","entries":host.workspaces.lock().unwrap().list()}))
-        }
-        "project:forget" => {
-            host.workspaces
-                .lock()
-                .unwrap()
-                .forget(string(arg(args, 0))?)?;
-            Ok(json!({"status":"success"}))
         }
         "project:workspace" | "project:remember" => {
             let project = host
@@ -516,19 +518,6 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let project = projects.get(id)?;
             project.resolve_definition(expected, overwrite)?;
             Ok(json!({"status":"success","project":project.snapshot(id)}))
-        }
-        "project:reveal" => {
-            let path = host
-                .projects
-                .lock()
-                .unwrap()
-                .get(string(arg(args, 0))?)?
-                .location()?
-                .to_path_buf();
-            app.opener()
-                .reveal_item_in_dir(path)
-                .map_err(|e| e.to_string())?;
-            Ok(Value::Null)
         }
         "project:read-board" => {
             let mut projects = host.projects.lock().unwrap();
@@ -1255,11 +1244,10 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         ("menu:new-project", "New Project", None),
         ("menu:open-project", "Open Project…", None),
         ("menu:close-project", "Close Project", None),
-        ("menu:project-settings", "Project Settings…", None),
         ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),
-        ("menu:save-all", "Save All Project Boards", None),
+        ("menu:save-all", "Save Project", None),
         ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
