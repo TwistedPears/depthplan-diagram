@@ -50,7 +50,10 @@ export async function rotation(driver, probe) {
   };
   const save = async () => {
     await click('Save document');
-    await until(async () => !(await state()).dirty);
+    await until(async () => {
+      const current = await state();
+      return !current.dirty && !current.busyReasons.length;
+    });
     return JSON.parse(await readFile(file, 'utf8'));
   };
   const pointer = async (type, point, buttons = type === 'mouseup' ? 0 : 1) => {
