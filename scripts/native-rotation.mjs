@@ -19,6 +19,10 @@ export async function rotation(driver, probe) {
       ...args,
     });
     assert.equal(reply.ok, true, JSON.stringify(reply));
+    // MCP acknowledges model state before React paints selection/camera changes.
+    await js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
   };
   const edit = (...actions) => command('depthplan_edit', { actions });
   const select = (id) =>
