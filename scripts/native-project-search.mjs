@@ -38,15 +38,19 @@ export async function projectSearch(driver) {
       boards,
     }),
   );
+  // Undo must return to the disk snapshot without Autosave moving that baseline.
+  await click('Menu');
+  await click('Settings');
+  const autosave = await sync(
+    `const button=document.querySelector('[aria-label="Autosave"]'), enabled=button.getAttribute('aria-checked')==='true'; if(enabled) button.click(); return enabled;`,
+  );
   if (!(await native('automation:status')).enabled) {
-    await click('Menu');
-    await click('Settings');
     await sync(
       `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
-    await click('Menu');
   }
+  await click('Menu');
   const probe = client(
     driver.adapter,
     (await native('automation:status')).descriptor,
@@ -187,6 +191,12 @@ export async function projectSearch(driver) {
         original[i],
       );
     assert.deepEqual(await sync('return window.nativeErrors'), []);
+    if (autosave) {
+      await click('Menu');
+      await click('Settings');
+      await click('Autosave');
+      await click('Menu');
+    }
     console.log(
       `PASS project search: hidden unopened target, same names, focus/button activation, immutable search, one canvas. Evidence: ${profile}`,
     );
