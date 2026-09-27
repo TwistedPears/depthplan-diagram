@@ -29,8 +29,9 @@ export async function projectAcceptance(driver) {
   await sync(`document.querySelector('[aria-label="Project menu"]').click()`);
   const enabled = await native('automation:status');
   if (!enabled.enabled) {
+    await click('Settings');
     await sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
   }
@@ -60,6 +61,7 @@ export async function projectAcceptance(driver) {
       );
     }
   };
+  await click('Settings');
   await capture('project-empty-menu');
   await click('MCP Details');
   await until(() =>
@@ -88,7 +90,7 @@ export async function projectAcceptance(driver) {
     probe.close();
   }
   await sync(`document.querySelector('[aria-label="Project menu"]').click()`);
-  await click('Close');
+  await click('Close Project');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );

@@ -213,7 +213,8 @@ function BoardWorkspace({
   useProjectAutosave(
     owner,
     files,
-    !!session.project && !!projectWorkspace.project?.location,
+    projectWorkspace.autosave &&
+      (session.project ? !!projectWorkspace.project?.location : !!owner.source),
   );
   const { scheduleRemember } = projectWorkspace;
   useEffect(() => {
@@ -434,7 +435,6 @@ function BoardWorkspace({
       }
       blocked={transitions.active || !!mcpWorkflows.activeOperation}
       currentDocument={currentDocument}
-      hasSource={!!currentFilePath}
       filename={
         session.project
           ? projectWorkspace.project?.manifest.boards
@@ -491,7 +491,6 @@ function BoardWorkspace({
                 })
             : undefined
       }
-      onReload={handleReloadFile}
       isLoading={isLoading}
       onNewDocument={handleNewDocument}
       onOpenFile={handleOpenFile}

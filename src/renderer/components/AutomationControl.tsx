@@ -38,7 +38,7 @@ export default function AutomationControl({
       <div className="dropdown-separator" />
       <button
         type="button"
-        role="switch"
+        role="menuitemcheckbox"
         aria-label="MCP Server"
         aria-checked={status?.enabled ?? false}
         disabled={changing || !status}
@@ -58,6 +58,7 @@ export default function AutomationControl({
       {status?.enabled && (
         <button
           type="button"
+          role="menuitem"
           aria-haspopup="dialog"
           onClick={() => {
             setCopyNotice('');
@@ -74,7 +75,11 @@ export default function AutomationControl({
         </p>
       )}
       {!status && (
-        <button disabled={changing} onClick={() => void refresh()}>
+        <button
+          role="menuitem"
+          disabled={changing}
+          onClick={() => void refresh()}
+        >
           Retry MCP Server status
         </button>
       )}
@@ -156,9 +161,10 @@ export default function AutomationControl({
                 </p>
                 <p>
                   Ask Codex to build a diagram, arrange its objects and save an
-                  Overview bookmark. Diagram edits are undoable. Project boards
-                  save automatically; otherwise save your accepted changes.
-                  Finish active edits before retrying a busy request.
+                  Overview bookmark. Diagram edits are undoable. After the first
+                  save, Autosave writes accepted changes when enabled; otherwise
+                  save manually. Finish active edits before retrying a busy
+                  request.
                 </p>
                 <label className="form-dialog-field">
                   <span>MCP executable</span>

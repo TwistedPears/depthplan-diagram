@@ -123,12 +123,13 @@ for (const name of names) {
     await writeFile(source, JSON.stringify(fixture.document));
     result.documentBytes = (await readFile(source)).length;
     await click('Menu');
+    await click('Settings');
     await sync(
-      'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+      'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
     );
     await until(() =>
       sync(
-        'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+        'return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
       ),
     );
     const status = await native('automation:status');

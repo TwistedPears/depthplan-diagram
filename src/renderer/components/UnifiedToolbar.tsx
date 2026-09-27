@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import AutomationControl from './AutomationControl';
+import SettingsMenu from './SettingsMenu';
 import type useAutomation from '../hooks/useAutomation';
 import Icon from './Icon';
 import InlineEdit from './InlineEdit';
@@ -18,12 +18,10 @@ interface UnifiedToolbarProps {
   blocked: boolean;
   currentDocument: RecursiveDocument | null;
   isLoading: boolean;
-  hasSource: boolean;
   filename?: string;
   unsaved?: boolean;
   onRenameDocument?: (name: string) => Promise<boolean>;
   onRenameFile?: (name: string) => Promise<boolean>;
-  onReload: () => void;
   onNewDocument: () => void;
   onOpenFile: () => void;
   onSave: () => void;
@@ -38,12 +36,10 @@ function UnifiedToolbar({
   blocked,
   currentDocument,
   isLoading,
-  hasSource,
   filename,
   unsaved = false,
   onRenameDocument,
   onRenameFile,
-  onReload,
   onNewDocument,
   onOpenFile,
   onSave,
@@ -146,13 +142,13 @@ function UnifiedToolbar({
           hidden={openDropdown !== 'hamburger'}
         >
           <div inert={blocked}>
-            {openDropdown === 'hamburger' && (
-              <ProjectMenu onAction={closeDropdown} />
-            )}
+            <RecentProjects
+              active={openDropdown === 'hamburger'}
+              onAction={closeDropdown}
+            />
+            <div className="dropdown-separator" />
             <FileToolbar
               isLoading={isLoading}
-              hasSource={hasSource}
-              onReload={onReload}
               hasDocument={!!currentDocument}
               onNewDocument={onNewDocument}
               onOpenFile={onOpenFile}
@@ -163,10 +159,11 @@ function UnifiedToolbar({
                 void workspace?.standalone();
               }}
               onAction={closeDropdown}
-            />
-            {openDropdown === 'hamburger' && (
-              <RecentProjects onAction={closeDropdown} />
-            )}
+            >
+              {openDropdown === 'hamburger' && (
+                <ProjectMenu onAction={closeDropdown} />
+              )}
+            </FileToolbar>
             <div className="dropdown-separator" />
             {currentDocument && (
               <ExportToolbar
@@ -182,13 +179,12 @@ function UnifiedToolbar({
               />
             )}
           </div>
-          <AutomationControl
+          <div className="dropdown-separator" />
+          <SettingsMenu
+            active={openDropdown === 'hamburger'}
             automation={automation}
             operation={operation}
-            onShowDetails={() => {
-              closeDropdown();
-              menuButton.current?.focus();
-            }}
+            onAction={closeDropdown}
           />
         </div>
       </div>

@@ -36,8 +36,9 @@ export async function projectPersistence(driver) {
   await native('project:close', project.sessionId);
   if (!(await driver.native('automation:status')).enabled) {
     await driver.click('Menu');
+    await driver.click('Settings');
     await driver.sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await driver.until(
       async () => (await driver.native('automation:status')).enabled,
@@ -143,7 +144,7 @@ export async function projectPersistence(driver) {
     await edit('Healthy B');
     await until(async () => (await read(b)).objects.api.name === 'Healthy B');
     await click('Menu');
-    await click('Close');
+    await click('Close Project');
     await until(() =>
       sync(
         'return !!document.querySelector(".project-board-open:not(:disabled)")',

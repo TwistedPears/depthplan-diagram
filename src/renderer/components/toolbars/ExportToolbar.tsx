@@ -1,5 +1,3 @@
-import Icon from '../Icon';
-
 interface ExportToolbarProps {
   isLoading: boolean;
   onExportSVG: () => void;
@@ -14,10 +12,10 @@ export default function ExportToolbar({
   return (
     <>
       <button type="button" onClick={onExportSVG} disabled={isLoading}>
-        <Icon name="file-export" /> Export image
+        Export image
       </button>
       <button type="button" onClick={onExportJSON} disabled={isLoading}>
-        <Icon name="file-code" /> Export DepthPlan
+        Export DepthPlan
       </button>
     </>
   );

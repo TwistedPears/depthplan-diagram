@@ -240,14 +240,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.recent-projects > button {
+.menu-flyout > button {
   justify-content: space-between;
 }
-.recent-projects-menu {
+.menu-flyout-panel {
   position: fixed;
   inset: auto;
   margin: 0;
-  width: min(360px, calc(100vw - 36px));
+  width: min(246px, calc(100vw - 36px));
   max-height: calc(100vh - 36px);
   overflow: auto;
   padding: 8px;
@@ -256,12 +256,15 @@
   border: 1px solid var(--line);
   border-radius: 12px;
 }
-.recent-projects-menu button {
+.recent-projects .menu-flyout-panel {
+  width: min(360px, calc(100vw - 36px));
+}
+.recent-projects .menu-flyout-panel button {
   flex-direction: column;
   align-items: start;
   gap: 2px;
 }
-.recent-projects-menu small {
+.recent-projects .menu-flyout-panel small {
   display: block;
   max-width: 100%;
   color: var(--muted);
@@ -270,7 +273,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.recent-projects-menu p {
+.menu-flyout-panel p {
   padding: 6px 10px;
   font-size: 12px;
 }

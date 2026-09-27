@@ -41,6 +41,9 @@ function success<T>(result: FileResult<T>): T | null {
 function useProject() {
   const registry = useDocumentSessions();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
+  const [autosave, setAutosave] = useState(
+    () => localStorage.getItem('depthplan.autosave') !== 'off',
+  );
   const live = useRef(project);
   const [backStack, setBackStack] = useState<
     { boardId: string; camera: Camera; selected: string[] }[]
@@ -705,6 +708,11 @@ function useProject() {
   });
   return {
     project,
+    autosave,
+    toggleAutosave: () => {
+      localStorage.setItem('depthplan.autosave', autosave ? 'off' : 'on');
+      setAutosave(!autosave);
+    },
     recoveryReady,
     setRecoveryReady,
     remember,

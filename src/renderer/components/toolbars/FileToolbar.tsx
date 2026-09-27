@@ -1,10 +1,9 @@
-import Icon from '../Icon';
+import type { ReactNode } from 'react';
 
 interface FileToolbarProps {
+  children: ReactNode;
   isLoading: boolean;
   hasDocument: boolean;
-  hasSource: boolean;
-  onReload: () => void;
   onNewDocument: () => void;
   onOpenFile: () => void;
   onSave: () => void;
@@ -15,10 +14,9 @@ interface FileToolbarProps {
 }
 
 export default function FileToolbar({
+  children,
   isLoading,
   hasDocument,
-  hasSource,
-  onReload,
   onNewDocument,
   onOpenFile,
   onSave,
@@ -39,28 +37,23 @@ export default function FileToolbar({
         onClick={action(onNewDocument)}
         disabled={isLoading}
       >
-        <Icon name="file" /> {isProject ? 'New Board…' : 'New'}
+        New Board
       </button>
       <button type="button" onClick={action(onOpenFile)} disabled={isLoading}>
-        <Icon name="folder-open" /> Open Board…
+        Open Board…
       </button>
-      <button
-        type="button"
-        onClick={action(onReload)}
-        disabled={isLoading || !hasSource}
-      >
-        Reload
-      </button>
+      {children}
+      <div className="dropdown-separator" />
       {(hasDocument || isProject) && (
         <>
           <button type="button" onClick={action(onSave)} disabled={isLoading}>
-            <Icon name="save" /> Save
+            Save
           </button>
           <button type="button" onClick={action(onSaveAs)} disabled={isLoading}>
-            <Icon name="save" /> Save As…
+            Save As…
           </button>
           <button type="button" onClick={action(onClose)} disabled={isLoading}>
-            Close
+            {isProject ? 'Close Project' : 'Close Board'}
           </button>
         </>
       )}

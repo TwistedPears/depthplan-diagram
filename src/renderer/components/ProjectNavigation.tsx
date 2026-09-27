@@ -1,4 +1,4 @@
-import AutomationControl from './AutomationControl';
+import SettingsMenu from './SettingsMenu';
 import type useAutomation from '../hooks/useAutomation';
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { projectNameSchema } from '../../shared/projectContract';
@@ -173,6 +173,7 @@ export default function ProjectNavigation({
   automation: ReturnType<typeof useAutomation>;
 }) {
   const emptyMenu = useRef<HTMLDetailsElement>(null);
+  const [emptyMenuOpen, setEmptyMenuOpen] = useState(false);
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
   const {
@@ -277,23 +278,23 @@ export default function ProjectNavigation({
         <div className="project-navigation" data-session-navigation>
           {!registry.activeKey && (
             <div className="project-empty-identity document-switcher">
-              <details ref={emptyMenu}>
+              <details
+                ref={emptyMenu}
+                onToggle={(event) => setEmptyMenuOpen(event.currentTarget.open)}
+              >
                 <summary aria-label="Project menu">
                   <Icon name="bars" />
                 </summary>
                 <div className="project-empty-menu dropdown-menu">
-                  <ProjectMenu
-                    onAction={() => {
-                      emptyMenu.current?.removeAttribute('open');
-                      emptyMenu.current?.querySelector('summary')?.focus();
-                    }}
+                  <RecentProjects
+                    active={emptyMenuOpen}
+                    onAction={() => emptyMenu.current?.removeAttribute('open')}
                   />
+                  <div className="dropdown-separator" />
                   <FileToolbar
                     isLoading={busy}
                     hasDocument={false}
-                    hasSource={false}
                     isProject
-                    onReload={() => {}}
                     onNewDocument={workspace.newBoard}
                     onOpenFile={() =>
                       workspace.setDialog({ kind: 'openBoard' })
@@ -302,13 +303,18 @@ export default function ProjectNavigation({
                     onSaveAs={workspace.saveAll}
                     onClose={workspace.standalone}
                     onAction={() => emptyMenu.current?.removeAttribute('open')}
-                  />
-                  <RecentProjects
-                    onAction={() => emptyMenu.current?.removeAttribute('open')}
-                  />
-                  <AutomationControl
+                  >
+                    <ProjectMenu
+                      onAction={() =>
+                        emptyMenu.current?.removeAttribute('open')
+                      }
+                    />
+                  </FileToolbar>
+                  <div className="dropdown-separator" />
+                  <SettingsMenu
+                    active={emptyMenuOpen}
                     automation={automation}
-                    onShowDetails={() => {
+                    onAction={() => {
                       emptyMenu.current?.removeAttribute('open');
                       emptyMenu.current?.querySelector('summary')?.focus();
                     }}

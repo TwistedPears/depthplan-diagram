@@ -17,6 +17,7 @@ import { rotation } from './native-rotation.mjs';
 import { childContent } from './native-child-content.mjs';
 import { projects } from './native-projects.mjs';
 import { projectNavigation } from './native-project-navigation.mjs';
+import { menuSettings } from './native-menu-settings.mjs';
 import { projectPersistence } from './native-project-persistence.mjs';
 import { projectWorkspace } from './native-project-workspace.mjs';
 const {
@@ -51,6 +52,22 @@ try {
     sync('return document.body.textContent.includes("Recursive architecture")'),
   );
   const instance = await native('app:instance-id');
+  await menuSettings({
+    click,
+    sync,
+    until,
+    native,
+    dialogs,
+    profile,
+    request,
+    session,
+    js,
+  });
+  // The file-conflict and recovery journeys below explicitly exercise manual saving.
+  await click('Menu');
+  await click('Settings');
+  await sync(`document.querySelector('[aria-label=Autosave]').click()`);
+  await click('Menu');
   await projects({ native, dialogs, profile });
   assert.match(instance, /^[a-f0-9-]{36}$/);
   assert.equal((await native('automation:status')).enabled, false);
@@ -135,16 +152,17 @@ try {
     'error',
   );
   await click('Menu');
+  await click('Settings');
   await sync(
     `const enable = window.desktop.automation.enable;
      window.desktop.automation.enable = (...args) => enable(...args).catch(error => {
        window.nativeErrors.push(String(error)); throw error;
      });
-     document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+     document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
   );
   await until(() =>
     sync(
-      'if(window.nativeErrors.length)throw new Error(window.nativeErrors.join("; "));return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+      'if(window.nativeErrors.length)throw new Error(window.nativeErrors.join("; "));return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
     ),
   );
   const status = await native('automation:status');
@@ -454,7 +472,7 @@ try {
   });
   await dialogs('message', 'Cancel');
   await click('Menu');
-  await click('New');
+  await click('New Board');
   await until(async () => (await probe.call('depthplan_get_context')).ok);
   assert.equal(
     (await probe.call('depthplan_get_context')).state.sessionId,
@@ -476,8 +494,9 @@ try {
     ),
   );
   await resumed.click('Menu');
+  await resumed.click('Settings');
   await resumed.sync(
-    'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+    'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
   );
   await resumed.until(
     async () => (await resumed.native('automation:status')).enabled,

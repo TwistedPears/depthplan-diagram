@@ -462,7 +462,7 @@ describe('App', () => {
         false,
       ),
     );
-    chooseFileCommand('New');
+    chooseFileCommand('New Board');
     await screen.findByText('Test diagram');
   });
 });

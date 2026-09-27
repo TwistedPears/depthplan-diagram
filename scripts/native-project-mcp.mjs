@@ -38,8 +38,9 @@ export async function projectMcp(driver) {
   await native('project:close', project.sessionId);
   if (!(await native('automation:status')).enabled) {
     await click('Menu');
+    await click('Settings');
     await sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
     await click('Menu');
@@ -257,7 +258,7 @@ export async function projectMcp(driver) {
         (await receipt(finalSave.data.operationId)).status === 'completed',
     );
     await click('Menu');
-    await click('Close');
+    await click('Close Project');
     await until(
       async () =>
         (await probe.call('depthplan_get_project')).data?.project === null,

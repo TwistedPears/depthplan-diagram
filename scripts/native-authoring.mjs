@@ -101,7 +101,7 @@ export async function authoring(driver, probe) {
   }
 
   await click('Menu');
-  await click('New');
+  await click('New Board');
   await until(async () => !(await state()).source);
   const fresh = await state();
   await edit(
@@ -286,7 +286,7 @@ export async function authoring(driver, probe) {
   assert.deepEqual(Object.keys(beforeOpen.namedViews), expectedOrder);
   const previous = await state();
   await click('Menu');
-  await click('New');
+  await click('New Board');
   await until(
     async () => (await state()).handle.sessionId !== previous.handle.sessionId,
   );

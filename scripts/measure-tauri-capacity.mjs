@@ -364,12 +364,13 @@ for (const [name, settings] of Object.entries(cases)) {
   };
   const enable = async () => {
     await driver.click('Menu');
+    await driver.click('Settings');
     await driver.sync(
-      'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+      'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
     );
     await until(() =>
       driver.sync(
-        'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+        'return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
       ),
     );
     const status = await driver.native('automation:status');

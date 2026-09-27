@@ -40,8 +40,9 @@ export async function projectSearch(driver) {
   );
   if (!(await native('automation:status')).enabled) {
     await click('Menu');
+    await click('Settings');
     await sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
     await click('Menu');
@@ -172,7 +173,7 @@ export async function projectSearch(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).data.dirty, false);
     await click('Menu');
-    await click('Close');
+    await click('Close Project');
     await until(() =>
       sync('return !document.querySelector(".project-navigation")'),
     );

@@ -228,20 +228,20 @@ export async function projectNavigation(driver) {
   await capture('project-inline');
   await click('Menu');
   const menuLabels = await sync(
-    'return [...document.querySelectorAll("#document-menu button")].map(b=>b.textContent.trim())',
+    'return [...document.querySelectorAll("#document-menu button")].filter(b=>!b.closest("[popover]")).map(b=>b.textContent.trim())',
   );
   assert.deepEqual(
     menuLabels.slice(
       menuLabels.indexOf('Save'),
-      menuLabels.indexOf('Save') + 4,
+      menuLabels.indexOf('Save') + 3,
     ),
-    ['Save', 'Save As…', 'Close', 'Open Recent'],
+    ['Save', 'Save As…', 'Close Project'],
   );
   for (const removed of [
     'Save Project',
     'Open Board in Project…',
     'Search Project…',
-    'Close Project',
+    'Reload',
     'Recent Projects',
     'Save Copy…',
   ])
@@ -249,6 +249,13 @@ export async function projectNavigation(driver) {
   assert(
     await sync(
       'return [...document.querySelectorAll("#document-menu .dropdown-label")].some(n=>n.textContent==="Boards")',
+    ),
+  );
+  assert.equal(menuLabels[0], 'Open Recent');
+  assert.equal(menuLabels.at(-1), 'Settings');
+  assert(
+    await sync(
+      `return !document.querySelector('#document-menu svg') && [...document.querySelectorAll('#document-menu .dropdown-label')].map(n=>n.textContent).join(',') === 'Boards,Projects' && [...document.querySelectorAll('#document-menu .dropdown-label')].every(n=>getComputedStyle(n).userSelect==='none' || getComputedStyle(n).webkitUserSelect==='none')`,
     ),
   );
   await capture('project-menu');
@@ -296,7 +303,7 @@ export async function projectNavigation(driver) {
   await click('Standalone');
   assert(await sync('return !!document.querySelector(".project-navigation")'));
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   await until(() =>
     sync('return !document.querySelector(".project-navigation")'),
   );
@@ -316,12 +323,12 @@ export async function projectNavigation(driver) {
   await sync('document.querySelector(".recent-projects > button").click()');
   await until(() =>
     sync(
-      'return document.querySelectorAll(".recent-projects-menu button").length===5',
+      'return document.querySelectorAll(".recent-projects .menu-flyout-panel button").length===5',
     ),
   );
   assert.deepEqual(
     await sync(
-      'return [...document.querySelectorAll(".recent-projects-menu button")].map(b=>b.firstChild.textContent)',
+      'return [...document.querySelectorAll(".recent-projects .menu-flyout-panel button")].map(b=>b.firstChild.textContent)',
     ),
     recents.map((p) => p.name),
   );
@@ -332,7 +339,7 @@ export async function projectNavigation(driver) {
   await capture('project-recents');
   assert(
     await sync(
-      `const menu=document.querySelector('#document-menu').getBoundingClientRect();const flyout=document.querySelector('.recent-projects-menu').getBoundingClientRect();return flyout.left>=menu.right-2 && flyout.right<=innerWidth && flyout.bottom<=innerHeight;`,
+      `const menu=document.querySelector('#document-menu').getBoundingClientRect();const flyout=document.querySelector('.recent-projects .menu-flyout-panel').getBoundingClientRect();return flyout.left>=menu.right-2 && flyout.right<=innerWidth && flyout.bottom<=innerHeight;`,
     ),
     'Open Recent flies out to the right and stays within the viewport',
   );
@@ -361,7 +368,9 @@ export async function projectNavigation(driver) {
       'return document.querySelector(".recent-projects > button").getAttribute("aria-expanded")==="true"',
     ),
   );
-  await sync('document.querySelector(".recent-projects-menu button").click()');
+  await sync(
+    'document.querySelector(".recent-projects .menu-flyout-panel button").click()',
+  );
   await until(() =>
     sync('return !!document.querySelector(".project-navigation")'),
   );
@@ -382,7 +391,7 @@ export async function projectNavigation(driver) {
     'menu-import.depthplan',
   );
   await click('Menu');
-  await click('Close');
+  await click('Close Board');
   await until(() =>
     sync(
       'return document.querySelector(".document-state").textContent === "Not saved yet"',

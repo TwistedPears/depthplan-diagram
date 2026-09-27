@@ -76,12 +76,7 @@ const read = (id: string) => ({
   },
 });
 beforeEach(() => {
-  HTMLElement.prototype.showPopover = jest.fn(function (this: HTMLElement) {
-    fireEvent(this, Object.assign(new Event('toggle'), { newState: 'open' }));
-  });
-  HTMLElement.prototype.hidePopover = jest.fn(function (this: HTMLElement) {
-    fireEvent(this, Object.assign(new Event('toggle'), { newState: 'closed' }));
-  });
+  localStorage.clear();
   documents = {};
   for (const id of ['a', 'b', 'c'])
     documents[id] = {
@@ -469,7 +464,7 @@ test('canceled project/standalone replacement retains all sessions; Save Copy pr
     .mocked(window.desktop.projects.writeBoard)
     .mockResolvedValue({ status: 'error', error: 'Disk unavailable' });
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   expect(registry.sessions).toBe(before);
   expect(registry.activeKey).toBe(key('b'));
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
@@ -569,7 +564,7 @@ test('failed multi-board flush keeps all sessions without a review dialog and Sa
     .mocked(window.desktop.projects.writeBoard)
     .mockRejectedValue(new Error('Disk unavailable'));
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   expect(
     screen.queryByRole('dialog', { name: 'Review open boards' }),
   ).not.toBeInTheDocument();
@@ -708,7 +703,7 @@ test('restores local tabs/order, active board and cameras without source writes;
     ),
   );
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   jest.mocked(window.desktop.projects.workspace).mockResolvedValue({
     status: 'success',
     view: { ...view, tabs: [], active: null },
@@ -920,9 +915,12 @@ test('empty projects retain local MCP controls and project/access discovery with
   act(() => {
     screen.getByLabelText('Project menu').closest('details')!.open = true;
   });
-  fireEvent.click(screen.getByRole('switch', { name: 'MCP Server' }));
+  await click('Settings');
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'MCP Server' }));
   await waitFor(() =>
-    expect(screen.getByRole('switch', { name: 'MCP Server' })).toBeChecked(),
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'MCP Server' }),
+    ).toBeChecked(),
   );
   expect(
     await request({ tool: 'depthplan_get_project', input: {} }),
@@ -1529,7 +1527,7 @@ test('closing a clean memory project requires a decision and resumes after its f
   project.location = null;
   await setup();
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   expect(window.desktop.transitions.confirm).toHaveBeenCalledWith(
     'document',
     'Architecture',
@@ -1541,11 +1539,11 @@ test('closing a clean memory project requires a decision and resumes after its f
     .mocked(window.desktop.projects.save)
     .mockResolvedValueOnce({ status: 'canceled' });
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   expect(mockWorkspace.project?.location).toBeNull();
   expect(mockWorkspace.busy).toBe(false);
   await click('Menu');
-  await click('Close');
+  await click('Close Project');
   await waitFor(() =>
     expect(window.desktop.projects.close).toHaveBeenCalledWith(
       'project-session',
@@ -1662,7 +1660,6 @@ test('the board menu has contextual actions in order and closes a standalone boa
     'Save Project',
     'Open Board in Project…',
     'Search Project…',
-    'Close Project',
     'Recent Projects',
     'Save Copy…',
   ])
@@ -1672,10 +1669,22 @@ test('the board menu has contextual actions in order and closes a standalone boa
   const labels = [...menu.querySelectorAll('button')].map((button) =>
     button.textContent!.trim(),
   );
+  expect(labels[0]).toBe('Open Recent');
+  expect(labels.indexOf('Open Board…')).toBeLessThan(
+    labels.indexOf('New Project'),
+  );
+  expect(labels.indexOf('Open Project…')).toBeLessThan(labels.indexOf('Save'));
   expect(
-    labels.slice(labels.indexOf('Save'), labels.indexOf('Save') + 4),
-  ).toEqual(['Save', 'Save As…', 'Close', 'Open Recent']);
-  await click('Close');
+    [...menu.querySelectorAll('.dropdown-label')].map(
+      (item) => item.textContent,
+    ),
+  ).toEqual(['Boards', 'Projects']);
+  expect(menu.querySelector('svg')).toBeNull();
+  expect(within(menu).queryByRole('button', { name: 'Reload' })).toBeNull();
+  expect(
+    labels.slice(labels.indexOf('Save'), labels.indexOf('Save') + 3),
+  ).toEqual(['Save', 'Save As…', 'Close Project']);
+  await click('Close Project');
   expect(mockWorkspace.project).toBeNull();
   const standaloneKey = registry.activeKey;
   const owner = registry.controllers.get(standaloneKey)!.owner;
@@ -1685,14 +1694,94 @@ test('the board menu has contextual actions in order and closes a standalone boa
     }),
   );
   await click('Menu');
-  await click('Close');
+  await click('Close Board');
   expect(registry.activeKey).toBe(standaloneKey);
   expect(owner.snapshot().document!.metadata.title).toBe('Unsaved standalone');
   jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('discard');
   await click('Menu');
-  await click('Close');
+  await click('Close Board');
   expect(registry.activeKey).not.toBe(standaloneKey);
   expect(registry.sessions[0].source).toBeNull();
+});
+
+test.each(['Open Recent', 'Settings'])(
+  '%s hover stays open across its submenu and dismisses over another menu row',
+  async (label) => {
+    jest.useFakeTimers();
+    try {
+      await setup();
+      await click('Menu');
+      const trigger = screen.getByRole('button', { name: label });
+      const root = trigger.closest('.menu-flyout')!;
+      fireEvent.mouseEnter(trigger);
+      const panel = screen.getByRole('menu', { name: label });
+      fireEvent.mouseLeave(root);
+      await act(() => jest.advanceTimersByTimeAsync(50));
+      fireEvent.mouseEnter(panel);
+      await act(() => jest.advanceTimersByTimeAsync(150));
+      expect(screen.getByRole('menu', { name: label })).toBeVisible();
+      fireEvent.mouseLeave(root, {
+        relatedTarget: screen.getByRole('button', { name: 'New Board' }),
+      });
+      await act(() => jest.advanceTimersByTimeAsync(150));
+      expect(screen.queryByRole('menu', { name: label })).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+test('Settings restores a saved Autosave preference', async () => {
+  localStorage.setItem('depthplan.autosave', 'off');
+  await setup();
+  await click('Menu');
+  await click('Settings');
+  expect(
+    screen.getByRole('menuitemcheckbox', { name: 'Autosave' }),
+  ).not.toBeChecked();
+});
+
+test('Settings Autosave defaults on, pauses every project board, permits manual Save, and resumes accepted edits', async () => {
+  jest.useFakeTimers();
+  try {
+    await setup();
+    drawer();
+    await click('Open Same name, b.depthplan');
+    await click('Menu');
+    await click('Settings');
+    const toggle = () =>
+      screen.getByRole('menuitemcheckbox', { name: 'Autosave' });
+    expect(toggle()).toBeChecked();
+    fireEvent.click(toggle());
+    expect(toggle()).not.toBeChecked();
+    expect(localStorage.getItem('depthplan.autosave')).toBe('off');
+    act(() => {
+      controller('a').owner.transact(editObject('api', { name: 'Manual A' }));
+      controller('b').owner.transact(editObject('api', { name: 'Manual B' }));
+    });
+    await act(() => jest.advanceTimersByTimeAsync(6000));
+    expect(window.desktop.projects.writeBoard).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole('menu', { name: 'Settings' }), {
+      key: 'Escape',
+    });
+    await click('Save');
+    expect(documents.a.objects.api.name).toBe('Manual A');
+    expect(documents.b.objects.api.name).toBe('Manual B');
+    await click('Menu');
+    await click('Settings');
+    fireEvent.click(toggle());
+    expect(localStorage.getItem('depthplan.autosave')).toBe('on');
+    act(() =>
+      controller('a').owner.transact(
+        editObject('api', { name: 'Automatic A' }),
+      ),
+    );
+    await act(() => jest.advanceTimersByTimeAsync(1000));
+    expect(documents.a.objects.api.name).toBe('Automatic A');
+    expect(controller('a').owner.canUndo).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test('Open Board offers Import or Standalone in a project and respects cancellation', async () => {

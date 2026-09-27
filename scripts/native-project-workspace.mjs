@@ -66,7 +66,7 @@ export async function projectWorkspace(driver) {
   };
   const closeProject = async () => {
     await current.click('Menu');
-    await current.click('Close');
+    await current.click('Close Project');
     await current.until(() =>
       current.sync('return !document.querySelector(".project-navigation")'),
     );
@@ -110,8 +110,9 @@ export async function projectWorkspace(driver) {
     await current.click('Menu');
     if (!(await current.native('automation:status')).enabled) {
       await current.click('Menu');
+      await current.click('Settings');
       await current.sync(
-        `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+        `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
       );
       await current.until(
         async () => (await current.native('automation:status')).enabled,
@@ -167,7 +168,7 @@ export async function projectWorkspace(driver) {
     );
     await current.until(() =>
       current.sync(
-        'return document.querySelector(".recent-projects-menu")?.textContent.includes("Resume Project")',
+        'return document.querySelector(".recent-projects .menu-flyout-panel")?.textContent.includes("Resume Project")',
       ),
     );
     await capture('project-recents');
