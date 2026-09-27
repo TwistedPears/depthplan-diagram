@@ -47,15 +47,6 @@
   display: inline-flex;
   align-items: center;
 }
-.project-filter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.project-filter input {
-  width: 100%;
-  min-width: 0;
-}
 .project-board-list {
   list-style: none;
   padding: 0;

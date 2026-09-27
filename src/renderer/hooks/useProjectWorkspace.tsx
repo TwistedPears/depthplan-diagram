@@ -53,7 +53,6 @@ function useProject() {
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<ProjectDialog | null>(null);
   const [drawer, setDrawer] = useState(() => window.innerWidth >= 1100);
-  const [filter, setFilter] = useState('');
   const [recoveryReady, setRecoveryReady] = useState(false);
   const writes = useRef(Promise.resolve());
   const remember = async (activeKey = registry.snapshot().activeKey) => {
@@ -123,7 +122,6 @@ function useProject() {
     };
   }, [scheduleRemember]);
   const toggle = useRef<HTMLButtonElement>(null);
-  const search = useRef<HTMLInputElement>(null);
   const update = (next: ProjectSnapshot | null) => {
     if (next?.sessionId !== live.current?.sessionId) setBackStack([]);
     live.current = next;
@@ -683,10 +681,6 @@ function useProject() {
       if (result.imported.length) await openBoard(result.imported[0]);
       setError(result.errors.join('\n'));
     });
-  const quickSwitch = () => {
-    setDrawer(true);
-    requestAnimationFrame(() => search.current?.focus());
-  };
   useEffect(() => {
     if (!window.desktop.projects) return;
     const stops = [
@@ -736,10 +730,7 @@ function useProject() {
     setDialog,
     drawer,
     setDrawer,
-    filter,
-    setFilter,
     toggle,
-    search,
     key,
     run,
     update,
@@ -777,7 +768,6 @@ function useProject() {
     standalone,
     manage,
     importBoards,
-    quickSwitch,
     filename: (name: string) =>
       projectFilename(name, [
         ...(project?.manifest.boards.map((b) => b.path) ?? []),

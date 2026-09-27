@@ -34,7 +34,7 @@ Use the vertical **Project** button on the right edge to open the drawer and
 switch boards. The button hides while the drawer or a project dialog is open.
 The drawer’s right-pointing arrow closes it and restores the button. Boards sort by name, ignoring case and ordering numbers naturally
 (for example, Board 2 before Board 10). Names can repeat, so filenames distinguish
-them. Filter by board name. Use arrow keys and Home/End in the drawer;
+them. Use arrow keys and Home/End in the drawer;
 Enter/Space activates a focused control. Switch boards without losing accepted
 edits, local undo, selections, cameras or suspended drafts. Only the active canvas is mounted.
 
@@ -174,9 +174,9 @@ grants. Edits to loaded project boards save automatically.
 
 ## Search project content
 
-Choose **Menu → Search Project…** to search every board's object names and rich
-text/code, connection labels and bookmark names, including hidden descendants.
-This is separate from the drawer's board-name filter. Open boards contribute
+Use the top toolbar's **Search boards** button to search every board's object
+names and rich text/code, connection labels and bookmark names, including hidden
+descendants. Enter a query and press Enter. Open boards contribute
 accepted in-memory content, including unsaved changes; unopened boards are read
 and validated from disk without opening editing sessions or canvases. Unapplied
 drafts are not accepted content.

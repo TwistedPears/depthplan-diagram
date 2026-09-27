@@ -185,16 +185,7 @@ export default function ProjectNavigation({
   const [emptyMenuOpen, setEmptyMenuOpen] = useState(false);
   const workspace = useProjectWorkspace()!;
   const registry = useDocumentSessions();
-  const {
-    project,
-    busy,
-    drawer,
-    setDrawer,
-    filter,
-    setFilter,
-    toggle,
-    search,
-  } = workspace;
+  const { project, busy, drawer, setDrawer, toggle } = workspace;
   const list = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState('');
   const editor = (id: string) => ({
@@ -270,9 +261,7 @@ export default function ProjectNavigation({
   };
   const members =
     project?.manifest.boards
-      .filter((b) =>
-        b.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
-      )
+      .slice()
       .sort(
         (a, b) =>
           boardNames.compare(a.name, b.name) ||
@@ -357,22 +346,8 @@ export default function ProjectNavigation({
                   return;
                 if (e.key === 'Escape') {
                   e.preventDefault();
-                  if (filter) setFilter('');
-                  else {
-                    hideDrawer();
-                  }
-                } else if (
-                  e.target === search.current &&
-                  e.key === 'Enter' &&
-                  members[0]
-                ) {
-                  e.preventDefault();
-                  open(members[0].id);
-                } else if (
-                  e.target !== search.current ||
-                  e.key === 'ArrowUp' ||
-                  e.key === 'ArrowDown'
-                )
+                  hideDrawer();
+                } else
                   moveFocus(
                     e,
                     [
@@ -405,16 +380,6 @@ export default function ProjectNavigation({
               <h2>
                 Boards <span>{project.manifest.boards.length}</span>
               </h2>
-              <label className="project-filter">
-                <Icon name="magnifying-glass" />
-                <input
-                  ref={search}
-                  aria-label="Find a board"
-                  placeholder="Find a board…"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                />
-              </label>
               <ul className="project-board-list" aria-label="Project members">
                 {members.map((member) => {
                   const sessionKey = workspace.key(member.id);
@@ -519,9 +484,7 @@ export default function ProjectNavigation({
               </ul>
               {!members.length && (
                 <p className="project-empty-copy">
-                  {filter
-                    ? 'No matching boards.'
-                    : 'No boards yet. Create or import a board to begin.'}
+                  No boards yet. Create or import a board to begin.
                 </p>
               )}
               <footer>
@@ -635,7 +598,20 @@ export default function ProjectNavigation({
               <p>
                 Your project is open. Open a board from the drawer, or add one.
               </p>
-              <button onClick={workspace.quickSwitch}>Open a board</button>
+              <button
+                onClick={() => {
+                  setDrawer(true);
+                  requestAnimationFrame(() =>
+                    list.current
+                      ?.querySelector<HTMLElement>(
+                        '.project-board-open, footer button',
+                      )
+                      ?.focus(),
+                  );
+                }}
+              >
+                Open a board
+              </button>
               <button onClick={() => workspace.newBoard()}>New Board</button>
               <button
                 onClick={() => {

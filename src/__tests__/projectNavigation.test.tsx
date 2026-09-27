@@ -289,25 +289,19 @@ test('loads only selected boards, supports keyboard navigation, preserves dirty/
   expect(registry.activeKey).toBe(key('c'));
   expect(project.manifest.boards).toHaveLength(3);
   expect(window.desktop.projects.apply).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Find a board' }), {
-    target: { value: 'Overview' },
-  });
-  const search = screen.getByRole('textbox', { name: 'Find a board' });
-  search.focus();
-  expect(fireEvent.keyDown(search, { key: 'Home' })).toBe(true);
-  expect(fireEvent.keyDown(search, { key: 'End' })).toBe(true);
-  expect(search).toHaveFocus();
-  fireEvent.keyDown(screen.getByRole('textbox', { name: 'Find a board' }), {
-    key: 'ArrowDown',
-  });
+  expect(screen.queryByRole('textbox', { name: 'Find a board' })).toBeNull();
+  expect(drawer().querySelectorAll('.project-board-open')).toHaveLength(3);
+  fireEvent.keyDown(boards[0], { key: 'End' });
+  expect(boards[2]).toHaveFocus();
+  fireEvent.keyDown(boards[2], { key: 'Escape' });
   expect(
-    screen.getByRole('button', { name: 'Open Overview, a.depthplan' }),
-  ).toHaveFocus();
-  fireEvent.keyDown(
-    screen.getByRole('button', { name: 'Open Overview, a.depthplan' }),
-    { key: 'Escape' },
+    screen.queryByRole('complementary', { name: 'Project boards' }),
+  ).toBeNull();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Toggle project boards' }),
+    ).toHaveFocus(),
   );
-  expect(screen.getByRole('textbox', { name: 'Find a board' })).toHaveValue('');
 });
 
 async function editInline(
@@ -497,6 +491,13 @@ test('closing every board leaves an empty project with create/import actions and
     projectFilename('設計', ['Board.depthplan', 'board_2.depthplan']),
   ).toBe('board_3.depthplan');
   expect(projectFilename('API', ['api.depthplan'])).toBe('api_2.depthplan');
+  await click('Close board drawer');
+  await click('Open a board');
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Open Overview, a.depthplan' }),
+    ).toHaveFocus(),
+  );
   await searchProject('api');
   expect(
     screen.getByRole('dialog', { name: 'Search Project' }),
