@@ -1,9 +1,52 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { test } from 'node:test';
 import path from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { clickToPaint } from './native-driver.mjs';
+import { clickToPaint, launchNative } from './native-driver.mjs';
+
+test('startup waits for the application document before executing page scripts', async () => {
+  let titleReads = 0;
+  let scriptReads = 0;
+  const server = createServer((request, response) => {
+    let value = null;
+    if (request.url === '/session') value = { sessionId: 'startup' };
+    if (request.url.endsWith('/title'))
+      value = ++titleReads < 2 ? '' : 'DepthPlan';
+    if (request.url.endsWith('/execute/sync')) {
+      scriptReads++;
+      if (titleReads < 2) {
+        response.writeHead(500);
+        response.end('Script result lost during initial navigation');
+        return;
+      }
+      value = 'true';
+    }
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify({ value }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const previous = {
+    DEPTHPLAN_EXECUTABLE: process.env.DEPTHPLAN_EXECUTABLE,
+    TAURI_WEBDRIVER_PORT: process.env.TAURI_WEBDRIVER_PORT,
+  };
+  let driver;
+  try {
+    process.env.DEPTHPLAN_EXECUTABLE = process.execPath;
+    process.env.TAURI_WEBDRIVER_PORT = String(server.address().port);
+    driver = await launchNative(undefined, ['-e', 'setInterval(()=>{},1000)']);
+    assert.equal(titleReads, 2);
+    assert(scriptReads > 0);
+  } finally {
+    await driver?.close();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 
 test('timed clicks pass labels as data and retain timing and errors', async () => {
   const label =

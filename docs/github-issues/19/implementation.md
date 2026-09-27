@@ -172,3 +172,26 @@ switch p95 42 ms, host 116 MiB and WebKit 318 MiB. The preceding fresh-build run
 trace remain retained, as do the earlier `run-2HZwnu` failure and `run-e27eGZ`
 unchanged passing repeat. These results do not certify first-download admission
 latency or broader installed performance. All budgets and repetitions are intact.
+
+## Native startup readiness
+
+Run `36286461360` at `deece9d` passed Linux source checks, the real-Tauri
+800,000-clone regression, full Linux integration and Linux/macOS installed checks.
+The macOS native job timed out on its first WebDriver script after a normal Quit
+and relaunch, before project tests. No native crash or application exception was
+reported. Twenty unchanged local Quit/relaunch cycles passed; the hosted timeout
+was not reproduced locally.
+
+Source inspection found that the driver's synchronous script implementation
+stores a result in a page global, then polls it. Initial navigation can discard
+that global. Startup now waits for the app's static page title through the
+driver's single native evaluation before sending scripts. Existing readiness
+conditions, deadlines and application checks stay intact. The new regression
+fails against the previous driver when a script reaches the initial document,
+and passes with the readiness check. Twenty real macOS Quit/relaunch cycles also
+passed after the change (`depthplan-tauri-smoke-Xe2fcf`). No application behavior
+changes.
+
+Correctness review checked all native-driver consumers and the static document
+title. Ponytail review: **Lean already. Ship.** One existing WebDriver read closes
+the startup gap without sleeps, retries of failed journeys or timeout increases.
