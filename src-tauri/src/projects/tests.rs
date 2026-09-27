@@ -448,7 +448,7 @@ fn every_create_import_and_rename_boundary_is_recoverable() {
             assert!(reopened.read_board(&reopened.manifest.boards[0].id).is_ok());
         }
     }
-    for operation in ["import", "rename"] {
+    for operation in ["import", "rename", "retitle"] {
         let phases = if operation == "rename" {
             vec![
                 "board-publish",
@@ -471,11 +471,15 @@ fn every_create_import_and_rename_boundary_is_recoverable() {
             let mut project = create(dir.path());
             let original = project.manifest.boards[0].clone();
             let source = project.read_board(&original.id).unwrap();
-            let action = if operation == "rename" {
+            let action = if operation != "import" {
                 Action::RenameBoard {
                     board_id: original.id.clone(),
                     name: "New".into(),
-                    path: "New.depthplan".into(),
+                    path: if operation == "retitle" {
+                        original.path.clone()
+                    } else {
+                        "New.depthplan".into()
+                    },
                     expected: source["fingerprint"].as_str().unwrap().into(),
                 }
             } else {
@@ -506,7 +510,8 @@ fn every_create_import_and_rename_boundary_is_recoverable() {
                 project.disk().unwrap().root.join(&original.path).exists(),
                 phase != "rename-cleaned"
             );
-            if phase == "board-published" || phase == "manifest-publish" {
+            if operation != "retitle" && (phase == "board-published" || phase == "manifest-publish")
+            {
                 assert!(!project.snapshot("s")["diagnostics"]
                     .as_array()
                     .unwrap()
@@ -855,6 +860,86 @@ fn internal_references_survive_duplicate_import_rename_and_relocation_without_re
     assert_eq!(
         project.read_board(&board_id).unwrap()["document"]["objects"][&object_id]["projectLink"],
         link
+    );
+}
+
+#[test]
+fn same_path_rename_preserves_external_edits_before_board_and_manifest_publication() {
+    for phase in ["board-publish", "manifest-publish"] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = create(dir.path());
+        let board = project.manifest.boards[0].clone();
+        let current = project.read_board(&board.id).unwrap();
+        let path = project.board_path(&board.id).unwrap();
+        let original_manifest = fs::read(&project.disk().unwrap().path).unwrap();
+        let mut external = current["document"].clone();
+        external["metadata"]["title"] = "External edit".into();
+        let external = serde_json::to_vec_pretty(&external).unwrap();
+        assert!(project
+            .apply(
+                &project.fingerprint.clone(),
+                Action::RenameBoard {
+                    board_id: board.id,
+                    name: "overview".into(),
+                    path: board.path,
+                    expected: current["fingerprint"].as_str().unwrap().into(),
+                },
+                None,
+                &|p| {
+                    if p == phase {
+                        fs::write(&path, &external).unwrap();
+                    }
+                    Ok(())
+                },
+            )
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), external);
+        assert_eq!(
+            fs::read(&project.disk().unwrap().path).unwrap(),
+            original_manifest
+        );
+    }
+}
+
+#[test]
+fn renaming_without_changing_the_path_updates_memory_and_saved_boards() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = Project::new();
+    let board = project.manifest.boards[0].clone();
+    let path = dir.path().join("project.depthproject");
+    for name in ["Untitled board", "UNTITLED BOARD"] {
+        let current = project.read_board(&board.id).unwrap();
+        apply(
+            &mut project,
+            json!({"kind":"renameBoard","boardId":board.id,"name":name,"path":board.path,"expected":current["fingerprint"]}),
+        );
+        assert_eq!(project.manifest.boards[0].path, board.path);
+        assert_eq!(project.manifest.boards[0].name, name);
+        let mut expected = current["document"].clone();
+        expected["metadata"]["title"] = name.into();
+        let actual = project.read_board(&board.id).unwrap()["document"].clone();
+        expected["metadata"]["modified"] = actual["metadata"]["modified"].clone();
+        assert_eq!(actual, expected);
+        if project.is_draft() {
+            assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+            project
+                .save(
+                    &path,
+                    &project.fingerprint.clone(),
+                    project.manifest.clone(),
+                    &|_| Ok(()),
+                )
+                .unwrap();
+        }
+    }
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 3);
+    let expected = project.manifest.clone();
+    drop(project);
+    let reopened = Project::open(&path).unwrap();
+    assert_eq!(reopened.manifest, expected);
+    assert_eq!(
+        reopened.read_board(&board.id).unwrap()["document"]["metadata"]["title"],
+        "UNTITLED BOARD"
     );
 }
 

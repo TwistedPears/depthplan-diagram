@@ -102,6 +102,7 @@ export async function projectNavigation(driver) {
     'return document.querySelector(".project-board-open").dataset.boardId',
   );
   await edit(`#board-link-${firstId}`, 'Overview');
+  await edit(`#board-link-${firstId}`, 'overview');
   await sync(`const input=document.querySelector('[aria-label="New bookmark name"]');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Memory bookmark');
     input.dispatchEvent(new Event('input',{bubbles:true}));`);
@@ -151,6 +152,15 @@ export async function projectNavigation(driver) {
   );
   const memoryBoard = JSON.parse(
     await readFile(path.join(projectRoot, project.boards[0].path), 'utf8'),
+  );
+  assert.equal(memoryBoard.metadata.title, 'overview');
+  await edit(`#board-link-${firstId}`, 'Overview');
+  assert.equal((await current()).boards[0].path, 'overview.depthplan');
+  assert.equal(
+    JSON.parse(
+      await readFile(path.join(projectRoot, 'overview.depthplan'), 'utf8'),
+    ).metadata.title,
+    'Overview',
   );
   assert.ok(
     Object.values(memoryBoard.namedViews).some(

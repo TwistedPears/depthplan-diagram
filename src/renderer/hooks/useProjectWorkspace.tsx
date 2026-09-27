@@ -550,7 +550,9 @@ function useProject() {
       name,
       projectFilename(
         name,
-        live.current!.manifest.boards.map((b) => b.path),
+        live
+          .current!.manifest.boards.filter((b) => b.id !== boardId)
+          .map((b) => b.path),
       ),
       boardId,
     );

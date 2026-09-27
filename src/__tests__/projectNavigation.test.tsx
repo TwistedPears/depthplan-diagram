@@ -410,6 +410,43 @@ test('rename saves the exact board and retains undo; duplicate copies current co
   );
 });
 
+test.each([null, '/project/project.depthproject'])(
+  'board-name edits retain their own filename and respect other boards (location: %s)',
+  async (location) => {
+    project.location = location;
+    for (const [index, path] of [
+      'api_details.depthplan',
+      'api_details_2.depthplan',
+    ].entries()) {
+      const board = project.manifest.boards[index];
+      board.name = 'API Details';
+      board.path = path;
+      documents[board.id].metadata.title = board.name;
+    }
+    await setup();
+    for (const [id, name, path] of [
+      ['a', 'API details', 'api_details.depthplan'],
+      ['b', 'API DETAILS', 'api_details_2.depthplan'],
+    ]) {
+      await action(id, 'Rename');
+      fireEvent.change(screen.getByLabelText('Board name'), {
+        target: { value: name },
+      });
+      await act(async () => {
+        fireEvent.keyDown(screen.getByLabelText('Board name'), {
+          key: 'Enter',
+        });
+      });
+      expect(project.manifest.boards.find((board) => board.id === id)).toEqual({
+        id,
+        name,
+        path,
+      });
+      expect(documents[id].metadata.title).toBe(name);
+    }
+  },
+);
+
 test('canceled project/standalone replacement retains all sessions; Save Copy preserves membership and unsaved state', async () => {
   project.manifest.autosave = false;
   await setup();

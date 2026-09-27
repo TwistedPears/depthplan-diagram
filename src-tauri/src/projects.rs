@@ -783,12 +783,6 @@ impl Project {
                 }
                 let board = next.boards.iter_mut().find(|b| b.id == board_id).unwrap();
                 renamed_source = Some((board.path.clone(), expected));
-                if board.path == path {
-                    return Err(
-                        "Rename requires a new filename; case-only renames are rejected safely"
-                            .into(),
-                    );
-                }
                 board.name = name.clone();
                 board.path = path.clone();
                 let mut document = current["document"].clone();
@@ -842,22 +836,33 @@ impl Project {
             self.manifest = next;
             return Ok(());
         }
-        if let Some((path, document)) = &output {
-            self.write_new(path, document, before).map_err(|e| {
-                format!("{e}. Inspect {path} for recoverable output; membership is unchanged.")
-            })?;
-        }
         let mut checked_files = Vec::new();
+        if let Some((path, document)) = &output {
+            let hash = if let Some((_, expected)) = renamed_source
+                .as_ref()
+                .filter(|(original, _)| original == path)
+            {
+                before("board-publish")?;
+                let hash = self.write_board(
+                    document["id"].as_str().unwrap(),
+                    expected,
+                    document,
+                    &|| Ok(()),
+                )?;
+                before("board-published")?;
+                // The original file was updated in place, so there is nothing to remove.
+                renamed_source = None;
+                hash
+            } else {
+                self.write_new(path, document, before).map_err(|e| {
+                    format!("{e}. Inspect {path} for recoverable output; membership is unchanged.")
+                })?;
+                files::fingerprint(&serde_json::to_vec_pretty(document).map_err(|e| e.to_string())?)
+            };
+            checked_files.push((self.resolve(path)?, hash));
+        }
         if let Some((relative, hash)) = &renamed_source {
             checked_files.push((self.resolve(relative)?, hash.clone()));
-        }
-        if let Some((relative, document)) = &output {
-            checked_files.push((
-                self.resolve(relative)?,
-                files::fingerprint(
-                    &serde_json::to_vec_pretty(document).map_err(|e| e.to_string())?,
-                ),
-            ));
         }
         let check_files = || -> Result<()> {
             for (path, expected) in &checked_files {
