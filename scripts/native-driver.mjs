@@ -6,7 +6,7 @@ import path from 'node:path';
 
 export const clickToPaint = (driver, label) =>
   driver.js(
-    'new Promise((resolve,reject)=>{const label=arguments[0];const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===label||b.textContent.trim()===label||b.title===label));if(!b||b.disabled)return reject(new Error("Missing/disabled button "+label));const start=performance.now();b.click();requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(performance.now()-start)))})',
+    'new Promise((resolve,reject)=>{const label=arguments[0];const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===label||b.textContent.trim()===label||b.title===label));if(!b||b.disabled||b.closest("[inert]"))return reject(new Error("Missing/disabled button "+label));const start=performance.now();b.click();requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(performance.now()-start)))})',
     [label],
   );
 
@@ -91,7 +91,7 @@ export async function launchNative(existingProfile, fileArguments = []) {
     await until(
       () =>
         sync(
-          'const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]));if(!b||b.disabled)return false;b.click();return true',
+          'const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]));if(!b||b.disabled||b.closest("[inert]"))return false;b.click();return true',
           [label],
         ),
       `Timed out waiting for button ${label}`,
