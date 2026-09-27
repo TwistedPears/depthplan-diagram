@@ -14,8 +14,7 @@ from broader release certification (signing, physical input, supported clients).
 
 Update user/technical project documentation and reconcile the integrated failure,
 portability, recovery and compact-layout evidence. No production release or public
-repository change is part of this task. Hosted evidence remains pending until the
-final epic workflow actually passes.
+repository change is part of this task. The final hosted outcome is recorded below.
 
 ## Delivered
 
@@ -30,7 +29,7 @@ artifacts on disposable CI hosts. It checks both file registrations, distinct
 project icons, cold/warm opens, single-instance reuse, native close, unchanged
 fixtures, and the bundled MCP adapter without global Node. It retains binary and
 installer hashes, platform metadata, workspace acknowledgements and screenshots.
-This harness has not yet run on hosted CI; no installed-platform pass is claimed.
+Hosted execution and visual-review results are recorded below.
 
 ## Local evidence
 
@@ -60,8 +59,8 @@ modal layout, platform tools and sequential probes cover the scope without new
 runtime dependencies or a search/index service.
 
 Full local readiness, hosted nine-job CI and visual review of the installed
-artifacts remain final epic gates, including explicit reports for any unavailable
-platform or broader release certification checks.
+artifacts were required final epic gates. Broader release certification remains
+outside this automated-host evidence.
 
 Fresh Impeccable review initially returned `fix` for modal return focus. The empty
 project menu now focuses its summary before opening MCP Details. A rebuilt native
@@ -195,3 +194,29 @@ changes.
 Correctness review checked all native-driver consumers and the static document
 title. Ponytail review: **Lean already. Ship.** One existing WebDriver read closes
 the startup gap without sleeps, retries of failed journeys or timeout increases.
+
+## Completed feature and sample follow-up
+
+The [Test workflow at `9697dc4`](https://github.com/TwistedPears/depthplan-diagram/actions/runs/36287387845)
+passed all nine jobs: source checks, native integration and ordinary installed
+acceptance on macOS, Windows and Linux. This includes the native handle ownership
+regressions and the corrected startup sequence. All three installed reports
+identify that commit and pass all five phases. All twelve screenshots in
+`out/ci/36287387845/installed-*/` were inspected with no material regression.
+The fresh Impeccable reviewer also returned `ship` for the twelve installed
+captures from run `36285125807`; subsequent dependency and test-driver corrections
+do not change the interface. No new durable design-system decisions were needed.
+
+Only after the complete feature workflow passed, `docs/sample/sample.depthproject`
+was added with relative paths and the existing identities of all three samples.
+The existing curated-sample suite now checks manifest validity, exact membership,
+matching document identities, home board and the disabled autosave preference.
+All five sample tests passed. A native check opened a copied sample folder,
+visited all three boards, verified renderer titles and canonical source paths,
+kept one canvas, closed cleanly and compared every file byte afterward. Screenshot
+and profile evidence: `depthplan-samples-N1Dc1s`. The three maintained diagram
+hashes still match base `c78bd1c`; their data was not edited.
+
+Correctness review checked every member path and identity, folder portability,
+the home board and untouched diagram bytes. Ponytail review: **Lean already. Ship.**
+One manifest and the existing sample test suite cover the request.

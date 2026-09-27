@@ -1,0 +1,25 @@
+{
+  "projectVersion": 1,
+  "id": "depthplan-samples",
+  "name": "DepthPlan samples",
+  "description": "Explore the recursive architecture, connector workflow and application tour samples.",
+  "boards": [
+    {
+      "id": "recursive-example",
+      "name": "Recursive architecture",
+      "path": "recursive_document.depthplan"
+    },
+    {
+      "id": "workflow-example",
+      "name": "Connector workflow",
+      "path": "workflow_document.depthplan"
+    },
+    {
+      "id": "d12ff5e4-354a-456f-ad35-9f4f3f3558c6",
+      "name": "Application tour",
+      "path": "depthplan_application_tour.depthplan"
+    }
+  ],
+  "homeBoardId": "recursive-example",
+  "autosave": false
+}

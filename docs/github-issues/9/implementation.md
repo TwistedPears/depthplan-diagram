@@ -1,9 +1,9 @@
 # Projects epic implementation
 
-Implement the remaining work in epic #9 on `feature/projects-epic`. The user
+Delivered the remaining work in epic #9 on `feature/projects-epic`. The user
 authorized the entire epic, both follow-ups, per-issue simplification review and
-commits, and validation through passing CI. Preserve the three sample diagrams;
-add a connecting `docs/sample/sample.depthproject` after the feature work.
+commits, and validation through passing CI. The three sample diagrams are
+unchanged; `docs/sample/sample.depthproject` connects them after the feature work.
 
 The approved behavior is in
 [the UX specification](../../develop-feature/issue-11-project-ux/specification.md).
@@ -18,16 +18,18 @@ dependencies or second document authority are needed.
 | #16     | Autosave, conflicts, recovery                         | Local/native crash journey and finish review passed                                |
 | #17     | Recent projects, native opening, local restoration    | Native three-board restore journey and finish review passed                        |
 | #18     | Explicit MCP project/session targets                  | 505 Jest, native tests and complete bundled smoke passed                           |
-| #19     | Integrated validation and documentation               | Local/core acceptance passed; hosted installed evidence pending                    |
+| #19     | Integrated validation and documentation               | All nine hosted jobs, installed reports and visual review passed                   |
 | #20     | Project-wide search                                   | 511 editor checks, native search, 100-board timing and finish review passed        |
 | #21     | Stable board/bookmark links                           | 516 editor checks, 33 native tests, native link/back/copy and finish review passed |
-| Samples | Connect all three unchanged diagrams                  | Pending after feature implementation                                               |
+| Samples | Connect all three unchanged diagrams                  | Manifest membership and native opening passed; diagrams unchanged                  |
 
-For each issue, validate its acceptance criteria, perform a correctness pass and
-the requested ponytail-review, fix findings, and commit before starting the next.
-Final gates include `npm run check:local` and the real, explicitly dispatched
-Test workflow (all nine OS/suite jobs); private skipped checks are insufficient.
-Installed-platform checks must retain their actual evidence scope.
+Each issue received acceptance validation, a correctness pass, the requested
+ponytail-review and a separate commit before the next issue. The full local gate
+passed. The explicitly dispatched [feature Test workflow](https://github.com/TwistedPears/depthplan-diagram/actions/runs/36287387845)
+passed all nine OS/suite jobs at `9697dc4`, including ordinary installed artifacts.
+The sample manifest was added only after that result. Its focused tests and native
+three-board opening check passed. Installed evidence retains its automated-host
+scope; signing, notarization and physical input certification are outside this task.
 
 Rollback is reverting the corresponding implementation commits. Project manifests
 use version 1 alongside independent diagram version 2 files. No migration may

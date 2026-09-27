@@ -1,8 +1,14 @@
 # Sample documents
 
+Open [sample.depthproject](sample.depthproject) through **Menu → Open Project**
+to browse all three samples together. It starts on Recursive architecture;
+choose another board from the project drawer. Autosave is off so exploring does
+not automatically overwrite the examples. Copy this entire folder to keep a
+separate working version; the project uses the existing diagrams unchanged.
+
 Open these files through DepthPlan's File menu. They are small readable regression
 examples, not capacity claims or real project data. Keep generated stress files
-under the owned `out/stress-runs` directory. Only the three filenames
+under the owned `out/stress-runs` directory. Only the three diagram filenames
 below are allowed through `.gitignore`.
 
 | Sample                                                             | Declared format and purpose                                                   | Exact scenarios                                                                                                                                                                                                                                            |
@@ -72,7 +78,7 @@ geometry, child ownership, content, repair records and extensions stay intact.
 Validation:
 
 - `npm test -- --runInBand curatedSamples`: all three samples' JSON round trips,
-  current-format validation, exact visibility/selection membership, bookmarks, content,
+  project membership, current-format validation, exact visibility/selection membership, bookmarks, content,
   repairs and subtree movement. [Tests](../../src/__tests__/curatedSamples.test.ts).
 - `npm run test:native`: native disk round trips for the valid conformance corpus,
   including these three samples, conflict rejection and preservation checks.

@@ -16,6 +16,7 @@ import {
 } from '../shared/namedViews';
 import { transactDocument } from '../shared/documentTransactions';
 import { arrowheads } from '../shared/connectionGeometry';
+import { validateProjectManifest } from '../shared/projectContract';
 const samples = [
   'recursive_document',
   'workflow_document',
@@ -36,6 +37,21 @@ const edit = (
   if (result.status === 'rejected') throw new Error(result.error);
   return result.document;
 };
+it('connects all three unchanged sample documents through one portable project', async () => {
+  const manifest = JSON.parse(
+    await fs.readFile(path.resolve('docs/sample/sample.depthproject'), 'utf8'),
+  );
+  validateProjectManifest(manifest);
+  expect(manifest.boards.map((board) => board.path)).toEqual(
+    samples.map((name) => `${name}.depthplan`),
+  );
+  const documents = await Promise.all(samples.map(load));
+  expect(manifest.boards.map((board) => board.id)).toEqual(
+    documents.map((document) => document.id),
+  );
+  expect(manifest.homeBoardId).toBe(documents[0].id);
+  expect(manifest.autosave).toBe(false);
+});
 it('round-trips every maintained current-format sample without changing its data', async () => {
   for (const name of samples) {
     const document = await load(name);
