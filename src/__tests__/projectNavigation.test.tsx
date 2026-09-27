@@ -17,6 +17,7 @@ import {
   projectFilename,
   type ProjectAction,
   type ProjectSnapshot,
+  type ProjectManifest,
 } from '../shared/projectContract';
 import type RecursiveCanvas from '../renderer/components/RecursiveCanvas';
 import { recursiveFixture } from './recursiveFixtures';
@@ -63,11 +64,13 @@ const read = (id: string) => ({
   board: {
     document: clone(documents[id]),
     fingerprint: id,
-    source: {
-      id,
-      path: `/project/${project.manifest.boards.find((b) => b.id === id)!.path}`,
-      fingerprint: id,
-    },
+    source: project.location
+      ? {
+          id,
+          path: `/project/${project.manifest.boards.find((b) => b.id === id)!.path}`,
+          fingerprint: id,
+        }
+      : null,
   },
 });
 beforeEach(() => {
@@ -107,7 +110,8 @@ beforeEach(() => {
     getAppInstanceId: async () => 'app',
     events: { on: noop },
     transitions: {
-      onRequest: noop,
+      onRequest: jest.fn().mockReturnValue(() => {}),
+      keepAlive: jest.fn().mockResolvedValue(undefined),
       reply: jest.fn(),
       confirm: jest.fn().mockResolvedValue('cancel'),
     },
@@ -132,7 +136,23 @@ beforeEach(() => {
       close: jest.fn().mockResolvedValue({ status: 'success' }),
       inspect: jest.fn(async () => response()),
       reveal: jest.fn().mockResolvedValue(undefined),
-      create: jest.fn(async () => response()),
+      new: jest.fn(async () => {
+        project.location = null;
+        return response();
+      }),
+      save: jest.fn(
+        async (
+          _session: string,
+          _expected: string,
+          manifest: ProjectManifest,
+        ) => {
+          project.manifest = clone(manifest);
+          project.location = '/project/saved.depthproject';
+          for (const board of manifest.boards)
+            documents[board.id].metadata.title = board.name;
+          return response();
+        },
+      ),
       readBoard: jest.fn(async (_session: string, id: string) => read(id)),
       writeBoard: jest.fn(
         async (
@@ -403,7 +423,7 @@ test('rename saves the exact board and retains undo; duplicate copies current co
   expect(documents['created-3'].objects.api.name).toBe('Unsaved copy content');
   expect(documents['created-3'].id).not.toBe('a');
   expect(controller('a').owner.dirty).toBe(true);
-  await click('Open 設計 API, API.depthplan');
+  await click('Open 設計 API, api.depthplan');
   jest
     .mocked(window.desktop.projects.apply)
     .mockResolvedValueOnce({ status: 'error', error: 'Manifest changed' });
@@ -462,11 +482,11 @@ test('closing every board leaves an empty project with create/import actions and
   expect(screen.queryByTestId('drawing-surface')).not.toBeInTheDocument();
   expect(screen.getByText('Choose a board to begin.')).toBeVisible();
   expect(project.manifest.boards).toHaveLength(3);
-  expect(projectFilename('CON', [])).toBe('Board-CON.depthplan');
+  expect(projectFilename('CON', [])).toBe('board_con.depthplan');
   expect(
-    projectFilename('設計', ['Board.depthplan', 'board-2.depthplan']),
-  ).toBe('Board-3.depthplan');
-  expect(projectFilename('API', ['api.depthplan'])).toBe('API-2.depthplan');
+    projectFilename('設計', ['Board.depthplan', 'board_2.depthplan']),
+  ).toBe('board_3.depthplan');
+  expect(projectFilename('API', ['api.depthplan'])).toBe('api_2.depthplan');
 });
 
 test('autosaves accepted edits even in legacy manual projects and inactive boards without moving their target or undo history', async () => {
@@ -587,7 +607,7 @@ test('reloading a repathed manifest guards dirty boards and keeps unaffected ses
   ).toBeVisible();
 });
 
-test('a broken home board falls back without dropping its row, and a canceled copy creation preserves accepted work', async () => {
+test('a broken home board falls back without dropping its row, and a failed new project preserves accepted work', async () => {
   project.diagnostics = [
     {
       boardId: 'a',
@@ -609,23 +629,13 @@ test('a broken home board falls back without dropping its row, and a canceled co
   );
   const before = controller('b').owner.snapshot();
   jest
-    .mocked(window.desktop.projects.create)
+    .mocked(window.desktop.projects.new)
     .mockResolvedValueOnce({ status: 'canceled' });
   await click('Menu');
-  await click('New Project…');
-  fireEvent.change(screen.getByLabelText('Name'), {
-    target: { value: 'Copied Project' },
-  });
-  fireEvent.change(screen.getByLabelText('First board'), {
-    target: { value: 'copy' },
-  });
-  await click('Choose folder and create');
-  expect(window.desktop.projects.create).toHaveBeenCalledWith(
-    'Copied Project',
-    'Copied-Project',
-    before.document,
-  );
-  expect(controller('b').owner.snapshot()).toEqual(before);
+  await click('New Project');
+  expect(window.desktop.projects.new).toHaveBeenCalled();
+  expect(controller('b').owner.snapshot().document).toEqual(before.document);
+  expect(controller('b').owner.snapshot().canUndo).toEqual(before.canUndo);
   expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
   expect(window.desktop.projects.close).not.toHaveBeenCalled();
 });
@@ -1001,7 +1011,7 @@ test('project search rejects stale accepted revisions and changed unopened finge
   (window.desktop.projects.readBoard as jest.Mock).mockImplementation(
     async (_session, id) => {
       const value = read(id);
-      value.board.source.fingerprint = 'changed';
+      value.board.source!.fingerprint = 'changed';
       value.board.fingerprint = 'changed';
       return value;
     },
@@ -1371,4 +1381,162 @@ test('closing a project board protects unapplied drafts then saves the applied c
       .mocked(window.desktop.transitions.confirm)
       .mock.calls.every(([kind]) => kind === 'draft'),
   ).toBe(true);
+});
+
+test('New Project stays in memory; first Save names every board, survives cancellation and preserves undo', async () => {
+  await setup();
+  await click('Menu');
+  await click('New Project');
+  expect(mockWorkspace.project?.location).toBeNull();
+  expect(controller('a').owner.source).toBeNull();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  act(() =>
+    controller('a').owner.transact(editObject('api', { name: 'Memory edit' })),
+  );
+  const ownerId = controller('a').owner.sessionId;
+  drawer();
+  await click('New Board');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(registry.sessions).toHaveLength(2);
+  await act(async () => {
+    await mockWorkspace.openBoard('b');
+  });
+  act(() =>
+    controller('b').owner.transact(
+      editObject('api', { name: 'Closed memory edit' }),
+    ),
+  );
+  await action('b', 'Close board');
+  expect(documents.b.objects.api.name).toBe('Closed memory edit');
+  await searchProject('Closed memory edit');
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole('button', { name: /Object · Closed memory edit/ }),
+    );
+  });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(registry.activeKey).toBe(key('b'));
+  await action('b', 'Close board');
+  await act(async () => {
+    await mockWorkspace.openBoard('a');
+  });
+  expect(window.desktop.projects.save).not.toHaveBeenCalled();
+  await click('Save document');
+  fireEvent.change(screen.getByLabelText('Project name'), {
+    target: { value: '' },
+  });
+  await click('Choose location and save');
+  expect(window.desktop.projects.save).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Project name'), {
+    target: { value: 'My Project' },
+  });
+  fireEvent.change(screen.getByLabelText('Board 1 name'), {
+    target: { value: 'API Details' },
+  });
+  fireEvent.change(screen.getByLabelText('Board 2 name'), {
+    target: { value: 'API Details' },
+  });
+  jest
+    .mocked(window.desktop.projects.save)
+    .mockResolvedValueOnce({ status: 'canceled' });
+  await click('Choose location and save');
+  expect(screen.getByRole('dialog', { name: 'Save Project' })).toBeVisible();
+  expect(mockWorkspace.project?.location).toBeNull();
+  expect(controller('a').owner.document?.objects.api.name).toBe('Memory edit');
+  await click('Choose location and save');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(project.manifest.name).toBe('My Project');
+  expect(project.manifest.boards.slice(0, 2).map((b) => b.path)).toEqual([
+    'api_details.depthplan',
+    'api_details_2.depthplan',
+  ]);
+  expect(documents.b.objects.api.name).toBe('Closed memory edit');
+  expect(controller('a').owner.sessionId).toBe(ownerId);
+  expect(controller('a').owner.source?.path).toBe(
+    '/project/api_details.depthplan',
+  );
+  expect(controller('a').owner.dirty).toBe(false);
+  act(() => controller('a').owner.undo());
+  expect(controller('a').owner.document?.objects.api.name).not.toBe(
+    'Memory edit',
+  );
+  expect(controller('a').owner.document?.metadata.title).toBe('API Details');
+});
+
+test('closing a clean memory project requires a decision and resumes after its first save', async () => {
+  project.location = null;
+  await setup();
+  await click('Menu');
+  await click('Close Project');
+  expect(window.desktop.transitions.confirm).toHaveBeenCalledWith(
+    'document',
+    'Architecture',
+    true,
+  );
+  expect(window.desktop.projects.close).not.toHaveBeenCalled();
+  jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('save');
+  await click('Menu');
+  await click('Close Project');
+  expect(screen.getByRole('dialog', { name: 'Save Project' })).toBeVisible();
+  await click('Cancel');
+  expect(mockWorkspace.project?.location).toBeNull();
+  expect(mockWorkspace.busy).toBe(false);
+  await click('Menu');
+  await click('Close Project');
+  await click('Choose location and save');
+  await waitFor(() =>
+    expect(window.desktop.projects.close).toHaveBeenCalledWith(
+      'project-session',
+    ),
+  );
+  expect(registry.sessions[0].project).toBeUndefined();
+});
+
+test('the native close watchdog stays informed while the user names the first save', async () => {
+  project.location = null;
+  await setup();
+  jest.useFakeTimers();
+  try {
+    jest.mocked(window.desktop.transitions.confirm).mockResolvedValue('save');
+    await act(async () => {
+      jest
+        .mocked(window.desktop.transitions.onRequest)
+        .mock.calls.at(-1)![0]('native-close');
+    });
+    expect(screen.getByRole('dialog', { name: 'Save Project' })).toBeVisible();
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(window.desktop.transitions.keepAlive).toHaveBeenCalledWith(
+      'native-close',
+    );
+    await click('Cancel');
+    expect(window.desktop.transitions.reply).toHaveBeenCalledWith(
+      'native-close',
+      false,
+    );
+    jest.mocked(window.desktop.transitions.keepAlive).mockClear();
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(window.desktop.transitions.keepAlive).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('a failed board read after first-save publication retains the saved project location', async () => {
+  project.location = null;
+  await setup();
+  await click('Save document');
+  jest
+    .mocked(window.desktop.projects.readBoard)
+    .mockResolvedValueOnce({ status: 'error', error: 'Board unavailable' });
+  await click('Choose location and save');
+  expect(mockWorkspace.project?.location).toBe('/project/saved.depthproject');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Project saved, but a board could not reopen',
+  );
+  expect(controller('a').owner.document).toEqual(documents.a);
 });

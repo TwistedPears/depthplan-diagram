@@ -96,16 +96,17 @@ export default function ProjectSettings() {
         If the home board is unavailable, the first readable board opens.
       </p>
       <p className="field-hint">
-        Boards save automatically. Apply editor drafts to save them. Autosave
-        replaces the current file; it does not keep backups or version history.
+        {location
+          ? 'Boards save automatically. Apply editor drafts to save them. Autosave replaces the current file; it does not keep backups or version history.'
+          : 'Boards stay in memory until you save the project for the first time.'}
       </p>
       <label className="form-dialog-field">
         Project location
-        <input readOnly value={location} />
+        <input readOnly value={location ?? 'Not saved yet'} />
       </label>
       <button
         type="button"
-        disabled={workspace.busy}
+        disabled={workspace.busy || !location}
         onClick={() => {
           void workspace.run(() => window.desktop.projects.reveal(sessionId));
         }}

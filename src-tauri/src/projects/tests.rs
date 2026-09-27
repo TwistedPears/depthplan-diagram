@@ -11,28 +11,44 @@ fn definition_resolution_requires_the_observed_version_and_preserves_board_files
     let original = project.manifest.clone();
     let mut external = original.clone();
     external.name = "External name".into();
-    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    fs::write(
+        &project.disk().unwrap().path,
+        serde_json::to_vec(&external).unwrap(),
+    )
+    .unwrap();
     let (_, observed) = project.read_definition().unwrap();
     assert!(project
         .write_board(&id, "stale", &files::fixture(), &|| Ok(()))
         .is_err());
-    fs::write(&project.path, serde_json::to_vec_pretty(&external).unwrap()).unwrap();
+    fs::write(
+        &project.disk().unwrap().path,
+        serde_json::to_vec_pretty(&external).unwrap(),
+    )
+    .unwrap();
     assert!(project.resolve_definition(&observed, true).is_err());
     assert_eq!(project.manifest, original);
     let (_, observed) = project.read_definition().unwrap();
     project.resolve_definition(&observed, false).unwrap();
     assert_eq!(project.manifest.name, "External name");
     external.name = "Another external name".into();
-    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    fs::write(
+        &project.disk().unwrap().path,
+        serde_json::to_vec(&external).unwrap(),
+    )
+    .unwrap();
     let (_, observed) = project.read_definition().unwrap();
     project.resolve_definition(&observed, true).unwrap();
     assert_eq!(
-        read_manifest(&project.path).unwrap().0.name,
+        read_manifest(&project.disk().unwrap().path).unwrap().0.name,
         "External name"
     );
     assert_eq!(fs::read(project.board_path(&id).unwrap()).unwrap(), board);
     external.id = Uuid::new_v4().to_string();
-    fs::write(&project.path, serde_json::to_vec(&external).unwrap()).unwrap();
+    fs::write(
+        &project.disk().unwrap().path,
+        serde_json::to_vec(&external).unwrap(),
+    )
+    .unwrap();
     assert!(project.read_definition().is_err());
 }
 #[test]
@@ -61,13 +77,17 @@ fn settings_failures_preserve_policy_and_boards_and_move_with_the_folder() {
         })
         .is_err());
     assert_eq!(project.manifest, original);
-    let external = fs::read(&project.path).unwrap();
-    fs::write(&project.path, [external.as_slice(), b"\n"].concat()).unwrap();
+    let external = fs::read(&project.disk().unwrap().path).unwrap();
+    fs::write(
+        &project.disk().unwrap().path,
+        [external.as_slice(), b"\n"].concat(),
+    )
+    .unwrap();
     assert!(project
         .apply(&expected, settings(&board.id), None, &|_| Ok(()))
         .is_err());
     assert_eq!(project.manifest, original);
-    fs::write(&project.path, external).unwrap();
+    fs::write(&project.disk().unwrap().path, external).unwrap();
     project
         .apply(&expected, settings(&board.id), None, &|_| Ok(()))
         .unwrap();
@@ -132,13 +152,13 @@ fn board_saves_use_owned_project_and_reject_stale_identity_or_manifest() {
     edited["id"] = id.clone().into();
     let path = project.board_path(&id).unwrap();
     let bytes = fs::read(&path).unwrap();
-    fs::write(&project.path, "{}").unwrap();
+    fs::write(&project.disk().unwrap().path, "{}").unwrap();
     assert!(project
         .write_board(&id, &saved, &edited, &|| Ok(()))
         .is_err());
     assert_eq!(fs::read(&path).unwrap(), bytes);
     fs::write(
-        &project.path,
+        &project.disk().unwrap().path,
         serde_json::to_vec(&project.manifest).unwrap(),
     )
     .unwrap();
@@ -203,7 +223,7 @@ fn lifecycle_keeps_independent_content_identity_home_and_extensions() {
         json!({"kind":"renameBoard","boardId":imported.id,"name":"Renamed","path":"Renamed.depthplan","expected":fingerprint}),
     );
     assert_eq!(project.manifest.boards[1].id, imported.id);
-    assert!(!project.root.join(&imported.path).exists());
+    assert!(!project.disk().unwrap().root.join(&imported.path).exists());
     apply(
         &mut project,
         json!({"kind":"reorderBoards","ids":[duplicate.id,imported.id,original.id]}),
@@ -218,15 +238,22 @@ fn lifecycle_keeps_independent_content_identity_home_and_extensions() {
         json!({"kind":"removeBoard","boardId":imported.id}),
     );
     assert!(project.manifest.home_board_id.is_none());
-    assert!(project.root.join("Renamed.depthplan").exists());
+    assert!(project
+        .disk()
+        .unwrap()
+        .root
+        .join("Renamed.depthplan")
+        .exists());
     let expected = project.manifest.clone();
-    let path = project.path.clone();
+    let path = project.disk().unwrap().path.clone();
     drop(project);
     let project = Project::open(&path).unwrap();
     assert_eq!(project.manifest, expected);
     assert_eq!(project.manifest.boards[0].id, duplicate.id);
     let mut files = files::FileStore::default();
-    assert!(files.read(&project.root.join("Copy.depthplan")).is_ok());
+    assert!(files
+        .read(&project.disk().unwrap().root.join("Copy.depthplan"))
+        .is_ok());
 }
 #[test]
 fn malformed_manifests_paths_versions_bounds_and_identities() {
@@ -298,14 +325,14 @@ fn invalid_open_missing_corrupt_and_identity_mismatch_preserve_healthy_boards() 
         &mut project,
         json!({"kind":"createBoard","name":"Replaced","path":"Replaced.depthplan"}),
     );
-    fs::remove_file(project.root.join("Missing.depthplan")).unwrap();
-    fs::write(project.root.join("Broken.depthplan"), "bad").unwrap();
+    fs::remove_file(project.disk().unwrap().root.join("Missing.depthplan")).unwrap();
+    fs::write(project.disk().unwrap().root.join("Broken.depthplan"), "bad").unwrap();
     fs::write(
-        project.root.join("Replaced.depthplan"),
+        project.disk().unwrap().root.join("Replaced.depthplan"),
         serde_json::to_vec(&blank("Replacement")).unwrap(),
     )
     .unwrap();
-    let path = project.path.clone();
+    let path = project.disk().unwrap().path.clone();
     drop(project);
     let project = Project::open(&path).unwrap();
     assert_eq!(
@@ -328,8 +355,12 @@ fn invalid_open_missing_corrupt_and_identity_mismatch_preserve_healthy_boards() 
 fn collisions_conflicts_and_unavailable_destinations_preserve_prior_files() {
     let dir = tempfile::tempdir().unwrap();
     let mut project = create(dir.path());
-    let original = fs::read(&project.path).unwrap();
-    fs::write(project.root.join("OTHER.depthplan"), "unrelated").unwrap();
+    let original = fs::read(&project.disk().unwrap().path).unwrap();
+    fs::write(
+        project.disk().unwrap().root.join("OTHER.depthplan"),
+        "unrelated",
+    )
+    .unwrap();
     for path in [
         "other.depthplan",
         "Overview.depthplan",
@@ -347,9 +378,9 @@ fn collisions_conflicts_and_unavailable_destinations_preserve_prior_files() {
             )
             .is_err());
     }
-    assert_eq!(fs::read(&project.path).unwrap(), original);
+    assert_eq!(fs::read(&project.disk().unwrap().path).unwrap(), original);
     assert_eq!(
-        fs::read_to_string(project.root.join("OTHER.depthplan")).unwrap(),
+        fs::read_to_string(project.disk().unwrap().root.join("OTHER.depthplan")).unwrap(),
         "unrelated"
     );
     let stale = project.fingerprint.clone();
@@ -368,7 +399,7 @@ fn collisions_conflicts_and_unavailable_destinations_preserve_prior_files() {
         )
         .is_err());
     let external = json!({"external":"preserve"}).to_string();
-    let path = project.path.clone();
+    let path = project.disk().unwrap().path.clone();
     assert!(project
         .apply(
             &project.fingerprint.clone(),
@@ -386,7 +417,12 @@ fn collisions_conflicts_and_unavailable_destinations_preserve_prior_files() {
         )
         .is_err());
     assert_eq!(fs::read_to_string(path).unwrap(), external);
-    assert!(project.root.join("Interrupted.depthplan").exists());
+    assert!(project
+        .disk()
+        .unwrap()
+        .root
+        .join("Interrupted.depthplan")
+        .exists());
 }
 #[test]
 fn every_create_import_and_rename_boundary_is_recoverable() {
@@ -460,14 +496,14 @@ fn every_create_import_and_rename_boundary_is_recoverable() {
                     }
                 )
                 .is_err());
-            let path = project.path.clone();
+            let path = project.disk().unwrap().path.clone();
             drop(project);
             let project = Project::open(&path).unwrap();
             for board in &project.manifest.boards {
                 assert!(project.read_board(&board.id).is_ok());
             }
             assert_eq!(
-                project.root.join(&original.path).exists(),
+                project.disk().unwrap().root.join(&original.path).exists(),
                 phase != "rename-cleaned"
             );
             if phase == "board-published" || phase == "manifest-publish" {
@@ -483,15 +519,15 @@ fn every_create_import_and_rename_boundary_is_recoverable() {
 fn locks_block_second_writers_and_release_without_stale_pid_recovery() {
     let dir = tempfile::tempdir().unwrap();
     let project = create(dir.path());
-    assert!(Project::open(&project.path).is_err());
+    assert!(Project::open(&project.disk().unwrap().path).is_err());
     assert!(files::write_atomic(
-        &project.root.join("Overview.depthplan"),
+        &project.disk().unwrap().root.join("Overview.depthplan"),
         b"overwrite",
         None,
         &|| Ok(())
     )
     .is_err());
-    let path = project.path.clone();
+    let path = project.disk().unwrap().path.clone();
     drop(project);
     assert!(path.parent().unwrap().join(LOCK).exists());
     assert!(Project::open(&path).is_ok());
@@ -504,7 +540,7 @@ fn relocation_and_copy_keep_members_but_separate_local_workspace_keys() {
     let copy = dir.path().join("copy");
     fs::create_dir(&copy).unwrap();
     for name in ["project.depthproject", "Overview.depthplan", LOCK] {
-        fs::copy(project.root.join(name), copy.join(name)).unwrap();
+        fs::copy(project.disk().unwrap().root.join(name), copy.join(name)).unwrap();
     }
     let copied = Project::open(&copy.join("project.depthproject")).unwrap();
     assert_eq!(copied.manifest, project.manifest);
@@ -521,14 +557,14 @@ fn symlinks_root_replacement_readonly_and_case_only_rename_are_safe() {
     let dir = tempfile::tempdir().unwrap();
     let mut project = create(dir.path());
     let alias = dir.path().join("alias");
-    symlink(&project.root, &alias).unwrap();
+    symlink(&project.disk().unwrap().root, &alias).unwrap();
     assert!(Project::open(&alias.join("project.depthproject")).is_err());
     let outside = dir.path().join("outside");
     fs::create_dir(&outside).unwrap();
-    symlink(&outside, project.root.join("linked")).unwrap();
+    symlink(&outside, project.disk().unwrap().root.join("linked")).unwrap();
     symlink(
         outside.join("absent"),
-        project.root.join("linked.depthplan"),
+        project.disk().unwrap().root.join("linked.depthplan"),
     )
     .unwrap();
     for path in ["linked/out.depthplan", "linked.depthplan"] {
@@ -548,7 +584,11 @@ fn symlinks_root_replacement_readonly_and_case_only_rename_are_safe() {
     let board = project.manifest.boards[0].clone();
     let fingerprint = project.read_board(&board.id).unwrap()["fingerprint"].clone();
     assert!(project.apply(&project.fingerprint.clone(),serde_json::from_value(json!({"kind":"renameBoard","boardId":board.id,"name":"Overview","path":"overview.depthplan","expected":fingerprint})).unwrap(),None,&|_|Ok(())).is_err());
-    fs::set_permissions(&project.root, fs::Permissions::from_mode(0o500)).unwrap();
+    fs::set_permissions(
+        &project.disk().unwrap().root,
+        fs::Permissions::from_mode(0o500),
+    )
+    .unwrap();
     let result = project.apply(
         &project.fingerprint.clone(),
         Action::CreateBoard {
@@ -558,9 +598,13 @@ fn symlinks_root_replacement_readonly_and_case_only_rename_are_safe() {
         None,
         &|_| Ok(()),
     );
-    fs::set_permissions(&project.root, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::set_permissions(
+        &project.disk().unwrap().root,
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
     assert!(result.is_err());
-    let root = project.root.clone();
+    let root = project.disk().unwrap().root.clone();
     fs::rename(&root, dir.path().join("moved")).unwrap();
     symlink(&outside, &root).unwrap();
     assert!(project
@@ -590,7 +634,7 @@ fn killed_owner_releases_the_os_lock() {
     use std::io::BufRead;
     let dir = tempfile::tempdir().unwrap();
     let project = create(dir.path());
-    let root = project.root.clone();
+    let root = project.disk().unwrap().root.clone();
     drop(project);
     let mut child = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
@@ -620,7 +664,7 @@ fn killed_owner_releases_the_os_lock() {
 fn interrupted_nested_output_and_external_rename_edits_are_reported() {
     let dir = tempfile::tempdir().unwrap();
     let mut project = create(dir.path());
-    fs::create_dir(project.root.join("nested")).unwrap();
+    fs::create_dir(project.disk().unwrap().root.join("nested")).unwrap();
     assert!(project
         .apply(
             &project.fingerprint.clone(),
@@ -643,10 +687,10 @@ fn interrupted_nested_output_and_external_rename_edits_are_reported() {
         .any(|d| d["path"] == "nested/New.depthplan"));
     let board = project.manifest.boards[0].clone();
     let read = project.read_board(&board.id).unwrap();
-    let original_path = project.root.join(&board.path);
+    let original_path = project.disk().unwrap().root.join(&board.path);
     let mut external = read["document"].clone();
     external["metadata"]["title"] = "External edit".into();
-    let original_manifest = fs::read(&project.path).unwrap();
+    let original_manifest = fs::read(&project.disk().unwrap().path).unwrap();
     assert!(project
         .apply(
             &project.fingerprint.clone(),
@@ -665,7 +709,10 @@ fn interrupted_nested_output_and_external_rename_edits_are_reported() {
             }
         )
         .is_err());
-    assert_eq!(fs::read(&project.path).unwrap(), original_manifest);
+    assert_eq!(
+        fs::read(&project.disk().unwrap().path).unwrap(),
+        original_manifest
+    );
     assert_eq!(
         serde_json::from_slice::<Value>(&fs::read(original_path).unwrap()).unwrap(),
         external
@@ -698,11 +745,13 @@ fn read_only_boards_and_manifests_preserve_original_files() {
         .contains("read-only"));
     assert_eq!(fs::read(&path).unwrap(), before);
     fs::set_permissions(&path, permissions).unwrap();
-    let permissions = fs::metadata(&project.path).unwrap().permissions();
-    let original = fs::read(&project.path).unwrap();
+    let permissions = fs::metadata(&project.disk().unwrap().path)
+        .unwrap()
+        .permissions();
+    let original = fs::read(&project.disk().unwrap().path).unwrap();
     let mut protected = permissions.clone();
     protected.set_readonly(true);
-    fs::set_permissions(&project.path, protected).unwrap();
+    fs::set_permissions(&project.disk().unwrap().path, protected).unwrap();
     assert!(project
         .apply(
             &project.fingerprint.clone(),
@@ -715,9 +764,14 @@ fn read_only_boards_and_manifests_preserve_original_files() {
         )
         .unwrap_err()
         .contains("read-only"));
-    assert!(!project.root.join("Blocked.depthplan").exists());
-    assert_eq!(fs::read(&project.path).unwrap(), original);
-    fs::set_permissions(&project.path, permissions).unwrap();
+    assert!(!project
+        .disk()
+        .unwrap()
+        .root
+        .join("Blocked.depthplan")
+        .exists());
+    assert_eq!(fs::read(&project.disk().unwrap().path).unwrap(), original);
+    fs::set_permissions(&project.disk().unwrap().path, permissions).unwrap();
     // The same guard protects standalone atomic writes, including a flag changed mid-write.
     let standalone = dir.path().join("standalone.depthplan");
     fs::write(&standalone, &before).unwrap();
@@ -802,4 +856,140 @@ fn internal_references_survive_duplicate_import_rename_and_relocation_without_re
         project.read_board(&board_id).unwrap()["document"]["objects"][&object_id]["projectLink"],
         link
     );
+}
+
+#[test]
+fn memory_project_retains_boards_until_first_save_and_then_reopens() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = Project::new();
+    let first = project.manifest.boards[0].id.clone();
+    assert!(project.snapshot("session")["location"].is_null());
+    assert!(project.board_path(&first).is_err());
+    let mut document = project.read_board(&first).unwrap()["document"].clone();
+    document["metadata"]["title"] = "Accepted edit".into();
+    project
+        .write_board(&first, "", &document, &|| Ok(()))
+        .unwrap();
+    project
+        .apply(
+            &project.fingerprint.clone(),
+            Action::DuplicateBoard {
+                board_id: first.clone(),
+                name: "API Details".into(),
+                path: "api_details.depthplan".into(),
+                document: None,
+            },
+            None,
+            &|_| Ok(()),
+        )
+        .unwrap();
+    let second = project.manifest.boards[1].id.clone();
+    assert_ne!(first, second);
+    assert_eq!(project.read_board(&first).unwrap()["document"], document);
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+    let mut candidate = project.manifest.clone();
+    candidate.name = "My Project".into();
+    candidate.boards[0].name = "API Details".into();
+    candidate.boards[0].path = "api_details_2.depthplan".into();
+    let path = dir.path().join("my_project.depthproject");
+    let mut invalid = candidate.clone();
+    invalid.boards.pop();
+    assert!(project
+        .save(&path, &project.fingerprint.clone(), invalid, &|_| Ok(()))
+        .is_err());
+    project
+        .save(
+            &path,
+            &project.fingerprint.clone(),
+            candidate.clone(),
+            &|_| Ok(()),
+        )
+        .unwrap();
+    assert!(!project.is_draft());
+    assert!(project.documents.is_empty());
+    assert_eq!(read_manifest(&path).unwrap().0, candidate);
+    let board = project.read_board(&first).unwrap();
+    assert_eq!(board["document"]["metadata"]["title"], "API Details");
+    let mut edited = board["document"].clone();
+    edited["metadata"]["title"] = "After first save".into();
+    project
+        .write_board(
+            &first,
+            board["fingerprint"].as_str().unwrap(),
+            &edited,
+            &|| Ok(()),
+        )
+        .unwrap();
+    drop(project);
+    let reopened = Project::open(&path).unwrap();
+    assert_eq!(reopened.manifest, candidate);
+    assert_eq!(
+        reopened.read_board(&first).unwrap()["document"]["metadata"]["title"],
+        "After first save"
+    );
+    assert_eq!(
+        reopened.read_board(&second).unwrap()["document"]["id"],
+        second
+    );
+}
+
+#[test]
+fn first_save_errors_keep_memory_and_never_replace_existing_files() {
+    for phase in [
+        "board-publish",
+        "board-published",
+        "manifest-publish",
+        "manifest-published",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut project = Project::new();
+        let before = project.snapshot("session");
+        let document = project.read_board(&project.manifest.boards[0].id).unwrap();
+        let path = dir.path().join("project.depthproject");
+        assert!(project
+            .save(
+                &path,
+                &project.fingerprint.clone(),
+                project.manifest.clone(),
+                &|step| {
+                    if step == phase {
+                        Err("Injected storage failure".into())
+                    } else {
+                        Ok(())
+                    }
+                }
+            )
+            .is_err());
+        assert_eq!(project.snapshot("session"), before);
+        assert_eq!(
+            project.read_board(&project.manifest.boards[0].id).unwrap(),
+            document
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut project = Project::new();
+    let path = dir.path().join("project.depthproject");
+    let occupied = dir.path().join("UNTITLED_BOARD.depthplan");
+    fs::write(&occupied, b"unrelated content").unwrap();
+    assert!(project
+        .save(
+            &path,
+            &project.fingerprint.clone(),
+            project.manifest.clone(),
+            &|_| Ok(())
+        )
+        .is_err());
+    assert_eq!(fs::read(&occupied).unwrap(), b"unrelated content");
+    assert!(!path.exists());
+    assert!(project.is_draft());
+    fs::write(&path, b"another project").unwrap();
+    assert!(project
+        .save(
+            &path,
+            &project.fingerprint.clone(),
+            project.manifest.clone(),
+            &|_| Ok(())
+        )
+        .is_err());
+    assert_eq!(fs::read(&path).unwrap(), b"another project");
 }

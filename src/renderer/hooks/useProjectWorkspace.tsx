@@ -20,22 +20,19 @@ import type { FileCandidate, FileResult } from '../../shared/fileContract';
 import {
   projectFilename,
   type ProjectAction,
+  type ProjectManifest,
   type ProjectSnapshot,
 } from '../../shared/projectContract';
 import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
+  | { kind: 'saveProject' }
   | { kind: 'search' }
   | { kind: 'recents' }
   | { kind: 'settings' }
   | { kind: 'saveIssue'; boardId: string }
   | {
-      kind:
-        | 'create'
-        | 'createBoard'
-        | 'renameBoard'
-        | 'duplicateBoard'
-        | 'removeBoard';
+      kind: 'createBoard' | 'renameBoard' | 'duplicateBoard' | 'removeBoard';
       boardId?: string;
     };
 function success<T>(result: FileResult<T>): T | null {
@@ -60,7 +57,7 @@ function useProject() {
   const writes = useRef(Promise.resolve());
   const remember = async (activeKey = registry.snapshot().activeKey) => {
     const current = live.current;
-    if (!current) return;
+    if (!current?.location) return;
     const tabs = registry.snapshot().sessions.flatMap((session) => {
       const owner = registry.controllers.get(session.key)?.owner;
       return session.project && owner
@@ -176,6 +173,7 @@ function useProject() {
                 status: 'success' as const,
                 document: result.board.document,
                 source: result.board.source,
+                fingerprint: result.board.fingerprint,
               }
             : { status: 'canceled' as const };
         } catch (error) {
@@ -360,11 +358,80 @@ function useProject() {
     }
     await openHome(next);
   };
+  const saveDecision = useRef<((saved: boolean) => void) | null>(null);
+  const requestSave = () => {
+    if (saveDecision.current) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      saveDecision.current = resolve;
+      setError('');
+      setDialog({ kind: 'saveProject' });
+    });
+  };
+  const finishSave = (saved: boolean) => {
+    setDialog(null);
+    saveDecision.current?.(saved);
+    saveDecision.current = null;
+  };
+  const guardProject = async () => {
+    const current = live.current;
+    if (!current || current.location) return true;
+    const choice = await window.desktop.transitions.confirm(
+      'document',
+      current.manifest.name,
+      true,
+    );
+    if (choice === 'save') return requestSave();
+    return choice === 'discard';
+  };
+  const saveProject = async (manifest: ProjectManifest) => {
+    const current = live.current!;
+    const active = registry.snapshot().activeKey;
+    setError('');
+    try {
+      if (!(await registry.prepare())) return false;
+      const saved = success(
+        await window.desktop.projects.save(
+          current.sessionId,
+          current.fingerprint,
+          manifest,
+        ),
+      );
+      if (!saved) return false;
+      update(saved.project);
+      // Keep the owners, histories and navigation handles; only their sources change.
+      for (const board of saved.project.manifest.boards) {
+        const controller = registry.controllers.get(key(board.id));
+        if (!controller) continue;
+        const read = success(
+          await window.desktop.projects.readBoard(current.sessionId, board.id),
+        );
+        if (!read) throw new Error('Could not read the saved board');
+        controller.owner.relocate(board.name, read.board.source);
+      }
+      finishSave(true);
+      return true;
+    } catch (e) {
+      if (live.current?.location) {
+        finishSave(false);
+        setError(
+          `Project saved, but a board could not reopen: ${String(e)}. Close and reopen the affected board before editing.`,
+        );
+      } else setError(String(e));
+      return false;
+    } finally {
+      registry.release();
+      registry.activate(active);
+    }
+  };
+  const saveAll = () =>
+    live.current && !live.current.location
+      ? requestSave()
+      : run(() => registry.saveAll());
   const acceptProject = async (candidate: ProjectSnapshot) => {
     if (candidate.sessionId === live.current?.sessionId) return true;
     let installed = false;
     try {
-      if (!(await registry.prepare())) return false;
+      if (!(await guardProject()) || !(await registry.prepare())) return false;
       await install(candidate);
       installed = true;
     } finally {
@@ -376,24 +443,15 @@ function useProject() {
       const candidate = success(await read());
       return candidate ? acceptProject(candidate.project) : false;
     });
-  const createProject = (name: string, folder: string, copy: boolean) =>
+  const createProject = () =>
     run(async () => {
-      const active = registry.activeKey;
-      if (!(await registry.prepare(undefined, copy ? active : undefined)))
-        return false;
-      const document = copy
-        ? (registry.controllers.get(active)?.owner.snapshot().document ??
-          undefined)
-        : undefined;
-      const created = success(
-        await window.desktop.projects.create(name, folder, document),
-      );
+      if (!(await guardProject()) || !(await registry.prepare())) return false;
+      const created = success(await window.desktop.projects.new());
       if (!created) return false;
       await install(created.project);
-      setDialog(null);
     });
   const acceptStandalone = async (candidate: FileCandidate | null) => {
-    if (!(await registry.prepare())) return false;
+    if (!(await guardProject()) || !(await registry.prepare())) return false;
     await registry.retire();
     if (live.current)
       success(await window.desktop.projects.close(live.current.sessionId));
@@ -439,7 +497,7 @@ function useProject() {
   const manage = (
     kind: Exclude<
       ProjectDialog['kind'],
-      'settings' | 'saveIssue' | 'recents' | 'search'
+      'settings' | 'saveIssue' | 'recents' | 'search' | 'saveProject'
     >,
     name = '',
     path = '',
@@ -503,6 +561,22 @@ function useProject() {
         await openBoard(next.manifest.boards.at(-1)!.id);
       setDialog(null);
     });
+  const newBoard = () => {
+    if (live.current?.location) setDialog({ kind: 'createBoard' });
+    else {
+      const names = new Set(live.current?.manifest.boards.map((b) => b.name));
+      let name = 'Untitled Board';
+      for (let n = 2; names.has(name); n++) name = `Untitled Board ${n}`;
+      void manage(
+        'createBoard',
+        name,
+        projectFilename(
+          name,
+          live.current?.manifest.boards.map((b) => b.path) ?? [],
+        ),
+      );
+    }
+  };
   const resolveDefinition = (overwrite: boolean) =>
     run(async () => {
       const current = live.current!;
@@ -569,7 +643,7 @@ function useProject() {
     if (!window.desktop.projects) return;
     const stops = [
       window.desktop.events.on('menu:new-project', () => {
-        if (!locked.current && !dialog) setDialog({ kind: 'create' });
+        if (!dialog) void createProject();
       }),
       window.desktop.events.on('menu:open-project', () => {
         if (!dialog) void openProject();
@@ -583,7 +657,7 @@ function useProject() {
           setDialog({ kind: 'settings' });
       }),
       window.desktop.events.on('menu:save-all', () => {
-        if (live.current && !dialog) void run(() => registry.saveAll());
+        if (live.current && !dialog) void saveAll();
       }),
       window.desktop.events.on('menu:close-tab', () => {
         if (live.current && registry.activeKey && !dialog)
@@ -591,11 +665,13 @@ function useProject() {
       }),
     ];
     if (!registry.activeKey && project) {
-      stops.push(
-        window.desktop.events.on('menu:new', () =>
-          setDialog({ kind: 'createBoard' }),
-        ),
-      );
+      for (const event of ['menu:save', 'menu:save-as'] as const)
+        stops.push(
+          window.desktop.events.on(event, () => {
+            if (!dialog) void saveAll();
+          }),
+        );
+      stops.push(window.desktop.events.on('menu:new', () => newBoard()));
       stops.push(
         window.desktop.events.on('menu:open', () => {
           void standalone(() => window.desktop.fileSystem.openDocument());
@@ -635,6 +711,11 @@ function useProject() {
     openProject,
     openRequest,
     createProject,
+    newBoard,
+    saveAll,
+    saveProject,
+    finishSave,
+    guardProject,
     standalone,
     manage,
     importBoards,

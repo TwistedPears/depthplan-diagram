@@ -13,11 +13,7 @@ import {
   validateRecursiveDocument,
   type RecursiveDocument,
 } from '../../shared/recursiveDocument';
-import type {
-  FileCandidate,
-  FileResult,
-  SourceFile,
-} from '../../shared/fileContract';
+import type { FileResult, SourceFile } from '../../shared/fileContract';
 import type useDocumentState from './useDocumentState';
 import type useDocumentFiles from './useDocumentFiles';
 import type useDocumentTransitions from './useDocumentTransitions';
@@ -28,6 +24,7 @@ export type BoardSession = {
   key: string;
   document: RecursiveDocument;
   source: SourceFile | null;
+  fingerprint?: string;
   project?: { sessionId: string; boardId: string };
 };
 export type SessionController = {
@@ -113,7 +110,9 @@ function useRegistry() {
   };
   const open = (
     key: string,
-    read: () => Promise<FileResult<FileCandidate>>,
+    read: () => Promise<
+      FileResult<Pick<BoardSession, 'document' | 'source' | 'fingerprint'>>
+    >,
     project?: BoardSession['project'],
   ) => {
     if (current.current.sessions.some((session) => session.key === key))
@@ -130,6 +129,7 @@ function useRegistry() {
       if (closing.current) return null;
       const duplicate = current.current.sessions.find(
         (session) =>
+          candidate.source !== null &&
           controllers.current.get(session.key)?.owner.snapshot().source
             ?.path === candidate.source.path,
       );
@@ -141,6 +141,7 @@ function useRegistry() {
             key,
             document: candidate.document,
             source: candidate.source,
+            fingerprint: candidate.fingerprint,
             project,
           },
         ];

@@ -7,10 +7,21 @@ Existing `.depthplan.json` diagrams remain supported.
 
 ## Start and navigate
 
-Use **Menu → New Project…** to choose a name, portable folder name and parent
-folder. Start with a blank board or copy the current accepted diagram. Applying or
-discarding an editor draft is separate from saving accepted work. Canceling any
-required guard keeps the current workspace.
+Use **Menu → New Project** to start immediately with an **Untitled Project** and
+**Untitled Board** in memory. New boards also start in memory without a naming
+prompt. No project folder or board file is created yet.
+
+The first **Save**, **Save As** or **Save All** asks for the project name and every
+board's name. Choose the `.depthproject` file in the native save dialog; all boards,
+including closed boards, are saved beside it. Board filenames use snake_case
+(`API Details` becomes `api_details.depthplan`); repeated names receive `_2`, `_3`
+and so on. Existing files are never overwritten by the first save. Canceling or
+failing the save keeps the project in memory. Successful saving preserves open
+boards' undo histories and enables automatic saving.
+
+Closing or replacing an unsaved project asks **Save / Discard / Cancel**, even
+if its boards have no edits. Applying or discarding an editor draft is separate
+from saving accepted work. Canceling any required guard keeps the workspace.
 
 **Open Project…**, **Recent Projects…** and native file-open events use the same
 lifecycle guards. Opening the same canonical project focuses the existing
@@ -25,7 +36,7 @@ Enter/Space activates a focused control. Switch boards without losing accepted
 edits, local undo, selections, cameras or suspended drafts. Only the active canvas is mounted.
 
 Right-click a board and choose **Close board** to close its editing session while
-keeping its file and project membership. Reopening that board creates
+keeping its contents in memory or its saved file, and its project membership. Reopening that board creates
 a new editing session and a new undo history. Undo is local to a live board and is
 not stored in the project or restored after closing/restarting.
 
@@ -45,7 +56,8 @@ focused board. Ordering updates automatically when a board is added or renamed.
   board's pending work. Unsafe names, collisions and unsupported case-only renames
   are rejected without silently overwriting another file.
 - **Remove from Project** removes membership after resolving the open board. Its
-  file remains on disk. Removing the home board clears the home setting.
+  saved file remains on disk; an unsaved board is discarded. Removing the home
+  board clears the home setting.
 
 An unlisted board is retained and reported for explicit import; it is never
 silently adopted or deleted. Interrupted create/import/rename work can leave

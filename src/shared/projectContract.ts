@@ -91,7 +91,7 @@ export type ProjectAction =
     };
 export interface ProjectSnapshot {
   sessionId: string;
-  location: string;
+  location: string | null;
   workspaceKey: string;
   fingerprint: string;
   manifest: ProjectManifest;
@@ -100,7 +100,7 @@ export interface ProjectSnapshot {
 export interface ProjectBoard {
   document: RecursiveDocument;
   fingerprint: string;
-  source: SourceFile;
+  source: SourceFile | null;
 }
 export type ProjectView = {
   tabs: { boardId: string; camera: { x: number; y: number; scale: number } }[];
@@ -125,14 +125,17 @@ export function projectFilename(
   let stem =
     name
       .normalize('NFKD')
-      .replace(/[^A-Za-z0-9_-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80) || 'Board';
+      .replace(/\p{M}/gu, '')
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+      .slice(0, 80) || 'board';
   if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem))
-    stem = `Board-${stem}`;
+    stem = `board_${stem}`;
   const paths = new Set(occupied.map((path) => path.toLowerCase()));
   let candidate = `${stem}${extension}`;
   for (let n = 2; paths.has(candidate.toLowerCase()); n++)
-    candidate = `${stem}-${n}${extension}`;
+    candidate = `${stem}_${n}${extension}`;
   return candidate;
 }

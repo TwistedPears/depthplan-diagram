@@ -82,7 +82,7 @@ type State = {
   dirty: boolean;
 };
 type Action =
-  | { type: 'relocate'; title: string; source: SourceFile }
+  | { type: 'relocate'; title: string; source: SourceFile | null }
   | { type: 'edit'; edit: DocumentEdit; now: string; camera?: Camera }
   | { type: 'camera'; update: SetStateAction<Camera> }
   | { type: 'canvas'; update: SetStateAction<CanvasState> }
@@ -484,7 +484,7 @@ export default function useDocumentState(
   );
   useEffect(() => () => editorCommand.dispose(), [editorCommand]);
   return {
-    relocate: (title: string, source: SourceFile) =>
+    relocate: (title: string, source: SourceFile | null) =>
       dispatch({ type: 'relocate', title, source }),
     ...state,
     snapshot,

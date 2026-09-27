@@ -84,17 +84,25 @@ function SessionWorkspace() {
   useEffect(() =>
     window.desktop.transitions.onRequest((id) => {
       void (async () => {
+        // Naming a first save can outlast the native close watchdog.
+        const heartbeat = setInterval(() => {
+          void window.desktop.transitions.keepAlive(id).catch(() => {});
+        }, 10000);
         try {
           if (projectWorkspace.busy || projectWorkspace.dialog) {
             await window.desktop.transitions.reply(id, false);
             return;
           }
           await projectWorkspace.remember();
-          const approved = await registry.closeAll();
+          const approved =
+            (await projectWorkspace.guardProject()) &&
+            (await registry.closeAll());
           await window.desktop.transitions.reply(id, approved);
         } catch {
           registry.release();
           await window.desktop.transitions.reply(id, false);
+        } finally {
+          clearInterval(heartbeat);
         }
       })();
     }),
@@ -137,7 +145,10 @@ function BoardWorkspace({
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
   });
-  const recovery = useRecovery(owner, session.project);
+  const recovery = useRecovery(
+    owner,
+    projectWorkspace.project?.location ? session.project : undefined,
+  );
   const hasDrafts = useHasDrafts();
   const { report } = registry;
   const {
@@ -198,7 +209,11 @@ function BoardWorkspace({
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
   const files = useDocumentFiles(owner, showStatus, recovery, session.project);
-  useProjectAutosave(owner, files, !!session.project);
+  useProjectAutosave(
+    owner,
+    files,
+    !!session.project && !!projectWorkspace.project?.location,
+  );
   const { scheduleRemember } = projectWorkspace;
   useEffect(() => {
     if (session.project) scheduleRemember();
@@ -215,15 +230,17 @@ function BoardWorkspace({
       ? files.failure.conflict
         ? 'Conflict'
         : 'Save failed'
-      : files.loading
-        ? 'Saving'
-        : dirty
-          ? session.project
-            ? 'Saving'
-            : 'Unsaved changes'
-          : hasDrafts
-            ? ''
-            : 'Saved',
+      : session.project && !projectWorkspace.project?.location
+        ? 'In memory'
+        : files.loading
+          ? 'Saving'
+          : dirty
+            ? session.project
+              ? 'Saving'
+              : 'Unsaved changes'
+            : hasDrafts
+              ? ''
+              : 'Saved',
     hasDrafts ? 'Draft not saved' : '',
   ]
     .filter(Boolean)
@@ -267,8 +284,7 @@ function BoardWorkspace({
     !!mcpWorkflows.activeOperation;
   const handleNewDocument = () => {
     if (!isLoading) {
-      if (projectWorkspace.project)
-        projectWorkspace.setDialog({ kind: 'createBoard' });
+      if (projectWorkspace.project) projectWorkspace.newBoard();
       else return transitions.request('new');
     }
   };
@@ -285,6 +301,8 @@ function BoardWorkspace({
   };
   const handleSave = async (saveAs = false) => {
     if (!isLoading) {
+      if (projectWorkspace.project && !projectWorkspace.project.location)
+        return projectWorkspace.saveAll();
       const captured = owner.snapshot().sessionId;
       await files.wait();
       if (owner.snapshot().sessionId === captured) return files.save(saveAs);

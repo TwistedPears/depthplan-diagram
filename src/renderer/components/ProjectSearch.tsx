@@ -150,7 +150,11 @@ export default function ProjectSearch() {
               ? snapshot.sessionId === group.version.sessionId &&
                 snapshot.revision === group.version.revision
               : !snapshot.dirty &&
-                snapshot.source?.fingerprint === group.version.fingerprint)
+                (snapshot.source?.fingerprint ??
+                  registry
+                    .snapshot()
+                    .sessions.find((session) => session.key === key)
+                    ?.fingerprint) === group.version.fingerprint)
           );
         };
         if (registry.controllers.has(key) && !matches())

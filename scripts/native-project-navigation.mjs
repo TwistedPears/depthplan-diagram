@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 // The real project UI and native storage, using only disposable files/dialog choices.
 export async function projectNavigation(driver) {
   const { click, sync, until, dialogs, profile, request, session } = driver;
-  const fillName = (value) =>
+  const fillName = (value, index = 0) =>
     sync(
-      `const input=document.querySelector('dialog[open] input');
+      `const input=document.querySelectorAll('dialog[open] input')[arguments[1]];
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[0]);
     input.dispatchEvent(new Event('input',{bubbles:true})); return true`,
-      [value],
+      [value, index],
     );
   const dialogGone = () =>
     until(
@@ -49,23 +49,81 @@ export async function projectNavigation(driver) {
     await driver.boardAction(board.id, action);
   };
   await click('Menu');
-  await click('New Project…');
-  await fillName('Navigation Project');
-  // The generated folder is previewed and does not overwrite an existing folder.
-  await dialogs('folder', profile);
-  await click('Choose folder and create');
-  await dialogGone();
-  // Case-preserving generated folder name is the visible preview.
-  const actualPath = path.join(
-    profile,
-    'Navigation-Project',
-    'project.depthproject',
+  await click('New Project');
+  await until(() =>
+    sync(
+      'return !!document.querySelector("[data-board-session][data-active=true]")',
+    ),
   );
+  assert.equal(
+    await sync('return !!document.querySelector("dialog[open]")'),
+    false,
+  );
+  const initialFiles = await readdir(profile);
+  const firstId = await sync(
+    'return document.querySelector("[data-board-session][data-active=true]").id.slice(6)',
+  );
+  await sync(`const input=document.querySelector('[aria-label="New bookmark name"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Memory bookmark');
+    input.dispatchEvent(new Event('input',{bubbles:true}));`);
+  await click('Add bookmark');
+  await drawer();
+  await click('New Board');
+  await until(() =>
+    sync('return document.querySelectorAll("[data-board-session]").length===2'),
+  );
+  await driver.boardAction(firstId, 'Close board');
+  await until(() =>
+    sync('return document.querySelectorAll("[data-board-session]").length===1'),
+  );
+  assert.deepEqual(
+    (await readdir(profile)).filter(
+      (name) => !name.startsWith('project-first-save-'),
+    ),
+    initialFiles,
+  );
+  await click('Save document');
+  await fillName('Navigation Project');
+  await fillName('Overview', 1);
+  await fillName('Overview', 2);
+  await capture('project-first-save');
+  await dialogs('project-save', null);
+  await click('Choose location and save');
+  await until(() =>
+    sync(
+      'return [...document.querySelectorAll("dialog button")].some(b=>b.textContent==="Choose location and save" && !b.disabled)',
+    ),
+  );
+  assert.deepEqual(
+    (await readdir(profile)).filter(
+      (name) => !name.startsWith('project-first-save-'),
+    ),
+    initialFiles,
+  );
+  const actualPath = path.join(profile, 'navigation_project.depthproject');
+  await dialogs('project-save', actualPath);
+  await click('Choose location and save');
+  await dialogGone();
   const project = JSON.parse(await readFile(actualPath, 'utf8'));
-  assert.equal(project.boards.length, 1);
+  assert.deepEqual(
+    project.boards.map((b) => b.path),
+    ['overview.depthplan', 'overview_2.depthplan'],
+  );
+  assert.equal(project.boards[0].id, firstId);
   const root = path.dirname(actualPath);
-  // Read using the actual generated destination in the rest of the journey.
+  const memoryBoard = JSON.parse(
+    await readFile(path.join(root, project.boards[0].path), 'utf8'),
+  );
+  assert.ok(
+    Object.values(memoryBoard.namedViews).some(
+      (view) => view.name === 'Memory bookmark',
+    ),
+  );
   const current = async () => JSON.parse(await readFile(actualPath, 'utf8'));
+  await driver.boardAction(project.boards[1].id, 'Remove from Project…');
+  await click('Remove board');
+  await dialogGone();
+  await click('Open Overview, overview.depthplan');
   const a = path.join(profile, 'navigation-source.depthplan');
   const b = path.join(profile, 'navigation-legacy.depthplan.json');
   const original = await readFile('docs/sample/recursive_document.depthplan');
@@ -116,7 +174,7 @@ export async function projectNavigation(driver) {
   await dialogGone();
   assert.ok(!(await current()).boards.some((board) => board.id === newId));
   assert.equal(
-    JSON.parse(await readFile(path.join(root, 'API-Details.depthplan'), 'utf8'))
+    JSON.parse(await readFile(path.join(root, 'api_details.depthplan'), 'utf8'))
       .id,
     newId,
   );
@@ -195,7 +253,10 @@ export async function projectNavigation(driver) {
   await dialogs('project-open', actualPath);
   await click('Open Project…');
   await until(() =>
-    sync('return !!document.querySelector("[data-board-session]")'),
+    sync(
+      'return document.querySelector("[data-board-session][data-active=true]")?.id === arguments[0]',
+      [`board-${duplicate.id}`],
+    ),
   );
   assert.deepEqual(await current(), persisted);
   assert.equal(

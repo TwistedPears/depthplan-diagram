@@ -6,7 +6,10 @@ import {
 } from '../shared/recursiveDocument';
 import type { RecursiveDocument } from '../shared/recursiveDocument';
 import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
-import { validateProjectManifest } from '../shared/projectContract';
+import {
+  validateProjectManifest,
+  projectFilename,
+} from '../shared/projectContract';
 import type {
   ProjectAction,
   ProjectBoard,
@@ -96,6 +99,15 @@ async function projectCall(
 
 const desktopHandler = {
   projects: {
+    new: () => projectCall('project:new'),
+    save: (sessionId: string, expected: string, manifest: ProjectManifest) =>
+      projectCall(
+        'project:save',
+        sessionId,
+        expected,
+        manifest,
+        projectFilename(manifest.name, [], '.depthproject'),
+      ),
     recents: () =>
       native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
     forget: (key: string) =>
@@ -113,8 +125,6 @@ const desktopHandler = {
         sessionId,
         view,
       ),
-    create: (name: string, folder: string, document?: RecursiveDocument) =>
-      projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
     reveal: (sessionId: string) => native('project:reveal', sessionId),
     importBoards: async (
@@ -163,7 +173,7 @@ const desktopHandler = {
       document: RecursiveDocument,
       overwrite = false,
       lease?: FileLease,
-    ): Promise<FileResult<{ source: SourceFile }>> =>
+    ): Promise<FileResult<{ source: SourceFile | null }>> =>
       native(
         'project:write-board',
         sessionId,
@@ -336,6 +346,8 @@ const desktopHandler = {
     },
   },
   transitions: {
+    keepAlive: (id: string): Promise<void> =>
+      native('transition:keep-alive', id),
     confirm: (
       kind: 'draft' | 'document',
       label: string,
