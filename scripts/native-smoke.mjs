@@ -488,14 +488,14 @@ try {
       'return !!document.querySelector(`dialog[aria-label="Recover unsaved work"][open] section`)',
     ),
   );
-  await resumed.click('Restore');
-  await resumed.until(() =>
-    resumed.sync(
-      'return !document.querySelector(`dialog[aria-label="Recover unsaved work"][open]`)',
-    ),
-  );
+  // The restarted test WebView can reset settings. Configure manual saving
+  // before restoring, so Autosave cannot open an unanswered native dialog.
+  await resumed.click('Continue without restoring');
   await resumed.click('Menu');
   await resumed.click('Settings');
+  await resumed.sync(
+    `const autosave=document.querySelector('[aria-label="Autosave"]'); if(autosave.getAttribute('aria-checked')==='true') autosave.click();`,
+  );
   await resumed.sync(
     'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
   );
@@ -503,6 +503,13 @@ try {
     async () => (await resumed.native('automation:status')).enabled,
   );
   await resumed.click('Menu');
+  await resumed.click('Recovery (1)');
+  await resumed.click('Restore');
+  await resumed.until(() =>
+    resumed.sync(
+      'return !document.querySelector(`dialog[aria-label="Recover unsaved work"][open]`)',
+    ),
+  );
   const resumedDescriptor = (await resumed.native('automation:status'))
     .descriptor;
   probe = client(resumed.adapter, resumedDescriptor);

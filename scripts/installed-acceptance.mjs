@@ -360,7 +360,7 @@ try {
     () => acknowledged('First'),
     'Renderer did not acknowledge cold project association',
   );
-  await capture('cold-project', 'First installed project');
+  await capture('cold-project', 'First installed board');
   report.phases.push('Cold .depthproject association accepted by renderer');
   assert.equal(
     await launch(fixtures[4]),
@@ -371,7 +371,7 @@ try {
     () => acknowledged('Second'),
     'Renderer did not acknowledge warm project association',
   );
-  await capture('warm-project', 'Second installed project');
+  await capture('warm-project', 'Second installed board');
   report.phases.push(
     'Warm .depthproject association accepted by the same process',
   );

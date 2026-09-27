@@ -16,9 +16,13 @@ export async function projectNavigation(driver) {
       await click('Toggle project boards');
   };
   const edit = async (selector, value, key = 'Enter') => {
-    await sync(
-      '[...document.querySelectorAll(arguments[0])].find(n=>n.getClientRects().length).dispatchEvent(new MouseEvent("dblclick",{bubbles:true}));',
-      [selector],
+    await until(
+      () =>
+        sync(
+          'const button=[...document.querySelectorAll(arguments[0])].find(n=>n.getClientRects().length); if(!button || button.disabled)return false; button.dispatchEvent(new MouseEvent("dblclick",{bubbles:true})); return true;',
+          [selector],
+        ),
+      `Inline edit is not available: ${selector}`,
     );
     await until(() =>
       sync('return !!document.querySelector("[data-inline-edit]")'),
