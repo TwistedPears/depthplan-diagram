@@ -66,19 +66,26 @@ run(
   ],
   nativeOptions,
 );
-if (process.platform === 'win32') {
-  run(
-    'cargo',
-    [
-      'run',
-      '--manifest-path',
-      'src-tauri/Cargo.toml',
-      '--locked',
-      '--example',
-      'runtime_handle_stress',
-    ],
-    nativeOptions,
-  );
+if (['win32', 'linux'].includes(process.platform)) {
+  const args = [
+    'run',
+    '--manifest-path',
+    'src-tauri/Cargo.toml',
+    '--locked',
+    '--example',
+    'runtime_handle_stress',
+  ];
+  if (
+    process.platform === 'linux' &&
+    !process.env.DISPLAY &&
+    !process.env.WAYLAND_DISPLAY
+  )
+    run(
+      'xvfb-run',
+      ['--auto-servernum', 'dbus-run-session', '--', 'cargo', ...args],
+      nativeOptions,
+    );
+  else run('cargo', args, nativeOptions);
 }
 
 // Use the automation build from this run, including a custom Cargo target dir.

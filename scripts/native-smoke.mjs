@@ -1,3 +1,7 @@
+import { projectAcceptance } from './native-project-acceptance.mjs';
+import { projectSearch } from './native-project-search.mjs';
+import { projectLinks } from './native-project-links.mjs';
+import { projectMcp } from './native-project-mcp.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,6 +16,9 @@ import { connectors } from './native-connectors.mjs';
 import { rotation } from './native-rotation.mjs';
 import { childContent } from './native-child-content.mjs';
 import { projects } from './native-projects.mjs';
+import { projectNavigation } from './native-project-navigation.mjs';
+import { projectPersistence } from './native-project-persistence.mjs';
+import { projectWorkspace } from './native-project-workspace.mjs';
 const {
   adapter,
   profile,
@@ -41,9 +48,7 @@ try {
     assert.equal(JSON.stringify(result), JSON.stringify(ordered));
   }
   await until(() =>
-    sync(
-      'return document.body.textContent.includes("recursive_document.depthplan")',
-    ),
+    sync('return document.body.textContent.includes("Recursive architecture")'),
   );
   const instance = await native('app:instance-id');
   await projects({ native, dialogs, profile });
@@ -129,22 +134,6 @@ try {
     (await native('file:open-request', migratedPath)).status,
     'error',
   );
-  await native('test:open-files', [migratedPath]);
-  await until(() =>
-    sync('return document.body.textContent.includes(arguments[0])', [
-      '旧 diagram.depthplan',
-    ]),
-  );
-  await until(async () => (await native('file:open-requests')).length === 0);
-  // Load through the real renderer document lifecycle, with only the native chooser automated.
-  await dialogs('open', target);
-  await click('Menu');
-  await click('Open');
-  await until(() =>
-    sync(
-      'return !!document.querySelector(`[aria-label$="recursive diagram"]`)',
-    ),
-  );
   await click('Menu');
   await sync(
     `const enable = window.desktop.automation.enable;
@@ -161,6 +150,21 @@ try {
   const status = await native('automation:status');
   probe = client(adapter, status.descriptor);
   await probe.initialize();
+  await native('test:open-files', [migratedPath]);
+  await until(
+    async () =>
+      (await probe.call('depthplan_get_state')).data?.source?.path ===
+      migratedPath,
+  );
+  await until(async () => (await native('file:open-requests')).length === 0);
+  // Load through the renderer lifecycle, with only the native chooser automated.
+  await dialogs('open', target);
+  await click('Menu');
+  await click('Open');
+  await until(
+    async () =>
+      (await probe.call('depthplan_get_state')).data?.source?.path === target,
+  );
   const discovered = (await probe.request('tools/list', {})).result.tools;
   const expectedTools = JSON.parse(
     await readFile('src-tauri/generated/mcp-tools.json', 'utf8'),
@@ -524,8 +528,18 @@ try {
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',
   });
+  probe.close();
+  resumed = await launchNative(profile);
+  await projectNavigation(resumed);
+  await projectMcp(resumed);
+  await projectAcceptance(resumed);
+  await projectSearch(resumed);
+  await projectLinks(resumed);
+  await projectWorkspace(resumed);
+  resumed = await launchNative(profile);
+  await projectPersistence(resumed);
   console.log(
-    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 26-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
+    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 28-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );
 } catch (error) {
   const active = resumed ?? { app, request, session, sync };

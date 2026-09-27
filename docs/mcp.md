@@ -1,6 +1,6 @@
 # Local MCP setup and tools
 
-DepthPlan exposes 26 tools for inspecting and editing the live document, navigating,
+DepthPlan exposes 28 tools for inspecting and editing the live document, navigating,
 managing history/bookmarks, approved file operations, recovery and export. The
 bundled Rust `depthplan-mcp` adapter uses stdio and needs no global Node runtime.
 The executable schemas are [mcpRegistry.ts](../src/shared/mcpRegistry.ts),
@@ -76,12 +76,53 @@ Results contain structured content and equivalent JSON text. Application errors
 set `isError`; they do not expose internal stack traces. Labels are not identity
 keys. IDs are opaque, case-sensitive and limited to 256 characters at the API.
 
+## Projects and explicit board targets
+
+`get_project({})` returns the active portable project ID, canonical manifest
+location, live project handle and first page of members. Use `offset`/`pageSize`
+(maximum 100) for more members. Each member includes its persistent board ID,
+relative path, display name, status and a live document handle when open. Names
+may repeat; IDs and paths distinguish boards. A missing project returns `null`.
+Metadata discovery grants no filesystem access and does not read unopened content.
+
+`open_board({handle, boardId, requestId})` opens or activates an existing member
+and returns its document handle. Here `handle` contains `appInstanceId` and
+`projectSessionId` from project discovery. Reading a closed board requires an
+approved folder. Opening a project in the UI never grants MCP disk access.
+
+Use the returned **document** handle for edits, saves, exports, draft resolution
+and reads. `get_state`, `get_drafts` and `get_context` accept an optional handle;
+omitting it resolves the active board at acceptance. Later tab switches cannot
+redirect a request. File receipts contain their captured `target`, and
+`get_operation`/`cancel_operation` find that receipt even after switching or closing
+a tab. The workspace retains the latest 64 workflow owners and 256 accepted request
+results; expiration requires reconciling current state. Identical accepted retries
+return the original result without repeating work. New commands using a closed or
+replaced handle fail; reopening the same file creates a new handle.
+
+Project `save` and `reload` use the existing native project owner, fingerprint
+checks and MCP folder grants. Project Save As writes an independent copy with a
+new document ID and leaves the original association and dirty state intact.
+Choose copy/export destinations outside an open project folder; its native
+writer lock protects that folder from independent file writes.
+Standalone New/Open and recovery Restore require closing project mode first;
+recovery discard remains available. Drafts and project transitions retain their
+normal guards. Edits to an already loaded board follow the user's project
+autosave policy, just like UI edits; explicit MCP file access still requires a grant.
+
+JSON export can target an inactive board. SVG/PNG requires its active canvas;
+switching tabs is blocked during export. Save decisions can remain pending while
+another board is active; use the original handle and fresh target revisions for
+`decide`. Closing an owner or its project waits until its MCP workflow finishes
+or is canceled.
+
 ## Tool groups
 
 All names below have the `depthplan_` prefix.
 
 | Tools                                                     | Purpose                                                                   |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `get_project`, `open_board`                               | Project members and explicit board sessions                               |
 | `get_state`, `search`, `query`, `read_chunk`              | Live state, text discovery and native entity data                         |
 | `edit`, `delete_preview`, `history`, `content_transfer`   | Atomic authoring, deletion impact, Undo/Redo and large content transfer   |
 | `camera`, `selection`, `controls`, `bookmarks`            | View navigation, selection, editor controls and saved views               |

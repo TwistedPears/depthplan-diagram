@@ -8,6 +8,8 @@ import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import './UnifiedToolbar.css';
 import ExportToolbar from './toolbars/ExportToolbar';
 import FileToolbar from './toolbars/FileToolbar';
+import useProjectWorkspace from '../hooks/useProjectWorkspace';
+import { ProjectMenu } from './ProjectNavigation';
 interface UnifiedToolbarProps {
   automation: ReturnType<typeof useAutomation>;
   operation: { kind: string; status: string; cancel: () => void } | null;
@@ -41,6 +43,8 @@ function UnifiedToolbar({
   onExportSVG,
   onExportJSON,
 }: UnifiedToolbarProps) {
+  const workspace = useProjectWorkspace();
+  const project = workspace?.project;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
@@ -83,6 +87,7 @@ function UnifiedToolbar({
 
   const closeDropdown = useCallback(() => {
     setOpenDropdown(null);
+    menuButton.current?.focus();
   }, []);
 
   // Keep MCP access available while document operations make the canvas inert.
@@ -106,20 +111,38 @@ function UnifiedToolbar({
         <div className="document-caption">
           <span
             className="document-name"
-            title={currentDocument?.metadata.title}
+            title={project?.manifest.name ?? currentDocument?.metadata.title}
           >
-            {currentDocument?.metadata.title ?? 'DepthPlan'}
+            {project?.manifest.name ??
+              currentDocument?.metadata.title ??
+              'DepthPlan'}
           </span>
           <span className="document-state" role="status">
+            {project &&
+              `${currentDocument?.metadata.title ?? 'No open board'} · `}
             {documentStatus ?? 'Local document'}
           </span>
         </div>
+        {project && workspace && (
+          <button
+            className="project-drawer-toggle"
+            ref={workspace.toggle}
+            data-session-navigation
+            aria-label="Toggle project boards"
+            aria-expanded={workspace.drawer}
+            aria-controls="project-drawer"
+            onClick={() => workspace.setDrawer(!workspace.drawer)}
+          >
+            <Icon name="chevron-right" />
+          </button>
+        )}
         <div
           className="dropdown-menu"
           id="document-menu"
           hidden={openDropdown !== 'hamburger'}
         >
           <div inert={blocked}>
+            <ProjectMenu onAction={closeDropdown} />
             {/* File */}
             <FileToolbar
               isLoading={isLoading}
@@ -141,6 +164,7 @@ function UnifiedToolbar({
                 onSave();
                 closeDropdown();
               }}
+              isProject={!!project}
               onSaveAs={() => {
                 onSaveAs();
                 closeDropdown();

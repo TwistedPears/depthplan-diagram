@@ -24,7 +24,11 @@ import {
   queryDocumentHierarchy,
 } from '../../shared/depthQueries';
 import { createDepthCommands } from '../../shared/depthCommands';
-import { selectRootDepth } from '../../shared/recursiveLayouts';
+import {
+  revealObject,
+  selectRootDepth,
+  setChildrenExpanded,
+} from '../../shared/recursiveLayouts';
 import type { Camera } from '../../shared/recursiveCamera';
 import type { SourceFile } from '../../shared/fileContract';
 import {
@@ -78,6 +82,7 @@ type State = {
   dirty: boolean;
 };
 type Action =
+  | { type: 'relocate'; title: string; source: SourceFile }
   | { type: 'edit'; edit: DocumentEdit; now: string; camera?: Camera }
   | { type: 'camera'; update: SetStateAction<Camera> }
   | { type: 'canvas'; update: SetStateAction<CanvasState> }
@@ -125,6 +130,27 @@ function initialState(
   };
 }
 function reduce(state: State, action: Action): State {
+  if (action.type === 'relocate') {
+    const rename = (document: RecursiveDocument) => ({
+      ...document,
+      metadata: { ...document.metadata, title: action.title },
+    });
+    return {
+      ...state,
+      document: state.document && rename(state.document),
+      saved: state.saved && rename(state.saved),
+      source: action.source,
+      revision: state.revision + 1,
+      past: state.past.map((entry) => ({
+        ...entry,
+        document: rename(entry.document),
+      })),
+      future: state.future.map((entry) => ({
+        ...entry,
+        document: rename(entry.document),
+      })),
+    };
+  }
   if (action.type === 'canvas') {
     const canvas =
       typeof action.update === 'function'
@@ -225,13 +251,22 @@ export default function useDocumentState(
   );
   const live = useRef(state);
   const fitCanvas = useRef<(() => void) | null>(null);
+  const focusCanvas = useRef<
+    | ((target: { collection: 'objects' | 'connections'; id: string }) => void)
+    | null
+  >(null);
   const busySources = useRef(new Set<string>());
   const instance = useRef(appInstanceId);
   instance.current = appInstanceId;
   // Publish to the authoritative owner synchronously, then schedule its React view.
   // Consecutive commands in one event turn must observe each other's revisions.
   const dispatch = useCallback((action: Action) => {
-    if (busySources.current.has('closing')) return live.current;
+    if (
+      busySources.current.has('closing') &&
+      action.type !== 'saved' &&
+      action.type !== 'relocate'
+    )
+      return live.current;
     let next = reduce(live.current, action);
     if (next === live.current) return next;
     next = {
@@ -316,6 +351,42 @@ export default function useDocumentState(
     },
     [dispatch],
   );
+  const focusEntity = (
+    collection: 'objects' | 'connections' | 'bookmarks',
+    id: string,
+  ) => {
+    if (isBusy())
+      throw new Error('Finish the current edit or gesture before navigating.');
+    const doc = live.current.document;
+    if (!doc) throw new Error('No document is open.');
+    if (collection === 'bookmarks') {
+      const result = changeNamedView({ type: 'apply', id });
+      if (result.status === 'rejected') throw new Error(result.error);
+      return;
+    }
+    if (!Object.hasOwn(doc[collection], id))
+      throw new Error('Search target no longer exists.');
+    const result = transact((draft) => {
+      if (collection === 'objects') revealObject(id)(draft);
+      else {
+        const connection = draft.connections[id];
+        if (connection.ownerId !== null) {
+          revealObject(connection.ownerId)(draft);
+          setChildrenExpanded(connection.ownerId, true)(draft);
+        }
+        for (const endpoint of [connection.start, connection.end])
+          if (endpoint.kind !== 'free') revealObject(endpoint.objectId)(draft);
+      }
+    });
+    if (result?.status === 'rejected') throw new Error(result.error);
+    setCanvas((canvas) => ({
+      ...canvas,
+      tool: 'pointer',
+      selected: [`${collection === 'objects' ? 'object' : 'connection'}-${id}`],
+      selectedPoint: null,
+    }));
+    focusCanvas.current?.({ collection, id });
+  };
   const replace = useCallback(
     (
       update: RecursiveDocument | null,
@@ -413,15 +484,19 @@ export default function useDocumentState(
   );
   useEffect(() => () => editorCommand.dispose(), [editorCommand]);
   return {
+    relocate: (title: string, source: SourceFile) =>
+      dispatch({ type: 'relocate', title, source }),
     ...state,
     snapshot,
     editorQueries,
     editorCommand,
     fitCanvas,
+    focusCanvas,
     setCanvas,
     getContext,
     getHierarchy,
     changeNamedView,
+    focusEntity,
     setCamera,
     selectDepth,
     setDepth,

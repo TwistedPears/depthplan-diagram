@@ -1,43 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
-import type useDocumentTransitions from './useDocumentTransitions';
 
-/** OS opens use the same draft/unsaved-work guards as the Open command. */
+/** One workspace queue survives empty projects and active-board changes. */
 export default function useDocumentOpenRequests(
-  transitions: ReturnType<typeof useDocumentTransitions>,
   busy: boolean,
-  onStatus: (message: string) => void,
-  enabled = true,
+  open: (id: string) => Promise<unknown>,
+  onError: (message: string) => void,
 ) {
-  const [requests, setRequests] = useState<string[]>([]);
-  const handling = useRef(false);
+  const requests = useRef<string[]>([]);
+  const handling = useRef<string | null>(null);
+  const [, update] = useState(0);
   useEffect(
     () =>
-      enabled
-        ? window.desktop.fileSystem.onOpenRequested((id) => {
-            setRequests((pending) =>
-              pending.includes(id) ? pending : [...pending, id],
-            );
-          })
-        : undefined,
-    [enabled],
+      window.desktop.fileSystem.onOpenRequested((id) => {
+        if (handling.current !== id && !requests.current.includes(id)) {
+          requests.current.push(id);
+          update((version) => version + 1);
+        }
+      }),
+    [],
   );
   useEffect(() => {
-    const id = requests[0];
-    if (!enabled || busy || handling.current || !id) return;
-    handling.current = true;
+    if (busy || handling.current) return;
+    const id = requests.current.shift();
+    if (!id) return;
+    handling.current = id;
     void (async () => {
       try {
-        await transitions.request('open', undefined, {
-          read: () => window.desktop.fileSystem.readOpenRequest(id),
-        });
+        await open(id);
+      } catch (error) {
+        onError(String(error));
       } finally {
         try {
           await window.desktop.fileSystem.releaseOpenRequest(id);
         } catch (error) {
-          onStatus(`Could not release file open request: ${String(error)}`);
+          onError(`Could not release file open request: ${String(error)}`);
         }
-        handling.current = false;
-        setRequests((pending) => pending.filter((request) => request !== id));
+        handling.current = null;
+        update((version) => version + 1);
       }
     })();
   });

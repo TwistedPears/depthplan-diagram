@@ -102,6 +102,22 @@ denial and uninstall. On Linux, record distribution, desktop/display session and
 WebKitGTK version; test direct AppImage launch and private transport. Xvfb or
 extracted AppImage execution alone does not establish desktop acceptance.
 
+### Project acceptance
+
+Use the [project guide](projects.md) for a working-day walkthrough: create and
+import, edit three boards with independent Undo, change shared settings, autosave,
+close/reopen, move the whole folder and restore local navigation. Check each
+board's bytes after conflicts and crash recovery; a healthy board must remain
+usable when another member is missing or malformed. Confirm Save As preserves the
+project association and drafts never acquire a false Saved label.
+
+The Test release matrix retains ordinary installed `.depthplan` and `.depthproject`
+association evidence on each OS. Review its screenshots and source/version hashes;
+a skipped, failed or missing platform remains incomplete. The Linux virtual
+desktop and automated fixture controls do not replace physical input/display,
+signing/notarization, update/removal or supported-client certification above.
+Run the 100-board project capacity scenario as well as the applicable editor matrix.
+
 ## Open dependency findings
 
 The locked application graph retains six unresolved Rust maintenance warnings.

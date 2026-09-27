@@ -121,7 +121,7 @@ ordinary release configuration.
 
 The Test workflow runs three independent suites on macOS, Windows and Linux:
 `checks` (source checks, unit tests, Clippy and audits), `native` (instrumented
-application integration), and `release` (ordinary build, licenses and automation
+application integration), and `release` (ordinary installer, associations/lifecycle, licenses and automation
 exclusion). All nine jobs must pass; a native failure leaves the other results
 visible. Windows checks also stress concurrent native handle clone/drop and
 cleanup after the runtime exits; see the [runtime patch](../src-tauri/vendor/README.md#tauri-windows-runtime-ownership).
@@ -240,6 +240,35 @@ unlimited document size. Fresh candidates need appropriate measurements and
 Store run output/CI artifacts outside tracked docs; retain failures alongside the
 candidate's results, not as permanent public documentation or reduced budgets.
 
+## Project integration and capacity
+
+The native smoke includes project creation/import/management, local three-board
+restoration, copied/moved folders, autosave and external conflicts, crash recovery
+and explicit bundled MCP targets. Rust tests cover malformed paths/manifests,
+missing/corrupt content, locks, read-only storage and injected multi-file failures.
+The [project guide](projects.md) distinguishes portable data and local state.
+
+Run `npm run build:automation:release`, then `npm run capacity:projects` sequentially
+on macOS. The fixed scenario has 100 independent 21-object boards generated with
+`project-capacity-v1` and the small stress preset, three cold process launches,
+five opened boards and 60 switches per launch at 1280×900. Cold project start is
+bounded at 2,000 ms, board opening at 1,000 ms and switch-to-paint p95 at 250 ms.
+The unchanged host/WebKit RSS ceilings above apply; sample every 200 ms and at
+phases. Assert four additional board reads, five live tabs, one mounted canvas,
+no rereads while switching, normal quit and unchanged source hashes. Raw metadata,
+samples and failures stay in `out/project-capacity/run-*/report.json`.
+
+The release matrix installs ordinary DMG/NSIS/deb artifacts on disposable CI
+hosts, registers both native file types, uses OS-default cold/warm open commands,
+checks the renderer's local project acknowledgement, captures screenshots and
+closes through native lifecycle controls. `installed-evidence-*` retains installer
+and executable hashes, registration details, local workspace records and images.
+Review the standalone screenshots for their fixture titles. This uses no shipped
+WebDriver or test-profile override. Linux uses Xvfb/Openbox and therefore provides
+automated desktop-host evidence, not physical desktop acceptance. Broader signing,
+input, distribution and supported-client checks in [release](release.md) remain
+separate. The script refuses non-CI hosts or an existing production workspace.
+
 ## Samples and generated stress documents
 
 The three [curated samples](sample/README.md) are readable feature examples.
@@ -268,3 +297,11 @@ counts and reproduction information; failed fixtures remain for investigation.
 `npm run stress -- --cleanup run-XXXXXX` removes only that owned document and
 rejects redirected directories. It does not delete unrelated files. Keep generated
 fixtures and run records out of the repository's release documentation.
+
+The project capacity scenario also searches all 100 boards three times, expecting
+100 stable results, five existing owners and one canvas. It records full-search
+latency (5,000 ms ceiling), animation-frame gaps and cancellation latency (250 ms
+each). `native-project-search.mjs` covers hidden unopened targets, duplicate board
+names, search immutability, explicit reveal/Undo, focus and unchanged source files.
+Its focused semantic-button activation is WebView evidence; the embedded driver's
+synthetic keyboard actions do not implement native Enter button defaults.

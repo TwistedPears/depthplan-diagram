@@ -51,7 +51,8 @@
     "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "build:automation:release": "npm run build:renderer && node scripts/build-automation.mjs --release",
     "capacity:diagnostic": "node scripts/measure-native-capacity.mjs",
-    "capacity": "node scripts/measure-tauri-capacity.mjs"
+    "capacity": "node scripts/measure-tauri-capacity.mjs",
+    "capacity:projects": "node scripts/measure-project-capacity.mjs"
   },
   "prettier": {
     "singleQuote": true

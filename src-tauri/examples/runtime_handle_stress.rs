@@ -1,5 +1,5 @@
 // Reproduces tauri-apps/tauri#15408 without a WebView or IPC traffic.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn main() {
     let app = tauri::Builder::default()
         .build(tauri::generate_context!())
@@ -26,14 +26,17 @@ fn main() {
         .unwrap()
         .is_some());
     drop(app);
-    assert!(surviving_handle.run_on_main_thread(|| {}).is_err());
-    assert!(surviving_handle.primary_monitor().unwrap().is_none());
-    assert!(surviving_handle.available_monitors().unwrap().is_empty());
+    #[cfg(windows)]
+    {
+        assert!(surviving_handle.run_on_main_thread(|| {}).is_err());
+        assert!(surviving_handle.primary_monitor().unwrap().is_none());
+        assert!(surviving_handle.available_monitors().unwrap().is_empty());
+    }
     std::thread::spawn(move || drop(surviving_handle))
         .join()
         .unwrap();
-    println!("PASS Windows runtime: concurrent handle clone/drop and late handle cleanup");
+    println!("PASS native runtime: concurrent handle clone/drop and late handle cleanup");
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn main() {}

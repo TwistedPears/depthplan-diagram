@@ -25,7 +25,10 @@ export async function projects({ native, dialogs, profile }) {
     path.join(path.dirname(project.location), first.path),
   );
   await dialogs('project-open', project.location);
-  assert.equal((await native('project:open')).status, 'error');
+  assert.equal(
+    success(await native('project:open')).sessionId,
+    project.sessionId,
+  );
   const source = path.join(profile, 'project-source.depthplan.json');
   const sourceBytes = await readFile(
     'docs/sample/recursive_document.depthplan',

@@ -99,6 +99,7 @@ audit review and read-only placement workflows. See the
 | [Contributing](CONTRIBUTING.md)                      | Reporting problems and making small code changes            |
 | [Product requirements](docs/PRD.md)                  | Audience, workflows, feature scope and non-goals            |
 | [Architecture](docs/architecture.md)                 | Native/renderer ownership, rendering and trust boundaries   |
+| [Projects](docs/projects.md)                         | Multi-board workspaces, saving, recovery and folder sharing |
 | [Document and editing](docs/document-and-editing.md) | Current file format and precise editor behavior             |
 | [MCP](docs/mcp.md)                                   | Client setup, tools, permissions and retries                |
 | [Development](docs/development.md)                   | Build, test, audit, license and performance procedures      |

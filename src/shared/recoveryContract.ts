@@ -5,6 +5,7 @@ export interface CheckpointRequest {
   revision: number;
   document: RecursiveDocument;
   sourceId?: string;
+  project?: { sessionId: string; boardId: string };
 }
 export interface RecoveryWriter {
   write(request: CheckpointRequest): Promise<void>;
@@ -18,6 +19,12 @@ export interface RecoveryEntry {
   sessionId: string;
   instanceId: string;
   revision: number;
+  project?: {
+    id: string;
+    name: string;
+    location: string;
+    boardId: string;
+  } | null;
 }
 export interface RecoveryCandidate {
   document: RecursiveDocument;

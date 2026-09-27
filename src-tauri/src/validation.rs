@@ -284,6 +284,27 @@ pub fn document(v: &Value) -> Result<()> {
         )?;
         geometry(&o["geometry"])?;
         content(&o["content"])?;
+        if let Some(link) = o.get("projectLink") {
+            let fields = map(link, "project link")?;
+            require(
+                fields
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "projectId" | "boardId" | "bookmarkId"))
+                    && ["projectId", "boardId"].iter().all(|key| {
+                        link[*key].as_str().is_some_and(|s| {
+                            valid_id(s)
+                                && s.len() <= 128
+                                && s.bytes()
+                                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-'))
+                        })
+                    })
+                    && link.get("bookmarkId").is_none_or(|v| {
+                        v.as_str()
+                            .is_some_and(|s| valid_id(s) && s.encode_utf16().count() <= 256)
+                    }),
+                "project link",
+            )?;
+        }
         if let Some(s) = o.get("style") {
             map(s, "style")?;
         }

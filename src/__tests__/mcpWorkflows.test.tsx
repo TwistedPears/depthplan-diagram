@@ -37,6 +37,17 @@ beforeEach(() => {
         sessionId: 'recovered-session',
       }),
     },
+    projects: {
+      writeBoard: jest.fn().mockResolvedValue({ status: 'success', source }),
+      readBoard: jest.fn().mockResolvedValue({
+        status: 'success',
+        board: {
+          document: recursiveFixture(),
+          source,
+          fingerprint: source.fingerprint,
+        },
+      }),
+    },
     recovery: { release: jest.fn().mockResolvedValue(undefined) },
     transitions: { confirm: jest.fn() },
     fileSystem: {
@@ -46,11 +57,16 @@ beforeEach(() => {
     },
   } as unknown as typeof window.desktop;
 });
-const setup = () =>
+const setup = (projectActive = false) =>
   renderHook(
     () => {
-      const owner = useDocumentState(recursiveFixture(), 'app');
-      const files = useDocumentFiles(owner, jest.fn(), checkpoint);
+      const project = projectActive
+        ? { sessionId: 'project-session', boardId: recursiveFixture().id }
+        : undefined;
+      const owner = useDocumentState(recursiveFixture(), 'app', {
+        source: project ? source : null,
+      });
+      const files = useDocumentFiles(owner, jest.fn(), checkpoint, project);
       const transitions = useDocumentTransitions(
         owner,
         files,
@@ -59,6 +75,7 @@ const setup = () =>
       );
       const exportRef = useRef<RecursiveExportHandle>(null);
       const work = useMcpWorkflows({
+        project,
         owner,
         files,
         transitions,
@@ -81,6 +98,19 @@ const args = (result: Harness) => {
     requestId: `request-${++sequence}`,
   };
 };
+it('keeps standalone file and recovery workflows from replacing a project owner', () => {
+  const { result } = setup(true);
+  for (const [kind, extra] of [
+    ['files', { action: { type: 'new' } }],
+    ['recovery', { action: 'restore', id: 'checkpoint' }],
+  ] as const) {
+    expect(
+      result.current.work.start(kind, { ...args(result), ...extra }),
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
+  }
+  expect(window.desktop.mcpFiles.lease).not.toHaveBeenCalled();
+  expect(result.current.owner.document?.id).toBe(recursiveFixture().id);
+});
 const start = (
   result: Harness,
   kind: 'files' | 'export' | 'recovery',
@@ -255,4 +285,56 @@ it('reports recovery cleanup failures and retains the current document', async (
   });
   expect(result.current.owner.sessionId).toBe(before);
   expect(window.desktop.recovery.release).toHaveBeenCalledWith('entry');
+});
+
+it('saves a project source through its native owner and copies with a new identity without clearing dirty state', async () => {
+  const { result } = setup(true);
+  act(() =>
+    result.current.owner.transact(editObject('api', { name: 'Accepted A' })),
+  );
+  jest
+    .mocked(window.desktop.mcpFiles.inspect)
+    .mockResolvedValue({ path: source.path, fingerprint: source.fingerprint });
+  const saved = start(result, 'files', { action: { type: 'save' } });
+  await done(result, saved.id);
+  expect(window.desktop.projects.writeBoard).toHaveBeenCalledWith(
+    'project-session',
+    recursiveFixture().id,
+    source.fingerprint,
+    expect.objectContaining({ id: recursiveFixture().id }),
+    false,
+    lease,
+  );
+  expect(window.desktop.mcpFiles.write).not.toHaveBeenCalled();
+  expect(result.current.owner.dirty).toBe(false);
+  act(() =>
+    result.current.owner.transact(editObject('api', { name: 'Copy A' })),
+  );
+  jest
+    .mocked(window.desktop.mcpFiles.inspect)
+    .mockResolvedValue({ path: '/approved/copy.depthplan', fingerprint: null });
+  const copy = start(result, 'files', {
+    action: { type: 'save_as', path: '/approved/copy.depthplan' },
+  });
+  await done(result, copy.id);
+  const written = jest.mocked(window.desktop.mcpFiles.write).mock.calls[0][0]
+    .data as { id: string };
+  expect(written.id).not.toBe(recursiveFixture().id);
+  expect(result.current.owner.dirty).toBe(true);
+  expect(result.current.owner.source).toEqual(source);
+  expect(checkpoint.saved).toHaveBeenCalledTimes(1);
+  expect(read(result, copy.id)).toMatchObject({
+    data: {
+      result: { copied: true },
+      target: { sessionId: result.current.owner.sessionId },
+    },
+  });
+  const reload = start(result, 'files', { action: { type: 'reload' } });
+  await decide(result, reload.id, 'discard');
+  await done(result, reload.id);
+  expect(window.desktop.projects.readBoard).toHaveBeenCalledWith(
+    'project-session',
+    recursiveFixture().id,
+    lease,
+  );
 });

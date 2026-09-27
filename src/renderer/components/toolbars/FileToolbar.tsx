@@ -9,6 +9,7 @@ interface FileToolbarProps {
   onOpenFile: () => void;
   onSave: () => void;
   onSaveAs: () => void;
+  isProject?: boolean;
 }
 
 export default function FileToolbar({
@@ -20,15 +21,17 @@ export default function FileToolbar({
   onOpenFile,
   onSave,
   onSaveAs,
+  isProject = false,
 }: FileToolbarProps) {
   return (
     <>
       <div className="dropdown-label">File</div>
       <button type="button" onClick={onNewDocument} disabled={isLoading}>
-        <Icon name="file" /> New
+        <Icon name="file" /> {isProject ? 'New Board…' : 'New'}
       </button>
       <button type="button" onClick={onOpenFile} disabled={isLoading}>
-        <Icon name="folder-open" /> Open
+        <Icon name="folder-open" />{' '}
+        {isProject ? 'Open standalone board…' : 'Open'}
       </button>
       <button
         type="button"
@@ -43,7 +46,7 @@ export default function FileToolbar({
             <Icon name="save" /> Save
           </button>
           <button type="button" onClick={onSaveAs} disabled={isLoading}>
-            <Icon name="save" /> Save As...
+            <Icon name="save" /> {isProject ? 'Save Copy…' : 'Save As...'}
           </button>
           <div className="dropdown-separator" />
         </>

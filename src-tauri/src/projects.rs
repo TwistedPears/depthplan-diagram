@@ -301,13 +301,60 @@ impl Project {
         }
         Ok(path)
     }
-    fn check(&self, expected: &str) -> Result<()> {
+    pub fn check(&self, expected: &str) -> Result<()> {
         self.check_location()?;
         regular(&self.path)?;
         if expected != self.fingerprint || files::hash(&self.path)?.as_deref() != Some(expected) {
             return Err(CONFLICT.into());
         }
         Ok(())
+    }
+    pub fn location(&self) -> Result<&Path> {
+        self.check_location()?;
+        regular(&self.path)?;
+        Ok(&self.path)
+    }
+    pub fn recovery_context(&self, board_id: &str) -> Result<Value> {
+        if !self
+            .manifest
+            .boards
+            .iter()
+            .any(|board| board.id == board_id)
+        {
+            return Err("Unknown project board".into());
+        }
+        // Provenance remains available even if the source folder disappears.
+        Ok(
+            json!({"id":self.manifest.id,"name":self.manifest.name,"location":self.path,"boardId":board_id}),
+        )
+    }
+    pub fn read_definition(&self) -> Result<(Manifest, String)> {
+        self.check_location()?;
+        regular(&self.path)?;
+        let (manifest, fingerprint) = read_manifest(&self.path)?;
+        if manifest.id != self.manifest.id {
+            return Err("Project identity changed; open it as a different project".into());
+        }
+        Ok((manifest, fingerprint))
+    }
+    pub fn resolve_definition(&mut self, expected: &str, overwrite: bool) -> Result<()> {
+        let (manifest, fingerprint) = self.read_definition()?;
+        if fingerprint != expected {
+            return Err(CONFLICT.into());
+        }
+        if overwrite {
+            let previous = self.fingerprint.clone();
+            self.fingerprint = fingerprint;
+            let result = self.commit(self.manifest.clone(), &|_| Ok(()));
+            if result.is_err() && self.fingerprint == expected {
+                self.fingerprint = previous;
+            }
+            result
+        } else {
+            self.manifest = manifest;
+            self.fingerprint = fingerprint;
+            Ok(())
+        }
     }
     pub fn open(path: &Path) -> Result<Self> {
         // Validate before taking ownership; failed opens never mutate current sessions.
@@ -343,7 +390,10 @@ impl Project {
             description: String::new(),
             boards: vec![Board {
                 id: first["id"].as_str().unwrap().into(),
-                name: "Overview".into(),
+                name: first["metadata"]["title"]
+                    .as_str()
+                    .unwrap_or("Overview")
+                    .into(),
                 path: "Overview.depthplan".into(),
             }],
             home_board_id: first["id"].as_str().map(str::to_string),
@@ -396,6 +446,7 @@ impl Project {
     }
     fn commit(&mut self, candidate: Manifest, before: &dyn Fn(&str) -> Result<()>) -> Result<()> {
         manifest(&json!(candidate))?;
+        files::writable(&self.path)?;
         let bytes = serde_json::to_vec(&candidate).map_err(|e| e.to_string())?;
         let mut temporary =
             tempfile::NamedTempFile::new_in(&self.root).map_err(|e| e.to_string())?;
@@ -403,6 +454,7 @@ impl Project {
         temporary.as_file().sync_all().map_err(|e| e.to_string())?;
         before("manifest-publish")?;
         self.check_location()?;
+        files::writable(&self.path)?;
         if self.fingerprint.is_empty() {
             vacant(&self.path)?;
             temporary
@@ -419,24 +471,120 @@ impl Project {
         })?;
         before("manifest-published")
     }
-    pub fn read_board(&self, id: &str) -> Result<Value> {
+    pub fn board_path(&self, id: &str) -> Result<PathBuf> {
         let board = self
             .manifest
             .boards
             .iter()
             .find(|b| b.id == id)
             .ok_or("Unknown project board")?;
-        let path = self.resolve(&board.path)?;
+        self.resolve(&board.path)
+    }
+    pub fn read_board(&self, id: &str) -> Result<Value> {
+        let path = self.board_path(id)?;
         regular(&path)?;
         let bytes = fs::read(&path).map_err(|e| e.to_string())?;
         let document: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         validation::document(&document)?;
-        if document["id"] != board.id {
+        if document["id"] != id {
             return Err(
                 "Board identity differs from manifest; explicitly import the replacement".into(),
             );
         }
         Ok(json!({"document": document, "fingerprint": files::fingerprint(&bytes)}))
+    }
+    pub fn write_board(
+        &self,
+        id: &str,
+        expected: &str,
+        document: &Value,
+        permit: &dyn Fn() -> Result<()>,
+    ) -> Result<String> {
+        permit()?;
+        self.check(&self.fingerprint)?;
+        validation::document(document)?;
+        if document["id"] != id {
+            return Err("Save snapshot has a different board identity".into());
+        }
+        let path = self.board_path(id)?;
+        regular(&path)?;
+        files::writable(&path)?;
+        let mut document = document.clone();
+        document["metadata"]["modified"] = files::now().into();
+        let bytes = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
+        let mut temporary =
+            tempfile::NamedTempFile::new_in(path.parent().unwrap()).map_err(|e| e.to_string())?;
+        temporary.write_all(&bytes).map_err(|e| e.to_string())?;
+        temporary.as_file().sync_all().map_err(|e| e.to_string())?;
+        self.check(&self.fingerprint)?;
+        self.board_path(id)?;
+        regular(&path)?;
+        if files::hash(&path)?.as_deref() != Some(expected) {
+            return Err(files::SOURCE_CHANGED.into());
+        }
+        permit()?;
+        files::writable(&path)?;
+        temporary.persist(&path).map_err(|e| e.to_string())?;
+        durable_directory(path.parent().unwrap())?;
+        Ok(files::fingerprint(&bytes))
+    }
+    pub fn import_path(&mut self, path: &Path) -> Result<String> {
+        let filename = path.file_name().unwrap_or_default().to_string_lossy();
+        let lower = filename.to_lowercase();
+        if !lower.ends_with(".depthplan") && !lower.ends_with(".depthplan.json") {
+            return Err("Import requires a .depthplan or .depthplan.json document".into());
+        }
+        let document: Value = serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        validation::document(&document)?;
+        let name: String = document["metadata"]["title"]
+            .as_str()
+            .unwrap_or("Imported board")
+            .trim()
+            .chars()
+            .take(60)
+            .map(|c| {
+                if c.is_control() || "\\/:*?\"<>|".contains(c) {
+                    '_'
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let name = name.trim_end_matches([' ', '.']);
+        let name = if name.is_empty() {
+            "Imported board"
+        } else {
+            name
+        };
+        let mut occupied = fs::read_dir(&self.root)
+            .map_err(|e| e.to_string())?
+            .map(|entry| {
+                entry
+                    .map(|e| e.file_name().to_string_lossy().to_lowercase())
+                    .map_err(|e| e.to_string())
+            })
+            .collect::<Result<HashSet<_>>>()?;
+        occupied.extend(
+            self.manifest
+                .boards
+                .iter()
+                .map(|board| board.path.to_lowercase()),
+        );
+        let relative = (1..=occupied.len() + 1)
+            .map(|n| format!("Board-{n}.depthplan"))
+            .find(|name| !occupied.contains(&name.to_lowercase()))
+            .unwrap();
+        self.apply(
+            &self.fingerprint.clone(),
+            Action::ImportBoard {
+                name: name.into(),
+                path: relative,
+            },
+            Some(document),
+            &|_| Ok(()),
+        )?;
+        Ok(self.manifest.boards.last().unwrap().id.clone())
     }
     pub fn apply(
         &mut self,
@@ -446,6 +594,7 @@ impl Project {
         before: &dyn Fn(&str) -> Result<()>,
     ) -> Result<()> {
         self.check(expected)?;
+        files::writable(&self.path)?;
         let mut next = self.manifest.clone();
         let mut output: Option<(String, Value)> = None;
         let mut renamed_source = None;
@@ -494,6 +643,7 @@ impl Project {
                 path,
                 expected,
             } => {
+                files::writable(&self.board_path(&board_id)?)?;
                 let current = self.read_board(&board_id)?;
                 if current["fingerprint"] != expected {
                     return Err(files::SOURCE_CHANGED.into());
@@ -596,10 +746,14 @@ impl Project {
         Ok(())
     }
 
+    pub fn workspace_identity(&self) -> Value {
+        json!({"location":self.path,"workspaceKey":files::fingerprint(format!("{}\0{}", self.manifest.id, self.root.display()).as_bytes()),"manifest":{"id":self.manifest.id,"name":self.manifest.name}})
+    }
     pub fn snapshot(&self, session: &str) -> Value {
         let mut diagnostics = Vec::new();
+        // Inspect paths now; parse and validate content only when a board is opened.
         for board in &self.manifest.boards {
-            if let Err(error) = self.read_board(&board.id) {
+            if let Err(error) = self.board_path(&board.id).and_then(|path| regular(&path)) {
                 diagnostics.push(json!({"boardId": board.id, "path": board.path, "error": format!("{error}. Restore the expected file, retry, or remove membership.")}));
             }
         }
@@ -660,6 +814,13 @@ fn blank(name: &str) -> Value {
 #[derive(Default)]
 pub struct Projects(pub HashMap<String, Project>);
 impl Projects {
+    pub fn open(&mut self, path: &Path) -> Result<Value> {
+        let canonical = fs::canonicalize(path).map_err(|e| e.to_string())?;
+        if let Some((id, project)) = self.0.iter().find(|(_, project)| project.path == canonical) {
+            return Ok(project.snapshot(id));
+        }
+        Ok(self.insert(Project::open(path)?))
+    }
     pub fn insert(&mut self, project: Project) -> Value {
         let id = Uuid::new_v4().to_string();
         let result = project.snapshot(&id);

@@ -5,6 +5,7 @@ use crate::{
     projects::{Action, Project, Projects},
     recovery::Recovery,
     validation,
+    workspace::{View, Workspaces},
 };
 use base64::Engine;
 use serde_json::{json, Value};
@@ -41,7 +42,9 @@ fn open_paths(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
     let mut requests = requests.0.lock().unwrap();
     for path in paths {
         if !path.extension().is_some_and(|ext| {
-            ext.eq_ignore_ascii_case("depthplan") || ext.eq_ignore_ascii_case("json")
+            ext.eq_ignore_ascii_case("depthplan")
+                || ext.eq_ignore_ascii_case("json")
+                || ext.eq_ignore_ascii_case("depthproject")
         }) || requests.iter().any(|(_, pending)| pending == &path)
         {
             continue;
@@ -70,6 +73,7 @@ pub struct Host {
     closing: Mutex<Closing>,
     png: Mutex<Option<PngExport>>,
     projects: Mutex<Projects>,
+    workspaces: Mutex<Workspaces>,
 }
 fn string(value: &Value) -> Result<&str> {
     value.as_str().ok_or("Expected text".into())
@@ -84,7 +88,7 @@ fn status(app: &AppHandle) -> Value {
         } else {
             "depthplan-mcp"
         });
-    json!({"enabled":service.token.is_some(),"descriptor":service.descriptor(),"executable":binary,"folders":host.folders.list()})
+    json!({"enabled":service.token.is_some(),"generation":service.generation,"descriptor":service.descriptor(),"executable":binary,"folders":host.folders.list()})
 }
 fn announce(app: &AppHandle) {
     let host = app.state::<Host>();
@@ -276,6 +280,14 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
                 .find(|(pending, _)| pending == id)
                 .map(|(_, path)| path.clone())
                 .ok_or("File open request is no longer available")?;
+            if path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("depthproject"))
+            {
+                return Ok(
+                    json!({"status":"success","project":host.projects.lock().unwrap().open(&path)?}),
+                );
+            }
             let mut value = host.storage.lock().unwrap().files.read(&path)?;
             value["status"] = "success".into();
             Ok(value)
@@ -310,12 +322,125 @@ fn arg(args: &[Value], i: usize) -> &Value {
 fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value> {
     let host = app.state::<Host>();
     match method {
+        "project:recents" => {
+            Ok(json!({"status":"success","entries":host.workspaces.lock().unwrap().list()}))
+        }
+        "project:forget" => {
+            host.workspaces
+                .lock()
+                .unwrap()
+                .forget(string(arg(args, 0))?)?;
+            Ok(json!({"status":"success"}))
+        }
+        "project:workspace" | "project:remember" => {
+            let project = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .workspace_identity();
+            let mut workspaces = host.workspaces.lock().unwrap();
+            if method == "project:remember" {
+                workspaces.remember(
+                    &project,
+                    if arg(args, 1).is_null() {
+                        None
+                    } else {
+                        Some(View::parse(arg(args, 1).clone())?)
+                    },
+                )?;
+            }
+            let view = workspaces.view(string(&project["workspaceKey"])?);
+            if method == "project:workspace" {
+                if let Some([width, height]) = view.as_ref().and_then(|v| v.window) {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+                    }
+                }
+            }
+            Ok(json!({"status":"success","view":view}))
+        }
+        "project:recent-open" => {
+            let recent = host.workspaces.lock().unwrap().get(string(arg(args, 0))?)?;
+            let locate = arg(args, 1).as_bool() == Some(true);
+            let path = if locate {
+                let Some(path) = select(app, "project-open", "")? else {
+                    return Ok(json!({"status":"canceled"}));
+                };
+                path
+            } else {
+                recent.location.clone()
+            };
+            let project = host.projects.lock().unwrap().open(&path)?;
+            if locate && !recent.location.exists() && project["manifest"]["id"] == recent.id && choice(app,"Restore moved project workspace?", "The project identity matches and its previous location is unavailable. Restore its tabs and camera positions at this location?", "Restore workspace", "Start fresh") == "Restore workspace" {
+                let mut workspaces = host.workspaces.lock().unwrap();
+                if let Err(error) = workspaces.remember(&project, recent.view).and_then(|_| workspaces.forget(&recent.key)) {
+                    log::warn!("Could not migrate local project workspace: {error}");
+                }
+            }
+            Ok(json!({"status":"success","project":project}))
+        }
+        "project:import" => {
+            let id = string(arg(args, 0))?;
+            host.projects
+                .lock()
+                .unwrap()
+                .get(id)?
+                .check(string(arg(args, 1))?)?;
+            let _guard = DialogGuard::new(&host.dialogs);
+            #[cfg(feature = "automation")]
+            let injected = test_dialog(app, "project-import");
+            #[cfg(not(feature = "automation"))]
+            let injected: Option<Value> = None;
+            let paths = if let Some(value) = injected {
+                value.as_array().map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(PathBuf::from)
+                        .collect::<Vec<_>>()
+                })
+            } else {
+                let mut dialog = app
+                    .dialog()
+                    .file()
+                    .add_filter("DepthPlan documents", &["depthplan", "json"]);
+                if let Some(window) = app.get_webview_window("main") {
+                    dialog = dialog.set_parent(&window);
+                }
+                dialog
+                    .blocking_pick_files()
+                    .map(|paths| {
+                        paths
+                            .into_iter()
+                            .map(|p| p.into_path().map_err(|e| e.to_string()))
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .transpose()?
+            };
+            let Some(paths) = paths else {
+                return Ok(json!({"status":"canceled"}));
+            };
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            project.check(string(arg(args, 1))?)?;
+            let mut imported = Vec::new();
+            let mut errors = Vec::new();
+            for path in paths {
+                match project.import_path(&path) {
+                    Ok(board_id) => imported.push(board_id),
+                    Err(error) => errors.push(format!("{}: {error}", path.display())),
+                }
+            }
+            Ok(
+                json!({"status":"success","project":project.snapshot(id),"imported":imported,"errors":errors}),
+            )
+        }
         "project:open" => {
             let Some(path) = select(app, "project-open", "")? else {
                 return Ok(json!({"status":"canceled"}));
             };
-            let project = Project::open(&path)?;
-            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().insert(project)}))
+            Ok(json!({"status":"success", "project":host.projects.lock().unwrap().open(&path)?}))
         }
         "project:create" => {
             let name = string(arg(args, 0))?;
@@ -341,12 +466,106 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
                 json!({"status":"success", "project":host.projects.lock().unwrap().get(id)?.snapshot(id)}),
             )
         }
+        "project:definition" => {
+            let (manifest, fingerprint) = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .read_definition()?;
+            Ok(json!({"status":"success","manifest":manifest,"fingerprint":fingerprint}))
+        }
+        "project:resolve-definition" => {
+            let id = string(arg(args, 0))?;
+            let expected = string(arg(args, 1))?;
+            let overwrite = arg(args, 2)
+                .as_bool()
+                .ok_or("Expected overwrite decision")?;
+            let (manifest, observed) = host.projects.lock().unwrap().get(id)?.read_definition()?;
+            if expected != observed {
+                return Err("Project manifest changed; review it again".into());
+            }
+            if overwrite && choice(app, "Overwrite project definition?", &format!("Replace the observed definition of {} with the definition currently open in DepthPlan? Pending form changes still require Apply. Board files are retained.", manifest.name), "Overwrite", "Keep editing") != "Overwrite" {
+                return Ok(json!({"status":"canceled"}));
+            }
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            project.resolve_definition(expected, overwrite)?;
+            Ok(json!({"status":"success","project":project.snapshot(id)}))
+        }
+        "project:reveal" => {
+            let path = host
+                .projects
+                .lock()
+                .unwrap()
+                .get(string(arg(args, 0))?)?
+                .location()?
+                .to_path_buf();
+            app.opener()
+                .reveal_item_in_dir(path)
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
+        }
         "project:read-board" => {
             let mut projects = host.projects.lock().unwrap();
-            let board = projects
-                .get(string(arg(args, 0))?)?
-                .read_board(string(arg(args, 1))?)?;
+            let project = projects.get(string(arg(args, 0))?)?;
+            let id = string(arg(args, 1))?;
+            let lease = arg(args, 2);
+            let check = || {
+                if !lease.is_null() {
+                    project.check(&project.fingerprint)?;
+                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                }
+                Ok::<(), String>(())
+            };
+            check()?;
+            let mut board = project.read_board(id)?;
+            check()?;
+            board["source"] = json!(host.storage.lock().unwrap().files.remember(
+                project.board_path(id)?.to_string_lossy().into_owned(),
+                board["fingerprint"].as_str().map(str::to_string),
+            ));
             Ok(json!({"status":"success", "board":board}))
+        }
+        "project:write-board" => {
+            let mut expected = string(arg(args, 2))?.to_owned();
+            let mut expected_manifest = None;
+            if arg(args, 4).as_bool() == Some(true) {
+                let (observed, manifest, path) = {
+                    let mut projects = host.projects.lock().unwrap();
+                    let project = projects.get(string(arg(args, 0))?)?;
+                    project.check(&project.fingerprint)?;
+                    let board = project.read_board(string(arg(args, 1))?)?;
+                    (
+                        string(&board["fingerprint"])?.to_owned(),
+                        project.fingerprint.clone(),
+                        project.board_path(string(arg(args, 1))?)?,
+                    )
+                };
+                if choice(app, "Overwrite changed board?", &format!("{}\nReplace this observed file with your accepted edits? Unapplied drafts are not included.", path.display()), "Overwrite", "Keep editing") != "Overwrite" {
+                    return Ok(json!({"status":"canceled"}));
+                }
+                expected_manifest = Some(manifest);
+                expected = observed;
+            }
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(string(arg(args, 0))?)?;
+            if let Some(manifest) = expected_manifest {
+                project.check(&manifest)?;
+            }
+            let id = string(arg(args, 1))?;
+            let lease = arg(args, 5);
+            let fingerprint = project.write_board(id, &expected, arg(args, 3), &|| {
+                if !lease.is_null() {
+                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                }
+                Ok(())
+            })?;
+            let source = host.storage.lock().unwrap().files.remember(
+                project.board_path(id)?.to_string_lossy().into_owned(),
+                Some(fingerprint),
+            );
+            Ok(json!({"status":"success", "source":source}))
         }
         "project:apply" => {
             let id = string(arg(args, 0))?;
@@ -456,9 +675,22 @@ fn io_command(
             Ok(Value::Null)
         }
         "recovery:write" => {
+            let mut input = a.clone();
+            if !a["project"].is_null() {
+                let board_id = string(&a["project"]["boardId"])?;
+                if a["document"]["id"] != board_id {
+                    return Err("Recovery project board identity mismatch".into());
+                }
+                input["project"] = host
+                    .projects
+                    .lock()
+                    .unwrap()
+                    .get(string(&a["project"]["sessionId"])?)?
+                    .recovery_context(board_id)?;
+            }
             let mut storage = host.storage.lock().unwrap();
             let Storage { files, recovery } = &mut *storage;
-            recovery.write(a, files)?;
+            recovery.write(&input, files)?;
             Ok(Value::Null)
         }
         "recovery:remove" => {
@@ -918,6 +1150,8 @@ fn create_window(app: &AppHandle) -> tauri::Result<()> {
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("DepthPlan")
         .inner_size(1024.0, 728.0)
+        .prevent_overflow()
+        .center()
         // WKWebView ignores data_directory. Non-production WebViews must still
         // stay separate from the user's persisted website data on every OS.
         .incognito(cfg!(debug_assertions) || cfg!(feature = "automation"))
@@ -959,10 +1193,16 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
     }
     let file = Submenu::new(app, "File", true)?;
     for (id, title, key) in [
-        ("menu:new", "New", Some("CmdOrCtrl+N")),
-        ("menu:open", "Open…", Some("CmdOrCtrl+O")),
+        ("menu:new", "New Board", Some("CmdOrCtrl+N")),
+        ("menu:open", "Open Board…", Some("CmdOrCtrl+O")),
+        ("menu:new-project", "New Project…", None),
+        ("menu:open-project", "Open Project…", None),
+        ("menu:close-project", "Close Project", None),
+        ("menu:project-settings", "Project Settings…", None),
+        ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
         ("menu:save", "Save", Some("CmdOrCtrl+S")),
+        ("menu:save-all", "Save All Project Boards", None),
         ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
@@ -1097,13 +1337,16 @@ pub fn run() {
                 dialogs: AtomicUsize::new(0),
                 storage: Mutex::new(Storage {
                     files: FileStore::default(),
-                    recovery: Recovery::new(root, instance.clone()),
+                    recovery: Recovery::new(root.clone(), instance.clone()),
                 }),
                 service: Mutex::new(Service::new(instance)?),
                 folders: Folders::default(),
                 closing: Mutex::new(Closing::default()),
                 png: Mutex::new(None),
                 projects: Mutex::new(Projects::default()),
+                workspaces: Mutex::new(Workspaces::new(
+                    root.parent().unwrap().join("workspaces.json"),
+                )),
             });
             create_window(app.handle())?;
             menu(app.handle())?;
@@ -1118,7 +1361,13 @@ pub fn run() {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "app:quit" => request_close(app, true),
-            "app:close" => request_close(app, false),
+            "app:close" => {
+                if app.state::<Host>().projects.lock().unwrap().0.is_empty() {
+                    request_close(app, false);
+                } else {
+                    let _ = app.emit_to("main", "menu:close-tab", ());
+                }
+            }
             "app:devtools" =>
             {
                 #[cfg(debug_assertions)]

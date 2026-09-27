@@ -9,14 +9,17 @@ import type {
 export default function RecoveryChoices({
   onRestore,
   refresh = 0,
+  onReady,
 }: {
   refresh?: number;
+  onReady?: (ready: boolean) => void;
   onRestore: (candidate: RecoveryCandidate) => Promise<boolean>;
 }) {
   const [entries, setEntries] = useState<RecoveryEntry[]>([]),
     [warnings, setWarnings] = useState<string[]>([]);
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false);
+  const [discovered, setDiscovered] = useState(false);
   useDocumentDraft({
     label: 'recovery choices',
     active: () => open,
@@ -40,6 +43,8 @@ export default function RecoveryChoices({
           `Could not inspect recovery files: ${String(error)}. Reopen Recovery to retry.`,
         ]);
         setOpen(true);
+      } finally {
+        setDiscovered(true);
       }
     },
     [refresh],
@@ -48,6 +53,9 @@ export default function RecoveryChoices({
     setOpen(false);
     void discover(false);
   }, [discover]);
+  useEffect(() => {
+    onReady?.(discovered && !open);
+  }, [onReady, discovered, open]);
   const choose = async (entry: RecoveryEntry, restore: boolean) => {
     setBusy(true);
     let prepared = false;
@@ -108,6 +116,15 @@ export default function RecoveryChoices({
               className="form-dialog-section"
             >
               <h3>{entry.title}</h3>
+              {entry.project && (
+                <p>
+                  Project: {entry.project.name}
+                  <br />
+                  {entry.project.location}
+                  <br />
+                  Board {entry.project.boardId}
+                </p>
+              )}
               <p>
                 {entry.sourcePath ?? 'Never saved to a file'}
                 <br />

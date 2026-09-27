@@ -151,8 +151,18 @@ export async function launchNative(existingProfile, fileArguments = []) {
       width: 1280,
       height: 900,
     });
+    // The driver's script-result global can disappear during initial navigation.
+    // Reading the title uses one native evaluation, without that polling global.
+    await until(
+      async () =>
+        (await request(`/session/${session}/title`, undefined, 'GET')) ===
+        'DepthPlan',
+      'Timed out waiting for the application document',
+    );
     await until(() =>
-      sync('return !!window.desktop && !!document.querySelector("canvas")'),
+      sync(
+        'return !!window.desktop && !!document.querySelector("canvas, .project-navigation")',
+      ),
     );
     await sync(
       'window.nativeErrors=[];addEventListener("error",e=>window.nativeErrors.push(e.message));addEventListener("unhandledrejection",e=>window.nativeErrors.push(String(e.reason)))',

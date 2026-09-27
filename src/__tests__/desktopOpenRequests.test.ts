@@ -5,6 +5,41 @@ import '../renderer/desktop';
 jest.mock('@tauri-apps/api/core', () => ({ invoke: jest.fn() }));
 jest.mock('@tauri-apps/api/event', () => ({ listen: jest.fn() }));
 
+test.each(['active', 'revoked', 'disposed'])(
+  'initializes an existing automation session safely: %s',
+  async (mode) => {
+    const listeners = new Map<string, (event: { payload: unknown }) => void>();
+    let resolveStatus!: (value: unknown) => void;
+    (listen as jest.Mock).mockImplementation(async (channel, callback) => {
+      listeners.set(channel, callback);
+      return jest.fn();
+    });
+    (invoke as jest.Mock).mockImplementation((_command, { method }) =>
+      method === 'automation:status'
+        ? new Promise((resolve) => {
+            resolveStatus = resolve;
+          })
+        : Promise.resolve(),
+    );
+    const handler = jest.fn().mockResolvedValue({ ok: true });
+    const stop = window.desktop.automation.onRequest(handler);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (mode === 'revoked')
+      listeners.get('automation:state')!({
+        payload: { enabled: false, generation: 3 },
+      });
+    if (mode === 'disposed') stop();
+    resolveStatus({ enabled: true, generation: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    listeners.get('automation:request')!({
+      payload: { id: 'request', generation: 2 },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(handler).toHaveBeenCalledTimes(mode === 'active' ? 1 : 0);
+    stop();
+  },
+);
+
 it('delivers startup and live OS requests once even when the startup snapshot arrives late', async () => {
   let receive!: (event: { payload: string }) => void;
   let snapshot!: (ids: string[]) => void;

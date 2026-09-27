@@ -87,3 +87,35 @@ The native integration suite also requires a clean process exit after authoring.
 Keep both checks. Remove this crate and its Cargo patch when a compatible
 published Tauri runtime passes them without the patch. Review upstream changes
 before updating Tauri; Cargo audit does not establish the safety of a path patch.
+
+## Linux target reference counting
+
+`tao-0.35.3/` is the complete crates.io package, including its Apache license.
+Archive SHA-256:
+`d1c93047acf68669466a34690ac58cca7010bd1b201e1ec86f1fd0a75d3dd4a9`;
+the packaged VCS record identifies `5a14e624c81b7a799728129417e9218be25f17d9`
+with a dirty source tree. The archive hash identifies the exact input.
+
+Only `src/platform_impl/linux/event_loop.rs` changes: the window-ID collection
+uses `Arc<RefCell<_>>` instead of `Rc<RefCell<_>>`. Tauri declares its context
+Send/Sync and clones target-bearing handles on worker threads. The Linux target's
+non-atomic reference counter races there even though actual window access stays
+on the main thread. GTK's object references and the other target channels already
+use thread-safe reference counts. The collection and its `RefCell` remain confined
+to their existing main-thread callers; this does not make Tao's target a public
+Send/Sync type, alter display-handle lifetimes, or introduce unsafe code.
+
+A disposable Ubuntu 24.04 reproduction cloning the actual Tao target 800,000 times
+across eight workers aborted with `tcache_thread_shutdown(): unaligned tcache chunk
+detected` before the change (exit 134). Three identical patched runs passed.
+Raw logs are retained in `out/linux-runtime-repro/`. Linux native CI had failed
+with the same allocator diagnostic during an ordinary DOM read in run
+`36285125807`; that failure remains retained.
+
+The existing `runtime_handle_stress` example now exercises the real Tauri handle
+on Linux as well as Windows, in CI and `check:local`. Windows alone checks its
+separate late-handle rejection behavior. Full Linux integration and installed
+acceptance remain required. Remove this package and patch when a compatible
+upstream runtime no longer clones the non-atomic target on worker threads, or
+Tao supplies an equivalent fix. A successful dependency audit does not certify
+this path patch.

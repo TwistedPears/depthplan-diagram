@@ -64,6 +64,11 @@ export interface BoundaryPoint {
 }
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
+export interface ProjectLink {
+  projectId: string;
+  boardId: string;
+  bookmarkId?: string;
+}
 export interface DiagramObject {
   id: string;
   parentId: string | null;
@@ -73,6 +78,7 @@ export interface DiagramObject {
   geometry: Geometry;
   style?: Record<string, Json>;
   boundaryPoints?: Record<string, BoundaryPoint>;
+  projectLink?: ProjectLink;
 }
 export type Endpoint =
   | { kind: 'free'; x: number; y: number }
@@ -183,6 +189,19 @@ export function validLink(value: unknown): value is string {
   } catch {
     return false;
   }
+}
+export function validProjectLink(value: unknown): value is ProjectLink {
+  return (
+    isRecord(value) &&
+    Object.keys(value).every((key) =>
+      ['projectId', 'boardId', 'bookmarkId'].includes(key),
+    ) &&
+    [value.projectId, value.boardId].every(
+      (id) => validId(id) && /^[A-Za-z0-9_-]{1,128}$/.test(id),
+    ) &&
+    (value.bookmarkId === undefined ||
+      (validId(value.bookmarkId) && value.bookmarkId.length <= 256))
+  );
 }
 export function validateGeometry(
   value: unknown,
@@ -439,6 +458,8 @@ export function validateRecursiveDocument(
     );
     validateGeometry(object.geometry, `geometry ${id}`);
     validateContent(object.content);
+    if (object.projectLink !== undefined)
+      requireValue(validProjectLink(object.projectLink), `project link ${id}`);
     if (object.style !== undefined) map(object.style, `style ${id}`);
     if (object.boundaryPoints !== undefined) {
       map(object.boundaryPoints, `boundary points ${id}`);

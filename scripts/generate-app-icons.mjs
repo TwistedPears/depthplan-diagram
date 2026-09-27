@@ -29,9 +29,17 @@ writeFileSync(
 );
 const output = mkdtempSync(path.join(tmpdir(), 'depthplan-icons-'));
 try {
-  await run(['icon', appIcon, '--output', output]);
-  for (const name of ['icon.png', 'icon.icns', 'icon.ico'])
-    copyFileSync(path.join(output, name), path.join(root, 'assets', name));
+  for (const [input, name] of [
+    [appIcon, 'icon'],
+    [path.join(artwork, 'depthplan_project_icon.svg'), 'project'],
+  ]) {
+    await run(['icon', input, '--output', output]);
+    for (const ext of ['png', 'icns', 'ico'])
+      copyFileSync(
+        path.join(output, `icon.${ext}`),
+        path.join(root, 'assets', `${name}.${ext}`),
+      );
+  }
 } finally {
   rmSync(output, { recursive: true, force: true });
 }

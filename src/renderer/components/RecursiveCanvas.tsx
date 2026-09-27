@@ -42,6 +42,7 @@ import { cullViewport } from '../utils/recursivePaintBounds';
 import RecursiveProperties from './RecursiveProperties';
 import SelectionProperties from './SelectionProperties';
 import SelectionLink from './SelectionLink';
+import ProjectObjectLink from './ProjectObjectLink';
 import { duplicateSelection } from '../../shared/recursiveDuplication';
 import InlineObjectText from './InlineObjectText';
 import RecursiveScene from './RecursiveScene';
@@ -129,11 +130,15 @@ export default memo(function RecursiveCanvas({
   canvas,
   setCanvas,
   fitRef,
+  focusRef,
   stamp,
   active = true,
 }: {
   active?: boolean;
   fitRef: Ref<() => void>;
+  focusRef?: Ref<
+    (target: { collection: 'objects' | 'connections'; id: string }) => void
+  >;
   canvas: CanvasState;
   setCanvas: Dispatch<SetStateAction<CanvasState>>;
   exportRef: Ref<RecursiveExportHandle>;
@@ -182,7 +187,11 @@ export default memo(function RecursiveCanvas({
   const [textEditing, setTextEditing] = useState<string | null>(null);
   const [linkEditing, setLinkEditing] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
-  const [searchFocus, setSearchFocus] = useState<string | null>(null);
+  const [searchFocus, setSearchFocus] = useState<{
+    collection: 'objects' | 'connections';
+    id: string;
+  } | null>(null);
+  useImperativeHandle(focusRef, () => setSearchFocus, []);
   const [textToolbar, setTextToolbar] = useState<HTMLDivElement | null>(null);
   const [draw, setDraw] = useState<{
     start: Point;
@@ -709,14 +718,16 @@ export default memo(function RecursiveCanvas({
   }, [size]);
   useLayoutEffect(() => {
     if (!searchFocus) return;
-    const geometry = scene.world.get(searchFocus);
-    if (geometry) {
+    const bounds = sceneBounds(document, scene)[searchFocus.collection].get(
+      searchFocus.id,
+    );
+    if (bounds) {
       const area = freeWorkspace();
-      const fitted = fitCamera(geometryBounds(geometry), area, 32);
+      const fitted = fitCamera(bounds, area, 32);
       setCamera({ ...fitted, x: fitted.x + area.x, y: fitted.y + area.y });
     }
     setSearchFocus(null);
-  }, [searchFocus, scene.world, freeWorkspace, setCamera]);
+  }, [searchFocus, document, scene, freeWorkspace, setCamera]);
   const fit = useCallback(() => {
     // Fit within the free workspace; this changes only the camera command,
     // never the canvas extent or where objects can be created.
@@ -1555,7 +1566,7 @@ export default memo(function RecursiveCanvas({
               selectedPoint: null,
               selectionCollapsed: size.width <= 760,
             }));
-            setSearchFocus(id);
+            setSearchFocus({ collection: 'objects', id });
           }}
         />
       )}
@@ -1589,6 +1600,7 @@ export default memo(function RecursiveCanvas({
       )}
       <div
         id="selection-controls"
+        tabIndex={-1}
         ref={selectionControlsRef}
         role="toolbar"
         aria-label="Selection"
@@ -1829,6 +1841,14 @@ export default memo(function RecursiveCanvas({
           >
             <Icon name="link" />
           </button>
+          {selection.length === 1 && selection[0].startsWith('object-') && (
+            <ProjectObjectLink
+              key={selection[0]}
+              object={document.objects[selection[0].slice(7)]}
+              onEdit={onEdit}
+              isBusy={isBusy}
+            />
+          )}
         </div>
       </div>
       {selection.length > 0 &&

@@ -29,10 +29,16 @@ import useDocumentOpenRequests from './hooks/useDocumentOpenRequests';
 import { DocumentDrafts, useHasDrafts } from './hooks/useDocumentDraft';
 import RecursiveCanvas from './components/RecursiveCanvas';
 import NamedViews from './components/NamedViews';
-import useAutomation from './hooks/useAutomation';
+import type useAutomation from './hooks/useAutomation';
+import useWorkspaceAutomation from './hooks/useWorkspaceAutomation';
 import './App.css';
 import UnifiedToolbar from './components/UnifiedToolbar';
 import exportAsJSON from './utils/jsonExport';
+import useProjectWorkspace, {
+  ProjectWorkspace,
+} from './hooks/useProjectWorkspace';
+import ProjectNavigation from './components/ProjectNavigation';
+import useProjectAutosave from './hooks/useProjectAutosave';
 
 export default function App() {
   return (
@@ -42,6 +48,14 @@ export default function App() {
   );
 }
 export function Workspace() {
+  return (
+    <ProjectWorkspace>
+      <SessionWorkspace />
+    </ProjectWorkspace>
+  );
+}
+function SessionWorkspace() {
+  const projectWorkspace = useProjectWorkspace()!;
   const [appInstanceId, setAppInstanceId] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -58,10 +72,24 @@ export function Workspace() {
     };
   }, []);
   const registry = useDocumentSessions();
+  const automation = useWorkspaceAutomation(appInstanceId);
+  useDocumentOpenRequests(
+    projectWorkspace.busy ||
+      !!projectWorkspace.dialog ||
+      !projectWorkspace.recoveryReady ||
+      !registry.canSwitch(),
+    projectWorkspace.openRequest,
+    projectWorkspace.setError,
+  );
   useEffect(() =>
     window.desktop.transitions.onRequest((id) => {
       void (async () => {
         try {
+          if (projectWorkspace.busy || projectWorkspace.dialog) {
+            await window.desktop.transitions.reply(id, false);
+            return;
+          }
+          await projectWorkspace.remember();
           const approved = await registry.closeAll();
           await window.desktop.transitions.reply(id, approved);
         } catch {
@@ -79,33 +107,39 @@ export function Workspace() {
           active={session.key === registry.activeKey}
         >
           <BoardWorkspace
+            automation={automation}
             appInstanceId={appInstanceId}
             session={session}
             active={session.key === registry.activeKey}
           />
         </DocumentDrafts>
       ))}
+      <ProjectNavigation automation={automation} />
     </>
   );
 }
 function BoardWorkspace({
+  automation,
   appInstanceId,
   session,
   active,
 }: {
+  automation: ReturnType<typeof useAutomation>;
   appInstanceId: string | null;
   session: BoardSession;
   active: boolean;
 }) {
   const registry = useDocumentSessions();
+  const projectWorkspace = useProjectWorkspace()!;
   // Release the Konva stage before Activity defers updates to the hidden tree.
   const [visible, setVisible] = useState(active);
   useLayoutEffect(() => setVisible(active), [active]);
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
   });
-  const recovery = useRecovery(owner);
+  const recovery = useRecovery(owner, session.project);
   const hasDrafts = useHasDrafts();
+  const { report } = registry;
   const {
     document: currentDocument,
     sessionId,
@@ -163,7 +197,14 @@ function BoardWorkspace({
     kind: Parameters<typeof owner.editorCommand>[0],
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
-  const files = useDocumentFiles(owner, showStatus, recovery);
+  const files = useDocumentFiles(owner, showStatus, recovery, session.project);
+  const autosave =
+    !!session.project && !!projectWorkspace.project?.manifest.autosave;
+  useProjectAutosave(owner, files, autosave);
+  const { scheduleRemember } = projectWorkspace;
+  useEffect(() => {
+    if (session.project) scheduleRemember();
+  }, [owner.camera, session.project, scheduleRemember]);
   const transitions = useDocumentTransitions(
     owner,
     files,
@@ -171,14 +212,28 @@ function BoardWorkspace({
     recovery.leave,
     active,
   );
-  useLayoutEffect(() => {
-    registry.controllers.set(session.key, {
-      owner,
-      files,
-      transitions,
-      leave: recovery.leave,
-    });
-  });
+  const boardStatus = [
+    files.failure
+      ? files.failure.conflict
+        ? 'Conflict'
+        : 'Save failed'
+      : files.loading
+        ? 'Saving'
+        : dirty
+          ? session.project
+            ? 'Unsaved'
+            : 'Unsaved changes'
+          : hasDrafts
+            ? ''
+            : 'Saved',
+    hasDrafts ? 'Draft not saved' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  useEffect(
+    () => report(session.key, boardStatus),
+    [report, session.key, boardStatus],
+  );
   useLayoutEffect(
     () => () => {
       registry.controllers.delete(session.key);
@@ -186,6 +241,8 @@ function BoardWorkspace({
     [registry.controllers, session.key],
   );
   const mcpWorkflows = useMcpWorkflows({
+    project: session.project,
+    isActive: () => registry.snapshot().activeKey === session.key,
     owner,
     files,
     transitions,
@@ -205,21 +262,35 @@ function BoardWorkspace({
   );
   const isLoading =
     exportLoading ||
-    files.loading ||
+    projectWorkspace.busy ||
+    !!projectWorkspace.dialog ||
+    files.blocking ||
     transitions.active ||
     !!mcpWorkflows.activeOperation;
-  useDocumentOpenRequests(transitions, isLoading, showStatus, active);
   const handleNewDocument = () => {
-    if (!isLoading) return transitions.request('new');
+    if (!isLoading) {
+      if (projectWorkspace.project)
+        projectWorkspace.setDialog({ kind: 'createBoard' });
+      else return transitions.request('new');
+    }
   };
   const handleOpenFile = () => {
-    if (!isLoading) return transitions.request('open');
+    if (!isLoading)
+      return projectWorkspace.project
+        ? projectWorkspace.standalone(() =>
+            window.desktop.fileSystem.openDocument(),
+          )
+        : transitions.request('open');
   };
   const handleReloadFile = () => {
     if (!isLoading) return transitions.request('reload');
   };
-  const handleSave = (saveAs = false) => {
-    if (!isLoading) return files.save(saveAs);
+  const handleSave = async (saveAs = false) => {
+    if (!isLoading) {
+      const captured = owner.snapshot().sessionId;
+      await files.wait();
+      if (owner.snapshot().sessionId === captured) return files.save(saveAs);
+    }
   };
 
   const handleExportSVG = () => {
@@ -289,47 +360,55 @@ function BoardWorkspace({
     };
   }); // Rebind with current document and loading state.
 
-  const automation = useAutomation(
-    {
-      depthplan_get_access: mcpWorkflows.access,
-      depthplan_files: (input) => mcpWorkflows.start('files', input),
-      depthplan_export: (input) => mcpWorkflows.start('export', input),
-      depthplan_get_operation: mcpWorkflows.read,
-      depthplan_cancel_operation: mcpWorkflows.cancel,
-      depthplan_decide: mcpWorkflows.decide,
-      depthplan_get_recovery: mcpWorkflows.recovery,
-      depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
-      depthplan_get_drafts: mcpDrafts.list,
-      depthplan_resolve_draft: mcpDrafts.resolve,
-      depthplan_controls: (input) => editorCommand('controls', input),
-      depthplan_content_transfer: (input) => editorCommand('content', input),
-      depthplan_delete_preview: owner.editorQueries.deletePreview,
-      depthplan_edit: (input) => editorCommand('edit', input),
-      depthplan_bookmarks: (input) => {
-        const result = editorCommand('bookmarks', input);
-        if (result.ok && input.action.type === 'apply') {
-          const doc = owner.snapshot().document;
-          if (doc)
-            showStatus(
-              `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
-            );
-        }
-        return result;
-      },
-      depthplan_camera: (input) => editorCommand('camera', input),
-      depthplan_selection: (input) => editorCommand('selection', input),
-      depthplan_history: (input) => editorCommand('history', input),
-      depthplan_get_state: owner.editorQueries.getState,
-      depthplan_query: owner.editorQueries.query,
-      depthplan_search: owner.editorQueries.search,
-      depthplan_read_chunk: owner.editorQueries.readChunk,
-      depthplan_get_context: getContext,
-      depthplan_get_hierarchy: getHierarchy,
-      depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
-      depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
+  const handlers = {
+    depthplan_files: (input) => mcpWorkflows.start('files', input),
+    depthplan_export: (input) => mcpWorkflows.start('export', input),
+    depthplan_get_operation: mcpWorkflows.read,
+    depthplan_cancel_operation: mcpWorkflows.cancel,
+    depthplan_decide: mcpWorkflows.decide,
+    depthplan_get_recovery: mcpWorkflows.recovery,
+    depthplan_recovery: (input) => mcpWorkflows.start('recovery', input),
+    depthplan_get_drafts: mcpDrafts.list,
+    depthplan_resolve_draft: mcpDrafts.resolve,
+    depthplan_controls: (input) => editorCommand('controls', input),
+    depthplan_content_transfer: (input) => editorCommand('content', input),
+    depthplan_delete_preview: owner.editorQueries.deletePreview,
+    depthplan_edit: (input) => editorCommand('edit', input),
+    depthplan_bookmarks: (input) => {
+      const result = editorCommand('bookmarks', input);
+      if (result.ok && input.action.type === 'apply') {
+        const doc = owner.snapshot().document;
+        if (doc)
+          showStatus(
+            `Bookmark ${doc.namedViews?.[input.action.id]?.name ?? ''} shown`,
+          );
+      }
+      return result;
     },
-    active,
-  );
+    depthplan_camera: (input) => editorCommand('camera', input),
+    depthplan_selection: (input) => editorCommand('selection', input),
+    depthplan_history: (input) => editorCommand('history', input),
+    depthplan_get_state: owner.editorQueries.getState,
+    depthplan_query: owner.editorQueries.query,
+    depthplan_search: owner.editorQueries.search,
+    depthplan_read_chunk: owner.editorQueries.readChunk,
+    depthplan_get_context: getContext,
+    depthplan_get_hierarchy: getHierarchy,
+    depthplan_set_depth: (input) => guardedMcp(() => setDepth(input)),
+    depthplan_reveal_all: (input) => guardedMcp(() => revealAll(input)),
+  } satisfies import('./hooks/useAutomation').AutomationHandlers;
+  useLayoutEffect(() => {
+    registry.controllers.set(session.key, {
+      owner,
+      files,
+      transitions,
+      leave: recovery.leave,
+      hasDrafts,
+      autosave,
+      handlers,
+      work: mcpWorkflows,
+    });
+  });
 
   const renderToolbar = () => (
     <UnifiedToolbar
@@ -344,13 +423,9 @@ function BoardWorkspace({
       currentDocument={currentDocument}
       hasSource={!!currentFilePath}
       documentStatus={
-        hasDrafts
-          ? 'Draft not saved'
-          : dirty
-            ? 'Unsaved changes'
-            : currentFilePath
-              ? 'Saved'
-              : 'New document'
+        boardStatus === 'Saved' && !currentFilePath
+          ? 'New document'
+          : boardStatus
       }
       onReload={handleReloadFile}
       isLoading={isLoading}
@@ -364,13 +439,26 @@ function BoardWorkspace({
   );
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
-      <div className="workspace" data-board-session={session.key}>
+      <div
+        className="workspace"
+        data-board-session={session.key}
+        id={session.project ? `board-${session.project.boardId}` : undefined}
+        role={session.project ? 'tabpanel' : undefined}
+        aria-labelledby={
+          session.project ? `tab-${session.project.boardId}` : undefined
+        }
+      >
         <div
-          inert={transitions.active || !!mcpWorkflows.activeOperation}
+          inert={
+            transitions.active ||
+            !!mcpWorkflows.activeOperation ||
+            projectWorkspace.busy
+          }
           style={{ display: 'contents' }}
         >
           {!session.source && (
             <RecoveryChoices
+              onReady={projectWorkspace.setRecoveryReady}
               refresh={mcpWorkflows.recoveryVersion()}
               onRestore={async (candidate) =>
                 transitions.request('restore', () => {
@@ -415,6 +503,7 @@ function BoardWorkspace({
                 document={currentDocument}
                 stamp={editorStamp(owner)}
                 fitRef={owner.fitCanvas}
+                focusRef={owner.focusCanvas}
                 canvas={owner.canvas}
                 setCanvas={owner.setCanvas}
                 camera={camera}

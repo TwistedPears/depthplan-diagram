@@ -5,6 +5,7 @@ mod png_export;
 mod projects;
 mod recovery;
 mod validation;
+mod workspace;
 pub fn run() {
     host::run();
 }

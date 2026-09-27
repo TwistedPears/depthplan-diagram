@@ -11,6 +11,9 @@ import type {
   ProjectAction,
   ProjectBoard,
   ProjectSnapshot,
+  ProjectManifest,
+  ProjectView,
+  RecentProject,
 } from '../shared/projectContract';
 import type {
   FileCandidate,
@@ -49,10 +52,13 @@ function subscribe<T>(channel: string, callback: (payload: T) => void) {
   const ready = listen<T>(channel, ({ payload }) => {
     if (active) callback(payload);
   });
-  return () => {
-    active = false;
-    void ready.then((stop) => stop()).catch(console.error);
-  };
+  return Object.assign(
+    () => {
+      active = false;
+      void ready.then((stop) => stop()).catch(console.error);
+    },
+    { ready },
+  );
 }
 
 const menuChannels = [
@@ -60,8 +66,15 @@ const menuChannels = [
   'menu:redo',
   'menu:new',
   'menu:open',
+  'menu:new-project',
+  'menu:open-project',
+  'menu:close-project',
+  'menu:project-settings',
+  'menu:project-board',
+  'menu:close-tab',
   'menu:reload-document',
   'menu:save',
+  'menu:save-all',
   'menu:save-as',
   'menu:export-svg',
   'menu:export-json',
@@ -83,22 +96,93 @@ async function projectCall(
 
 const desktopHandler = {
   projects: {
+    recents: () =>
+      native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
+    forget: (key: string) =>
+      native<FileResult<Record<string, never>>>('project:forget', key),
+    openRecent: (key: string, locate = false) =>
+      projectCall('project:recent-open', key, locate),
+    workspace: (sessionId: string) =>
+      native<FileResult<{ view: ProjectView | null }>>(
+        'project:workspace',
+        sessionId,
+      ),
+    remember: (sessionId: string, view: ProjectView) =>
+      native<FileResult<{ view: ProjectView | null }>>(
+        'project:remember',
+        sessionId,
+        view,
+      ),
     create: (name: string, folder: string, document?: RecursiveDocument) =>
       projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
+    reveal: (sessionId: string) => native('project:reveal', sessionId),
+    importBoards: async (
+      sessionId: string,
+      expected: string,
+    ): Promise<
+      FileResult<{
+        project: ProjectSnapshot;
+        imported: string[];
+        errors: string[];
+      }>
+    > => {
+      const result = await native<
+        FileResult<{
+          project: ProjectSnapshot;
+          imported: string[];
+          errors: string[];
+        }>
+      >('project:import', sessionId, expected);
+      if (result.status === 'success')
+        validateProjectManifest(result.project.manifest);
+      return result;
+    },
     inspect: (sessionId: string) => projectCall('project:inspect', sessionId),
+    definition: async (sessionId: string) => {
+      const result = await native<
+        FileResult<{ manifest: ProjectManifest; fingerprint: string }>
+      >('project:definition', sessionId);
+      if (result.status === 'success') validateProjectManifest(result.manifest);
+      return result;
+    },
+    resolveDefinition: (
+      sessionId: string,
+      expected: string,
+      overwrite: boolean,
+    ) =>
+      projectCall('project:resolve-definition', sessionId, expected, overwrite),
     apply: (sessionId: string, expected: string, action: ProjectAction) =>
       projectCall('project:apply', sessionId, expected, action),
     close: (sessionId: string): Promise<FileResult<Record<string, never>>> =>
       native('project:close', sessionId),
+    writeBoard: (
+      sessionId: string,
+      boardId: string,
+      expected: string,
+      document: RecursiveDocument,
+      overwrite = false,
+      lease?: FileLease,
+    ): Promise<FileResult<{ source: SourceFile }>> =>
+      native(
+        'project:write-board',
+        sessionId,
+        boardId,
+        expected,
+        document,
+        overwrite,
+        lease,
+      ),
     readBoard: async (
       sessionId: string,
       boardId: string,
+      lease?: FileLease,
     ): Promise<FileResult<{ board: ProjectBoard }>> => {
       const result = await native<FileResult<{ board: ProjectBoard }>>(
         'project:read-board',
         sessionId,
         boardId,
+        lease,
       );
       if (result.status === 'success') {
         validateRecursiveDocument(result.board.document);
@@ -191,8 +275,10 @@ const desktopHandler = {
       native('automation:enable', enabled),
     onRequest: (callback: (request: unknown) => unknown) => {
       let enabled = false;
+      let disposed = false;
       let generation = 0;
       const state = (value: { enabled: boolean; generation: number }) => {
+        if (disposed || value.generation < generation) return;
         enabled = value.enabled;
         generation = value.generation;
       };
@@ -219,7 +305,16 @@ const desktopHandler = {
       };
       const stopState = subscribe('automation:state', state);
       const stopRequest = subscribe('automation:request', receive);
+      // A newly active session must learn the already-running server generation.
+      void Promise.all([stopState.ready, stopRequest.ready])
+        .then(() =>
+          native<{ enabled: boolean; generation: number }>('automation:status'),
+        )
+        .then(state)
+        .catch(() => {});
       return () => {
+        disposed = true;
+        enabled = false;
         stopState();
         stopRequest();
       };
@@ -278,7 +373,9 @@ const desktopHandler = {
         void ready.then((stop) => stop()).catch(console.error);
       };
     },
-    readOpenRequest: (id: string): Promise<FileResult<FileCandidate>> =>
+    readOpenRequest: (
+      id: string,
+    ): Promise<FileResult<FileCandidate | { project: ProjectSnapshot }>> =>
       native('file:open-request', id),
     releaseOpenRequest: (id: string): Promise<void> =>
       native('file:release-open-request', id),

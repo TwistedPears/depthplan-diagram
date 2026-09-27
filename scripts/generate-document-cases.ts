@@ -158,6 +158,25 @@ mutate('missing repair geometry', (v) => {
 });
 record('null', null);
 record('array', []);
+
+for (const link of [
+  { projectId: 'project', boardId: 'board' },
+  { projectId: 'project', boardId: 'board', bookmarkId: 'bookmark 演示' },
+  { projectId: 'project', boardId: 'board', bookmarkId: '😀'.repeat(128) },
+  null,
+  'file:///tmp/board',
+  {},
+  { projectId: 'project', boardId: '../board' },
+  { projectId: 'constructor', boardId: 'board' },
+  { projectId: 'project', boardId: 'board', bookmarkId: '__proto__' },
+  { projectId: 'project', boardId: 'board', bookmarkId: null },
+  { projectId: 'project', boardId: 'board', bookmarkId: '😀'.repeat(129) },
+  { projectId: 'project', boardId: 'board', path: '/tmp/board' },
+])
+  mutate(`project link ${JSON.stringify(link)}`, (v) => {
+    v.objects.app.projectLink = link;
+  });
+
 writeFileSync('src-tauri/generated/document-cases.json', JSON.stringify(cases));
 console.log(
   `Generated ${cases.length} document validation cases (${cases.filter((c) => c.valid).length} valid).`,

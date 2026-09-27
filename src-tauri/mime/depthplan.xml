@@ -6,4 +6,10 @@
     <glob pattern="*.depthplan"/>
     <icon name="application-x-depthplan"/>
   </mime-type>
+  <mime-type type="application/x-depthproject">
+    <comment>DepthPlan project</comment>
+    <sub-class-of type="application/json"/>
+    <glob pattern="*.depthproject"/>
+    <icon name="application-x-depthproject"/>
+  </mime-type>
 </mime-info>

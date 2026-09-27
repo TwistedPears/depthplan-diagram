@@ -13,6 +13,14 @@
       <key>CFBundleTypeExtensions</key><array><string>depthplan</string></array>
       <key>CFBundleTypeIconFile</key><string>icon.icns</string>
     </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>DepthPlan project</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSHandlerRank</key><string>Owner</string>
+      <key>LSItemContentTypes</key><array><string>com.twistedpears.depthplan.project</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>depthproject</string></array>
+      <key>CFBundleTypeIconFile</key><string>project.icns</string>
+    </dict>
   </array>
 </dict>
 </plist>
