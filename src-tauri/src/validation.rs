@@ -44,8 +44,22 @@ pub fn valid_link(value: &str) -> bool {
         return false;
     }
     tauri::Url::parse(value).is_ok_and(|url| {
-        matches!(url.scheme(), "http" | "https" | "mailto")
-            && url.username().is_empty()
+        (matches!(url.scheme(), "http" | "https" | "mailto") || {
+            let pairs: Vec<_> = url.query_pairs().collect();
+            url.scheme() == "depthplan"
+                && url.host_str() == Some("object")
+                && url.path().is_empty()
+                && url.port().is_none()
+                && url.fragment().is_none()
+                && pairs.len() == 2
+                && pairs.iter().any(|(k, v)| k == "board" && valid_id(v))
+                && pairs.iter().any(|(k, v)| {
+                    k == "item"
+                        && v.strip_prefix("object-")
+                            .or_else(|| v.strip_prefix("connection-"))
+                            .is_some_and(valid_id)
+                })
+        }) && url.username().is_empty()
             && url.password().is_none()
     })
 }
@@ -439,6 +453,24 @@ pub fn document(v: &Value) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn internal_object_links_are_bounded_to_board_and_item() {
+        assert!(valid_link(
+            "depthplan://object?board=diagram&item=object-app"
+        ));
+        assert!(valid_link(
+            "depthplan://object?board=diagram&item=connection-wire"
+        ));
+        for bad in [
+            "depthplan://elsewhere?board=b&item=object-a",
+            "depthplan://object?board=b&item=object-a&extra=1",
+            "depthplan://object?board=b&item=object-a#fragment",
+            "depthplan://object?board=b&item=object-__proto__",
+            "depthplan://user@object?board=b&item=object-a",
+        ] {
+            assert!(!valid_link(bad), "{bad}");
+        }
+    }
     #[test]
     fn matches_editor_document_validation() {
         let cases: Vec<Value> =

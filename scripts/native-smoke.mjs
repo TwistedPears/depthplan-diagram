@@ -1,3 +1,5 @@
+import { templates } from './native-templates.mjs';
+import { selectionMenu } from './native-selection-menu.mjs';
 import { projectAcceptance } from './native-project-acceptance.mjs';
 import { projectSearch } from './native-project-search.mjs';
 import { projectLinks } from './native-project-links.mjs';
@@ -62,6 +64,7 @@ try {
     request,
     session,
     js,
+    drag,
   });
   // The file-conflict and recovery journeys below explicitly exercise manual saving.
   await click('Menu');
@@ -567,6 +570,8 @@ try {
   await projectWorkspace(resumed);
   resumed = await launchNative(profile);
   await projectPersistence(resumed);
+  await templates();
+  await selectionMenu();
   console.log(
     `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 28-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );

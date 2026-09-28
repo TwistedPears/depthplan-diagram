@@ -21,6 +21,7 @@ interface UnifiedToolbarProps {
   unsaved?: boolean;
   onRenameDocument?: (name: string) => Promise<boolean>;
   onRenameFile?: (name: string) => Promise<boolean>;
+  onTemplates?: () => void;
   onNewDocument: () => void;
   onOpenFile: () => void;
   onSave: () => void;
@@ -38,6 +39,7 @@ function UnifiedToolbar({
   unsaved = false,
   onRenameDocument,
   onRenameFile,
+  onTemplates,
   onNewDocument,
   onOpenFile,
   onSave,
@@ -161,6 +163,16 @@ function UnifiedToolbar({
                 <ProjectMenu onAction={closeDropdown} />
               )}
             </FileToolbar>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                onTemplates?.();
+                closeDropdown();
+              }}
+            >
+              Templates
+            </button>
             <div className="dropdown-separator" />
             {currentDocument && (
               <button

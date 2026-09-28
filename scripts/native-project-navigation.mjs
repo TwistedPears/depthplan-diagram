@@ -76,9 +76,41 @@ export async function projectNavigation(driver) {
       );
     }
   };
+  const originalSession = await sync(
+    'return document.querySelector("[data-board-session][data-active=true]").dataset.boardSession',
+  );
+  await sync(`const input=document.querySelector('[data-active=true] [aria-label="New bookmark name"]');
+    input.closest('details').open=true;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Before project');
+    input.dispatchEvent(new Event('input',{bubbles:true}));`);
+  await click('Add bookmark');
   await click('Menu');
   await click('New Project');
   await drawer();
+  assert.equal(
+    await sync(
+      'return document.querySelector("[data-board-session][data-active=true]").dataset.boardSession',
+    ),
+    originalSession,
+  );
+  assert(
+    await sync(
+      'return !document.querySelector("button[aria-label=Undo]").disabled',
+    ),
+  );
+  assert(
+    await sync(
+      'return [...document.querySelectorAll(".bookmark-item")].some(n=>n.textContent==="Before project")',
+    ),
+  );
+  await click('Undo');
+  assert.equal(
+    await sync(
+      'return [...document.querySelectorAll(".bookmark-item")].some(n=>n.textContent==="Before project")',
+    ),
+    false,
+  );
+  await click('Redo');
   assert.equal(
     await sync('return document.querySelector(".project-title").textContent'),
     'Untitled Project',
@@ -168,6 +200,11 @@ export async function projectNavigation(driver) {
     await readFile(path.join(projectRoot, project.boards[0].path), 'utf8'),
   );
   assert.equal(memoryBoard.metadata.title, 'overview');
+  assert(
+    Object.values(memoryBoard.namedViews ?? {}).some(
+      (view) => view.name === 'Before project',
+    ),
+  );
   await edit(`#board-link-${firstId}`, 'Overview');
   assert.equal((await current()).boards[0].path, 'overview.depthplan');
   assert.equal(

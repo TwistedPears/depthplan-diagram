@@ -42,6 +42,9 @@ import { cullViewport } from '../utils/recursivePaintBounds';
 import RecursiveProperties from './RecursiveProperties';
 import SelectionProperties from './SelectionProperties';
 import SelectionLink from './SelectionLink';
+import SelectionMenu, { type SelectionMenuItem } from './SelectionMenu';
+import { copyStyle, patchSelectionStyle } from '../../shared/editorProperties';
+import { flipSelection } from '../../shared/recursiveFlip';
 import ProjectObjectLink from './ProjectObjectLink';
 import { duplicateSelection } from '../../shared/recursiveDuplication';
 import InlineObjectText from './InlineObjectText';
@@ -116,9 +119,11 @@ import {
 const transformHandles = [-1, 0, 1].flatMap((x) =>
   [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
 );
+let copiedStyle: ReturnType<typeof copyStyle> | null = null;
 
 export default memo(function RecursiveCanvas({
   document,
+  hasHistory,
   camera,
   setCamera,
   onEdit,
@@ -127,6 +132,7 @@ export default memo(function RecursiveCanvas({
   exportRef,
   isBusy,
   onStatus,
+  onSaveTemplate,
   canvas,
   setCanvas,
   fitRef,
@@ -145,7 +151,9 @@ export default memo(function RecursiveCanvas({
   stamp: string;
   isBusy: () => boolean;
   onStatus: (message: string) => void;
+  onSaveTemplate: () => void;
   document: RecursiveDocument;
+  hasHistory: boolean;
   camera: Camera;
   setCamera: Dispatch<SetStateAction<Camera>>;
   onEdit: (edit: DocumentEdit) => TransactionResult | null;
@@ -181,11 +189,12 @@ export default memo(function RecursiveCanvas({
     };
   }, [setCanvas]);
   const tool = canvas.tool as ToolMode;
-  useCanvasPan(stageRef, tool);
   const { selected, selectedPoint, minimap, selectionCollapsed } = canvas;
   const [properties, setProperties] = useState<string | null>(null);
   const [textEditing, setTextEditing] = useState<string | null>(null);
   const [linkEditing, setLinkEditing] = useState<string | null>(null);
+  const [context, setContext] = useState<{ x: number; y: number } | null>(null);
+  const deleteSelected = useRef<() => void>(null);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [searchFocus, setSearchFocus] = useState<{
     collection: 'objects' | 'connections';
@@ -283,7 +292,7 @@ export default memo(function RecursiveCanvas({
     additive: boolean;
   } | null>(null);
   const selection = selected.filter((id) => boxes.has(id));
-  useCanvasClipboard({
+  const clipboard = useCanvasClipboard({
     document,
     selection,
     isBusy,
@@ -361,6 +370,175 @@ export default memo(function RecursiveCanvas({
     );
     return node && boxes.has(node.id()) ? node.id() : null;
   };
+  useCanvasPan(stageRef, tool, (event, target) => {
+    if (isBusy() || animating || window.document.querySelector('dialog[open]'))
+      return;
+    const key = target && targetKey(target);
+    if (target?.findAncestor('.child-stack-toggle', true)) return;
+    if (key && !selection.includes(key)) setSelected([key]);
+    if (!key && !selection.length) return;
+    setSelectedPoint(null);
+    stageRef.current
+      ?.container()
+      .closest<HTMLElement>('.canvas-container')
+      ?.focus();
+    setContext({ x: event.clientX, y: event.clientY });
+  });
+  useEffect(() => setContext(null), [document, active, tool]);
+  const duplicate = () => {
+    if (isBusy()) return;
+    const copy = duplicateSelection(document, selection);
+    if (onEdit(copy.edit)?.status === 'accepted') {
+      setSelected(copy.selection);
+      setSelectedPoint(null);
+    }
+  };
+  const copyStyles = () => {
+    const key = selection[0];
+    if (!key) return;
+    copiedStyle = copyStyle(
+      key.startsWith('object-')
+        ? document.objects[key.slice(7)]
+        : document.connections[key.slice(11)],
+    );
+    onStatus('Styles copied.');
+  };
+  const pasteStyles = () => {
+    if (copiedStyle) onEdit(patchSelectionStyle(selection, copiedStyle));
+  };
+  const mod = /Mac/i.test(navigator.platform) ? '⌘' : 'Ctrl+';
+  const alt = /Mac/i.test(navigator.platform) ? '⌥' : 'Alt+';
+  const menuGroups: SelectionMenuItem[][] = [
+    [
+      { label: 'Cut', shortcut: `${mod}X`, action: () => clipboard('cut') },
+      { label: 'Copy', shortcut: `${mod}C`, action: () => clipboard('copy') },
+      { label: 'Paste', shortcut: `${mod}V`, action: () => clipboard('paste') },
+    ],
+    [
+      { label: 'Copy styles', shortcut: `${mod}${alt}C`, action: copyStyles },
+      {
+        label: 'Paste styles',
+        shortcut: `${mod}${alt}V`,
+        disabled: !copiedStyle,
+        action: pasteStyles,
+      },
+    ],
+    [{ label: 'Save Template', action: onSaveTemplate }],
+    [
+      {
+        label: 'Send backward',
+        shortcut: `${mod}[`,
+        action: () => onEdit(stackSelection(selection, 'send-backward')),
+      },
+      {
+        label: 'Bring forward',
+        shortcut: `${mod}]`,
+        action: () => onEdit(stackSelection(selection, 'bring-forward')),
+      },
+      {
+        label: 'Send to back',
+        shortcut: `${mod}${alt}[`,
+        action: () => onEdit(stackSelection(selection, 'send-to-back')),
+      },
+      {
+        label: 'Bring to front',
+        shortcut: `${mod}${alt}]`,
+        action: () => onEdit(stackSelection(selection, 'bring-to-front')),
+      },
+    ],
+    [
+      {
+        label: 'Flip horizontal',
+        shortcut: 'Shift+H',
+        action: () => onEdit(flipSelection(document, selection, 'x')),
+      },
+      {
+        label: 'Flip vertical',
+        shortcut: 'Shift+V',
+        action: () => onEdit(flipSelection(document, selection, 'y')),
+      },
+    ],
+    selection.length === 1
+      ? [
+          {
+            label: 'Add link',
+            shortcut: `${mod}K`,
+            action: () => setLinkEditing(selection[0]),
+          },
+          {
+            label: 'Copy link to object',
+            action: () => {
+              const url = `depthplan://object?${new URLSearchParams({ board: document.id, item: selection[0] })}`;
+              void window.desktop.clipboard
+                .writeText(url)
+                .then(() =>
+                  onStatus(
+                    'Object link copied. Open the target board in DepthPlan to follow it.',
+                  ),
+                )
+                .catch((error) =>
+                  onStatus(`Could not copy link: ${String(error)}`),
+                );
+            },
+          },
+        ]
+      : [],
+    [{ label: 'Duplicate', shortcut: `${mod}D`, action: duplicate }],
+    [
+      {
+        label: 'Delete',
+        shortcut: 'Delete',
+        action: () => deleteSelected.current?.(),
+      },
+    ],
+  ];
+  const selectionShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.repeat ||
+      isEditingText(event.target) ||
+      !selection.length ||
+      isBusy() ||
+      window.document.querySelector('dialog[open]')
+    )
+      return;
+    if (
+      event.key === 'ContextMenu' ||
+      (event.shiftKey && event.key === 'F10')
+    ) {
+      event.preventDefault();
+      const box = boxes.get(selection[0])!;
+      setContext({
+        x: camera.x + box.x * camera.scale,
+        y: camera.y + box.y * camera.scale,
+      });
+      return;
+    }
+    const command = event.metaKey || event.ctrlKey;
+    const key = event.key.toLowerCase();
+    let label: string | undefined;
+    if (command && !event.shiftKey) {
+      if (key === '[' || event.code === 'BracketLeft')
+        label = event.altKey ? 'Send to back' : 'Send backward';
+      else if (key === ']' || event.code === 'BracketRight')
+        label = event.altKey ? 'Bring to front' : 'Bring forward';
+      else if (event.altKey)
+        label =
+          { KeyC: 'Copy styles', KeyV: 'Paste styles' }[event.code] ??
+          { c: 'Copy styles', v: 'Paste styles' }[key];
+      else label = { d: 'Duplicate', k: 'Add link' }[key];
+    } else if (!command && !event.altKey && event.shiftKey)
+      label = { h: 'Flip horizontal', v: 'Flip vertical' }[key];
+    const item = menuGroups.flat().find((item) => item.label === label);
+    if (item && !item.disabled) {
+      event.preventDefault();
+      item.action();
+    }
+  });
+  useEffect(() => {
+    window.addEventListener('keydown', selectionShortcut);
+    return () => window.removeEventListener('keydown', selectionShortcut);
+  }, []);
   const connectionTarget = (target: Konva.Node): ConnectionTarget => {
     const point = target.findAncestor('.boundary-point', true);
     if (point)
@@ -1039,6 +1217,12 @@ export default memo(function RecursiveCanvas({
   return (
     <div
       className="canvas-container"
+      tabIndex={-1}
+      onMouseDownCapture={(event) => {
+        // Clear the open request before selection changes can unmount the popover.
+        if (event.button === 0 && event.target instanceof HTMLCanvasElement)
+          setContext(null);
+      }}
       data-rotation-cursor={
         rotationHover || gesture.current?.rotate || undefined
       }
@@ -1525,6 +1709,13 @@ export default memo(function RecursiveCanvas({
           onClose={() => setLinkEditing(null)}
         />
       )}
+      {context && selection.length > 0 && (
+        <SelectionMenu
+          {...context}
+          groups={menuGroups}
+          onClose={() => setContext(null)}
+        />
+      )}
       <ShapeToolbar
         activeTool={tool}
         onSearch={setSearchQuery}
@@ -1803,6 +1994,7 @@ export default memo(function RecursiveCanvas({
             </span>
           )}
           <RecursiveDelete
+            requestRef={deleteSelected}
             document={document}
             selection={selection}
             point={selectedPoint}
@@ -1823,13 +2015,7 @@ export default memo(function RecursiveCanvas({
             aria-label="Duplicate"
             title="Duplicate"
             disabled={!selection.length}
-            onClick={() => {
-              if (isBusy()) return;
-              const copy = duplicateSelection(document, selection);
-              onEdit(copy.edit);
-              setSelected(copy.selection);
-              setSelectedPoint(null);
-            }}
+            onClick={duplicate}
           >
             <Icon name="duplicate" />
           </button>
@@ -1966,6 +2152,7 @@ export default memo(function RecursiveCanvas({
       />
       {Object.keys(document.objects).length === 0 &&
         Object.keys(document.connections).length === 0 &&
+        !hasHistory &&
         !drawing && (
           <div className="canvas-welcome">
             <Icon name="square" className="welcome-shape" />

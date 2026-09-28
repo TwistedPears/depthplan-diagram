@@ -1,14 +1,21 @@
+import {
+  validateTemplate,
+  type Template,
+  type TemplateEntry,
+} from '../shared/templates';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
   createRecursiveDocument,
   validateRecursiveDocument,
+  objectLinkTarget,
 } from '../shared/recursiveDocument';
 import type { RecursiveDocument } from '../shared/recursiveDocument';
 import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
 import {
   validateProjectManifest,
   projectFilename,
+  projectNameSchema,
 } from '../shared/projectContract';
 import type {
   ProjectAction,
@@ -95,8 +102,51 @@ async function projectCall(
 }
 
 const desktopHandler = {
+  templates: {
+    list: async () => {
+      const result = await native<{
+        entries: TemplateEntry[];
+        warnings: string[];
+      }>('template:list');
+      result.entries.forEach((entry) => validateTemplate(entry.document));
+      return result;
+    },
+    save: async (document: Template, expected?: string) => {
+      validateTemplate(document);
+      const entry = await native<TemplateEntry>(
+        'template:save',
+        document,
+        expected,
+      );
+      validateTemplate(entry.document);
+      return entry;
+    },
+    remove: (id: string, expected: string): Promise<void> =>
+      native('template:remove', id, expected),
+    import: async () => {
+      const entry = await native<TemplateEntry | null>('template:import');
+      if (entry) validateTemplate(entry.document);
+      return entry;
+    },
+    export: (document: Template): Promise<string | null> => {
+      validateTemplate(document);
+      return native('template:export', document);
+    },
+  },
   projects: {
-    new: () => projectCall('project:new'),
+    new: (document?: RecursiveDocument) => {
+      if (!document) return projectCall('project:new');
+      validateRecursiveDocument(document);
+      const name = projectNameSchema.safeParse(document.metadata.title).success
+        ? document.metadata.title
+        : 'Untitled Board';
+      return projectCall(
+        'project:new',
+        document,
+        name,
+        projectFilename(name, []),
+      );
+    },
     save: (
       sessionId: string,
       expected: string,
@@ -330,7 +380,14 @@ const desktopHandler = {
       };
     },
   },
-  openLink: (url: string): Promise<void> => native('link:open', url),
+  openLink: (url: string): Promise<void> => {
+    const target = objectLinkTarget(url);
+    if (!target) return native('link:open', url);
+    window.dispatchEvent(
+      new CustomEvent('depthplan:open-object', { detail: target }),
+    );
+    return Promise.resolve();
+  },
   getAppInstanceId: (): Promise<string> => native('app:instance-id'),
   quit: (): Promise<void> => native('app:quit'),
   editHistory: (direction: 'undo' | 'redo'): Promise<void> => {

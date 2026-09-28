@@ -245,7 +245,7 @@ summary {
   scrollbar-color: var(--line) var(--surface);
 }
 .bookmark-item,
-:is(.bookmark-menu, .project-board-menu) > button {
+:is(.bookmark-menu, .project-board-menu, .selection-menu) > button {
   width: 100%;
   border-color: transparent;
   text-align: left;
@@ -256,7 +256,8 @@ summary {
   white-space: nowrap;
 }
 .bookmark-item:focus-visible,
-:is(.bookmark-menu, .project-board-menu) > button:focus-visible {
+:is(.bookmark-menu, .project-board-menu, .selection-menu)
+  > button:focus-visible {
   outline-offset: -2px;
 }
 .bookmark-panel p {
@@ -277,7 +278,7 @@ summary {
   width: 34px;
   padding: 7px;
 }
-:is(.bookmark-menu, .project-board-menu) {
+:is(.bookmark-menu, .project-board-menu, .selection-menu) {
   position: fixed;
   margin: 0;
   padding: 5px;
@@ -287,7 +288,7 @@ summary {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.bookmark-menu > hr {
+:is(.bookmark-menu, .selection-menu) > hr {
   margin: 5px 6px;
   border: 0;
   border-top: 1px solid var(--line);
@@ -930,4 +931,203 @@ dialog label {
   .properties-panel .geometry-fields {
     grid-template-columns: 1fr;
   }
+}
+
+/* Templates use the same modal, controls and palette as the board. */
+.template-library {
+  width: 1200px;
+  max-width: calc(100vw - 32px);
+}
+.template-library > form {
+  height: min(800px, calc(100dvh - 34px));
+}
+.template-library > form > .form-dialog-fields {
+  padding: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.template-library > form > .form-dialog-actions:empty {
+  display: none;
+}
+.template-gallery-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 0;
+}
+.template-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 8px 16px 24px 24px;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+}
+.template-sidebar nav,
+.template-library-actions {
+  display: grid;
+  gap: 6px;
+}
+.template-sidebar h3 {
+  margin: 16px 8px 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.template-sidebar button {
+  text-align: left;
+  border-color: transparent;
+  min-height: 40px;
+}
+.template-library-actions {
+  margin-top: auto;
+}
+.template-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 24px 24px;
+  overflow: auto;
+  min-width: 0;
+}
+.template-gallery input[type='search'] {
+  min-height: 42px;
+  background: var(--canvas);
+}
+.template-gallery-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.template-gallery-heading h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.template-gallery-heading > span,
+.template-card-source {
+  color: var(--muted);
+  font-size: 12px;
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 20px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.template-card-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+.template-card-preview:hover:not(:disabled) {
+  background: transparent;
+}
+.template-card-preview:hover .template-preview {
+  border-color: var(--accent);
+}
+.template-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.template-card > p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.template-card > .primary-button {
+  margin-top: auto;
+}
+.template-preview {
+  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.template-details {
+  width: 850px;
+  max-width: calc(100vw - 32px);
+}
+.template-empty {
+  padding: 32px 0;
+  color: var(--muted);
+}
+@media (max-width: 1050px) {
+  .template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .template-gallery-layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+  .template-sidebar {
+    padding: 0 24px 16px;
+    gap: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow: visible;
+  }
+  .template-sidebar nav,
+  .template-library-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .template-sidebar h3 {
+    display: none;
+  }
+  .template-sidebar button {
+    min-height: 40px;
+    padding: 6px 8px;
+  }
+  .template-gallery {
+    overflow: visible;
+    padding-top: 20px;
+  }
+  .template-library > form > .form-dialog-fields {
+    overflow: auto;
+  }
+  .template-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.selection-menu {
+  width: min(280px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  box-shadow: 0 12px 30px #0f172a24;
+}
+.selection-menu > button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.selection-menu kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+}
+.selection-menu > .selection-delete {
+  color: var(--danger);
 }

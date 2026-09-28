@@ -93,6 +93,8 @@ audit review and read-only placement workflows. See the
 
 ## Documentation
 
+- [Templates](docs/templates.md): an example gallery, insertion on the current board, and portable sharing.
+
 | Guide                                                | Contents                                                    |
 | ---------------------------------------------------- | ----------------------------------------------------------- |
 | [Try DepthPlan](docs/preview.md)                     | Preview availability, first steps, limitations and feedback |

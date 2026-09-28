@@ -55,7 +55,9 @@ const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 let project: ProjectSnapshot;
 let documents: Record<string, ReturnType<typeof createRecursiveDocument>>;
 const noop = () => () => {};
-const key = (id: string) => `project-session:${id}`;
+const key = (id: string) =>
+  registry.snapshot().sessions.find((s) => s.project?.boardId === id)?.key ??
+  `${project.sessionId}:${id}`;
 const controller = (id: string) => registry.controllers.get(key(id))!;
 const response = () => ({
   status: 'success' as const,
@@ -139,10 +141,27 @@ beforeEach(() => {
       open: jest.fn(async () => response()),
       close: jest.fn().mockResolvedValue({ status: 'success' }),
       inspect: jest.fn(async () => response()),
-      new: jest.fn(async () => {
-        project.location = null;
-        return response();
-      }),
+      new: jest.fn(
+        async (document = createRecursiveDocument('new', 'Untitled Board')) => {
+          project.location = null;
+          project.sessionId = 'new-project-session';
+          project.manifest = {
+            ...project.manifest,
+            id: 'new-project',
+            name: 'Untitled Project',
+            homeBoardId: document.id,
+            boards: [
+              {
+                id: document.id,
+                name: document.metadata.title,
+                path: projectFilename(document.metadata.title, []),
+              },
+            ],
+          };
+          documents = { [document.id]: clone(document) };
+          return response();
+        },
+      ),
       save: jest.fn(
         async (
           _session: string,
@@ -1449,10 +1468,147 @@ test('closing a project board protects unapplied drafts then saves the applied c
   ).toBe(true);
 });
 
-test('New Project stays in memory; first Save uses inline names, survives cancellation and preserves undo', async () => {
-  await setup();
+test.each([
+  null,
+  { id: 'source', path: '/original.depthplan', fingerprint: 'original' },
+])(
+  'New Project wraps the current standalone board without saving and retains history (source: %s)',
+  async (source) => {
+    localStorage.setItem('depthplan.autosave', 'off');
+    render(
+      <DocumentSessions>
+        <Capture />
+      </DocumentSessions>,
+    );
+    const activeKey = registry.activeKey;
+    const owner = registry.controllers.get(activeKey)!.owner;
+    act(() => {
+      owner.replace(recursiveFixture(), { source });
+      owner.transact(editObject('api', { name: 'Accepted before wrapping' }));
+      owner.setCamera({ x: 120, y: -40, scale: 1.4 });
+      owner.setCanvas((canvas) => ({ ...canvas, selected: ['object-api'] }));
+    });
+    const before = owner.snapshot();
+    await click('Menu');
+    await click('New Project');
+    expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+    expect(window.desktop.fileSystem.saveDocument).not.toHaveBeenCalled();
+    expect(window.desktop.projects.save).not.toHaveBeenCalled();
+    expect(window.desktop.projects.writeBoard).not.toHaveBeenCalled();
+    expect(window.desktop.projects.new).toHaveBeenCalledWith(before.document);
+    expect(mockWorkspace.project?.location).toBeNull();
+    expect(
+      mockWorkspace.project?.manifest.boards.map((board) => board.id),
+    ).toEqual([before.document!.id]);
+    expect(mockWorkspace.project?.manifest.homeBoardId).toBe(
+      before.document!.id,
+    );
+    expect(registry.activeKey).toBe(activeKey);
+    expect(registry.controllers.get(activeKey)!.owner.snapshot()).toMatchObject(
+      {
+        document: before.document,
+        sessionId: before.sessionId,
+        camera: before.camera,
+        canvas: before.canvas,
+        canUndo: true,
+        dirty: true,
+        source: null,
+      },
+    );
+    act(() => owner.transact(editObject('api', { name: 'Live wrapped edit' })));
+    await searchProject('Live wrapped edit');
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /Object · Live wrapped edit/ }),
+      );
+    });
+    expect(registry.activeKey).toBe(activeKey);
+    expect(registry.sessions).toHaveLength(1);
+    jest
+      .mocked(window.desktop.projects.save)
+      .mockResolvedValueOnce({ status: 'canceled' });
+    await click('Menu');
+    await click('Save All');
+    expect(mockWorkspace.project?.location).toBeNull();
+    expect(
+      registry.controllers.get(activeKey)!.owner.snapshot().document!.objects
+        .api.name,
+    ).toBe('Live wrapped edit');
+    await click('Menu');
+    await click('Save All');
+    expect(registry.controllers.get(activeKey)!.owner.sessionId).toBe(
+      before.sessionId,
+    );
+    act(() => owner.undo());
+    expect(owner.snapshot().document!.objects.api.name).toBe(
+      'Accepted before wrapping',
+    );
+  },
+);
+
+test('failed New Project leaves the standalone board and its source untouched', async () => {
+  render(
+    <DocumentSessions>
+      <Capture />
+    </DocumentSessions>,
+  );
+  const owner = registry.controllers.get(registry.activeKey)!.owner;
+  await waitFor(() => expect(owner.snapshot().appInstanceId).toBe('app'));
+  act(() => owner.replace(recursiveFixture(), { dirty: true }));
+  const before = owner.snapshot();
+  jest.mocked(window.desktop.projects.new).mockResolvedValueOnce({
+    status: 'error',
+    error: 'Could not create project',
+  });
+  jest.mocked(window.desktop.recovery.remove).mockClear();
   await click('Menu');
   await click('New Project');
+  expect(owner.snapshot()).toEqual(before);
+  expect(mockWorkspace.project).toBeNull();
+  expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+  expect(window.desktop.recovery.remove).not.toHaveBeenCalled();
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Could not create project',
+  );
+});
+
+test('New Project carries the active project board while saving other open boards before leaving', async () => {
+  localStorage.setItem('depthplan.autosave', 'off');
+  await setup();
+  await act(async () => {
+    await mockWorkspace.openBoard('b');
+  });
+  act(() =>
+    controller('b').owner.transact(
+      editObject('api', { name: 'Keep other board' }),
+    ),
+  );
+  await act(async () => {
+    await mockWorkspace.openBoard('a');
+  });
+  const owner = controller('a').owner;
+  act(() => owner.transact(editObject('api', { name: 'Carry active board' })));
+  const before = owner.snapshot();
+  await click('Menu');
+  await click('New Project');
+  expect(project.manifest.boards.map((board) => board.id)).toEqual(['a']);
+  expect(controller('a').owner.snapshot()).toMatchObject({
+    document: before.document,
+    sessionId: before.sessionId,
+    source: null,
+    dirty: true,
+  });
+  expect(window.desktop.projects.writeBoard).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(window.desktop.projects.writeBoard).mock.calls[0][1]).toBe(
+    'b',
+  );
+  expect(window.desktop.projects.close).toHaveBeenCalledWith('project-session');
+  expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
+});
+
+test('first Save uses inline names, survives cancellation and preserves undo', async () => {
+  project.location = null;
+  await setup();
   expect(mockWorkspace.project?.location).toBeNull();
   expect(controller('a').owner.source).toBeNull();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

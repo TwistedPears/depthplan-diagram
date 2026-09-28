@@ -255,8 +255,9 @@ impl Project {
     pub fn is_draft(&self) -> bool {
         self.disk.is_none()
     }
-    pub fn new() -> Self {
-        let document = blank("Untitled Board");
+    pub fn new(document: Option<Value>, name: &str, path: &str) -> Result<Self> {
+        let document = document.unwrap_or_else(|| blank(name));
+        validation::document(&document)?;
         let id = document["id"].as_str().unwrap().to_owned();
         let manifest = Manifest {
             project_version: 1,
@@ -265,19 +266,20 @@ impl Project {
             description: String::new(),
             boards: vec![Board {
                 id: id.clone(),
-                name: "Untitled Board".into(),
-                path: "untitled_board.depthplan".into(),
+                name: name.into(),
+                path: path.into(),
             }],
             home_board_id: Some(id.clone()),
             autosave: true,
             extensions: None,
         };
-        Self {
+        self::manifest(&json!(manifest))?;
+        Ok(Self {
             disk: None,
             documents: HashMap::from([(id, document)]),
             fingerprint: files::fingerprint(&serde_json::to_vec(&manifest).unwrap()),
             manifest,
-        }
+        })
     }
     pub fn save(
         &mut self,

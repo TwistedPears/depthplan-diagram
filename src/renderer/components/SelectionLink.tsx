@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import { validLink } from '../../shared/recursiveDocument';
+import { objectLinkTarget, validLink } from '../../shared/recursiveDocument';
 import type { DocumentEdit } from '../../shared/documentTransactions';
 import { patchSelectionStyle } from '../../shared/editorProperties';
 import useDocumentDraft from '../hooks/useDocumentDraft';
@@ -35,7 +35,7 @@ export default function SelectionLink({
   return (
     <FormDialog
       title="Item link"
-      description="Use an http, https or mailto URL. Clear the field to remove the link."
+      description="Use an http, https, mailto or copied DepthPlan object link. Clear the field to remove the link."
       initialFocus={input}
       onCancel={onClose}
       onSubmit={apply}
@@ -46,6 +46,15 @@ export default function SelectionLink({
           type="button"
           disabled={!validLink(url.trim())}
           onClick={() => {
+            if (objectLinkTarget(url.trim())) {
+              apply();
+              requestAnimationFrame(() => {
+                void window.desktop
+                  .openLink(url.trim())
+                  .catch((error) => setError(String(error)));
+              });
+              return;
+            }
             void window.desktop
               .openLink(url.trim())
               .catch((error) => setError(String(error)));

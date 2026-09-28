@@ -264,6 +264,17 @@ Bookmarks, depth, alignment, automation, and properties reuse white bordered con
 
 All app modal dialogs use `FormDialog`: a titled header with a short description and close button, stacked full-width fields, and a separated action footer. Export Image, Rename Bookmark, Item Link, Delete Subtree, Recovery, and MCP Details share this layout. Standard dialogs are 440px wide; MCP Details uses 560px and Recovery uses 660px, all bounded by the viewport. Long content scrolls between the header and footer so actions remain reachable. Primary actions use Instrument Blue; destructive confirmation uses Error Red. Keep validation and operation errors inside the dialog. Busy recovery operations disable dismissal. The native dialog handles modal focus and Escape; close it before unmounting to restore focus to its opener. Rename and link dialogs focus their first field. Native file pickers and system save/discard prompts retain their platform styling.
 
+### Template Gallery
+
+Templates use a wide `FormDialog` with a category sidebar, search, and a grid of
+real diagram previews. The supplied Miro gallery screenshots inform navigation
+and card hierarchy; colors, typography, controls and dialog treatment stay native
+to DepthPlan. Desktop uses three columns, intermediate widths use two, and narrow
+windows use one with category buttons above the gallery. Cards open a larger
+preview or insert directly. Search, empty results, loading and errors stay inside
+the gallery. Insertion closes it and frames the selected example on the current
+board. There is no new-board or template-editing workflow.
+
 ## Do's and Don'ts
 
 ### Do:

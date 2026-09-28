@@ -57,6 +57,9 @@ export function recursiveVisibility(
   const collapsed = collapsedObjects(document);
   const visible = new Set<string>();
   const expanded = new Set<string>();
+  const connectionOwners = new Set(
+    Object.values(document.connections).map((c) => c.ownerId),
+  );
   for (const [id, { root, generation }] of hierarchy.entries) {
     if (generation > document.rootDepths[root]) continue;
     const parent = document.objects[id].parentId;
@@ -64,8 +67,9 @@ export function recursiveVisibility(
     visible.add(id);
     if (
       !collapsed.has(id) &&
-      generation < document.rootDepths[root] &&
-      (hierarchy.children.get(id)?.length ?? 0) > 0
+      (hierarchy.children.has(id)
+        ? generation < document.rootDepths[root]
+        : document.objects[id].type === 'frame' && connectionOwners.has(id))
     )
       expanded.add(id);
   }

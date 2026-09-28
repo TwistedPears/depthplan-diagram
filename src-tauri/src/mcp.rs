@@ -141,7 +141,9 @@ impl ServerHandler for Adapter {
         _: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         let result = match tokio::time::timeout(
-            Duration::from_secs(5),
+            // Windows verifies both descriptor ACLs in PowerShell before connecting.
+            // Include that process startup cost, beyond the pipe's five-second limit.
+            Duration::from_secs(if cfg!(windows) { 15 } else { 5 }),
             self.execute(
                 &request.name,
                 Value::Object(request.arguments.unwrap_or_default()),

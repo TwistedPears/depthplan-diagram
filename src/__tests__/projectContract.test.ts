@@ -84,6 +84,18 @@ test('project bridge uses opaque sessions, validates responses and preserves can
     method: 'project:new',
     args: [],
   });
+  const current = createRecursiveDocument('current', 'API Details');
+  await window.desktop.projects.new(current);
+  expect(invoke).toHaveBeenLastCalledWith('desktop', {
+    method: 'project:new',
+    args: [current, 'API Details', 'api_details.depthplan'],
+  });
+  current.metadata.title = 'Legacy / title';
+  await window.desktop.projects.new(current);
+  expect(invoke).toHaveBeenLastCalledWith('desktop', {
+    method: 'project:new',
+    args: [current, 'Untitled Board', 'untitled_board.depthplan'],
+  });
   await window.desktop.projects.save('session', 'hash', manifest);
   expect(invoke).toHaveBeenLastCalledWith('desktop', {
     method: 'project:save',

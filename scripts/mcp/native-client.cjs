@@ -34,7 +34,7 @@ function client(executable, descriptor) {
       const id = ++next;
       const timer = setTimeout(
         () => reject(new Error('MCP timeout: ' + method + ' ' + diagnostic)),
-        10000,
+        20000,
       );
       pending.set(id, { resolve, timer });
       child.stdin.write(

@@ -107,11 +107,23 @@ export async function projectPersistence(driver) {
     await edit('Autosaved A');
     await open(b);
     await edit('Autosaved B');
-    await until(
-      async () =>
+    await until(async () => {
+      const failure = await sync(
+        `return Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Resolve save failure for'))?.textContent.trim()`,
+      );
+      if (failure) {
+        await click(failure);
+        assert.fail(
+          await sync(
+            'return document.querySelector("dialog [role=alert]")?.textContent',
+          ),
+        );
+      }
+      return (
         (await read(a)).objects.api.name === 'Autosaved A' &&
-        (await read(b)).objects.api.name === 'Autosaved B',
-    );
+        (await read(b)).objects.api.name === 'Autosaved B'
+      );
+    });
     const external = await read(a);
     external.objects.api.name = 'External A';
     await writeFile(path.join(root, a.path), JSON.stringify(external));

@@ -8,6 +8,10 @@ const bundled = await build({
     contents: `import { z } from 'zod';
 import { writeFileSync } from 'node:fs';
 import { projectManifestSchema } from './src/shared/projectContract';
+import { templateManifestSchema } from './src/shared/templates';
+writeFileSync('src-tauri/generated/template-schema.json', JSON.stringify(z.toJSONSchema(templateManifestSchema)));
+import { bundledTemplates } from './src/shared/bundledTemplates';
+writeFileSync('src-tauri/generated/templates.json', JSON.stringify(bundledTemplates));
 writeFileSync('src-tauri/generated/project-schema.json', JSON.stringify(z.toJSONSchema(projectManifestSchema)));
 import { mcpTools } from './src/shared/mcpRegistry';
 console.log(JSON.stringify(Object.entries(mcpTools).map(([name, tool]) => ({

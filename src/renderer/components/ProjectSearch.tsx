@@ -77,7 +77,7 @@ export default function ProjectSearch({
             throw new Error('Project membership changed. Search again.');
           try {
             const owner = registry.controllers.get(
-              `${project.sessionId}:${board.id}`,
+              current.current.key(board.id),
             )?.owner;
             const snapshot = owner?.snapshot();
             const disk = snapshot
@@ -149,7 +149,7 @@ export default function ProjectSearch({
           project.fingerprint !== searched.current.fingerprint
         )
           throw new Error('Project changed. Search again.');
-        const key = `${project.sessionId}:${group.board.id}`;
+        const key = current.current.key(group.board.id);
         const matches = () => {
           const snapshot = registry.controllers.get(key)?.owner.snapshot();
           return (

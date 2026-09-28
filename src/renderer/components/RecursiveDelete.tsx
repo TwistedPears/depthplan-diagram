@@ -1,7 +1,7 @@
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import Icon from './Icon';
 import FormDialog from './FormDialog';
-import { useEffect, useState } from 'react';
+import { useEffect, useImperativeHandle, useState, type Ref } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import type { DocumentEdit } from '../../shared/documentTransactions';
 import {
@@ -18,6 +18,7 @@ export default function RecursiveDelete({
   blocked,
   onEdit,
   onBusyChange,
+  requestRef,
 }: {
   document: RecursiveDocument;
   selection: string[];
@@ -25,6 +26,7 @@ export default function RecursiveDelete({
   blocked: () => boolean;
   onEdit: (edit: DocumentEdit) => void;
   onBusyChange: (source: string, busy: boolean) => void;
+  requestRef?: Ref<() => void>;
 }) {
   const [pending, setPending] = useState<{
     base: RecursiveDocument;
@@ -77,6 +79,7 @@ export default function RecursiveDelete({
       });
     else onEdit(deleteSelection(ids, connections));
   };
+  useImperativeHandle(requestRef, () => request);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (

@@ -13,6 +13,8 @@ import useRecovery from './hooks/useRecovery';
 import {
   Activity,
   useCallback,
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -40,6 +42,7 @@ import useProjectWorkspace, {
 } from './hooks/useProjectWorkspace';
 import ProjectNavigation from './components/ProjectNavigation';
 import useProjectAutosave from './hooks/useProjectAutosave';
+import { objectLinkTarget } from '../shared/recursiveDocument';
 
 export default function App() {
   return (
@@ -55,6 +58,8 @@ export function Workspace() {
     </ProjectWorkspace>
   );
 }
+const TemplateLibrary = lazy(() => import('./components/TemplateLibrary'));
+
 function SessionWorkspace() {
   const projectWorkspace = useProjectWorkspace()!;
   const [appInstanceId, setAppInstanceId] = useState<string | null>(null);
@@ -74,6 +79,37 @@ function SessionWorkspace() {
   }, []);
   const registry = useDocumentSessions();
   const automation = useWorkspaceAutomation(appInstanceId);
+  useEffect(() => {
+    const follow = (event: Event) => {
+      const target = (
+        event as CustomEvent<NonNullable<ReturnType<typeof objectLinkTarget>>>
+      ).detail;
+      const entry = [...registry.controllers].find(
+        ([, c]) => c.owner.snapshot().document?.id === target.board,
+      );
+      if (!entry) {
+        projectWorkspace.setError(
+          'Open the target board in DepthPlan before following this object link.',
+        );
+        return;
+      }
+      const [key, { owner }] = entry;
+      try {
+        if (owner.isBusy() || projectWorkspace.busy || !registry.activate(key))
+          throw new Error(
+            'Finish the current edit before following this object link.',
+          );
+        owner.focusEntity(target.collection, target.id);
+        projectWorkspace.setError('');
+      } catch (error) {
+        projectWorkspace.setError(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    };
+    window.addEventListener('depthplan:open-object', follow);
+    return () => window.removeEventListener('depthplan:open-object', follow);
+  });
   useDocumentOpenRequests(
     projectWorkspace.busy ||
       !!projectWorkspace.dialog ||
@@ -174,6 +210,9 @@ function BoardWorkspace({
     result: transactionResult,
   } = owner;
   const currentFilePath = owner.source?.path;
+  const [templatesOpen, setTemplatesOpen] = useState<
+    false | 'gallery' | 'selection'
+  >(false);
   const [exportLoading, setLoading] = useState(false);
   const setIsLoading = useCallback(
     (loading: boolean) => {
@@ -270,10 +309,20 @@ function BoardWorkspace({
   useDocumentHistoryActions(
     !!currentDocument,
     () => {
-      if (!transitions.isPending() && !mcpWorkflows.activeOperation) undo();
+      if (
+        !templatesOpen &&
+        !transitions.isPending() &&
+        !mcpWorkflows.activeOperation
+      )
+        undo();
     },
     () => {
-      if (!transitions.isPending() && !mcpWorkflows.activeOperation) redo();
+      if (
+        !templatesOpen &&
+        !transitions.isPending() &&
+        !mcpWorkflows.activeOperation
+      )
+        redo();
     },
     active,
   );
@@ -443,7 +492,7 @@ function BoardWorkspace({
               .at(-1)
           : currentFilePath?.split(/[\\/]/).at(-1)
       }
-      unsaved={!owner.source || dirty || hasDrafts}
+      unsaved={dirty || hasDrafts || (!!session.project && !owner.source)}
       onRenameDocument={
         session.project
           ? (name) =>
@@ -492,6 +541,10 @@ function BoardWorkspace({
             : undefined
       }
       isLoading={isLoading}
+      onTemplates={() => {
+        if (!isLoading && !isBusy() && !hasDrafts) setTemplatesOpen('gallery');
+        else showStatus('Finish the current edit before opening Templates.');
+      }}
       onNewDocument={handleNewDocument}
       onOpenFile={handleOpenFile}
       onSave={() => handleSave()}
@@ -501,6 +554,18 @@ function BoardWorkspace({
   );
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
+      {templatesOpen && currentDocument && (
+        <Suspense fallback={null}>
+          <TemplateLibrary
+            owner={owner}
+            initialAuthoring={
+              templatesOpen === 'selection' ? 'selection' : null
+            }
+            onClose={() => setTemplatesOpen(false)}
+            onStatus={showStatus}
+          />
+        </Suspense>
+      )}
       <div
         className="workspace"
         data-board-session={session.key}
@@ -565,6 +630,7 @@ function BoardWorkspace({
                 key={sessionId}
                 active={active}
                 document={currentDocument}
+                hasHistory={canUndo || canRedo}
                 stamp={editorStamp(owner)}
                 fitRef={owner.fitCanvas}
                 focusRef={owner.focusCanvas}
@@ -578,6 +644,7 @@ function BoardWorkspace({
                 exportRef={recursiveExport}
                 isBusy={isBusy}
                 onStatus={showStatus}
+                onSaveTemplate={() => setTemplatesOpen('selection')}
               />
               {renderToolbar()}
               {transactionResult?.status === 'rejected' && (
