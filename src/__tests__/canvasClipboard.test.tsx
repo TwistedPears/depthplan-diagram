@@ -170,3 +170,43 @@ it('recovers after a clipboard failure and serializes a quick copy then paste', 
       .name,
   ).toBe('app');
 });
+
+it('cuts only after a successful clipboard write, preserves concurrent edits, and restores subtrees with Undo', async () => {
+  const { result } = setup();
+  writeText.mockRejectedValueOnce(new Error('clipboard unavailable'));
+  await act(async () => {
+    key('x');
+  });
+  expect(result.current.document!.objects.app).toBeDefined();
+  expect(result.current.past).toHaveLength(0);
+  expect(onStatus).toHaveBeenCalledWith('Could not cut: clipboard unavailable');
+
+  let finish!: () => void;
+  writeText.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  act(() => {
+    key('x');
+  });
+  await waitFor(() => expect(finish).toBeDefined());
+  act(() => {
+    result.current.transact(editObject('app', { name: 'Keep this edit' }));
+  });
+  await act(async () => {
+    finish();
+  });
+  expect(result.current.document!.objects.app.name).toBe('Keep this edit');
+
+  await act(async () => {
+    key('x');
+  });
+  expect(Object.keys(result.current.document!.objects)).toEqual(['payments']);
+  expect(text).toContain('Keep this edit');
+  expect(result.current.canvas.selected).toEqual([]);
+  act(() => result.current.undo());
+  expect(result.current.document!.objects.endpoint).toBeDefined();
+  expect(result.current.document!.objects.app.name).toBe('Keep this edit');
+});

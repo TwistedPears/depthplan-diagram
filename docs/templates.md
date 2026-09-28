@@ -29,6 +29,8 @@ captures the selected shapes, their descendants, and copied connections using th
 same behavior as normal Copy. This supports multiple shapes and standalone
 connections. Connections outside the selection are listed before saving; explicitly
 selected connections to uncopied objects use free endpoints, as in normal Copy.
+You can also right-click selected objects or connections and choose **Save
+Template** to go directly to the personal-template form.
 
 Give the example a name, description and optional tags. Save a new personal entry,
 or explicitly choose an entry to replace. Review before saving. To customize an
@@ -44,6 +46,34 @@ has changed since the gallery opened.
 Personal templates stay on this computer. Exported files carry ordinary diagram
 content. Content links remain visible in the review; source paths, session state,
 clipboard bookkeeping and retained template libraries are removed before sharing.
+
+The native app writes personal entries as `.depthtemplate` files outside the
+application installation, in a version-independent user folder:
+
+- macOS: `~/Library/Application Support/DepthPlan/templates`
+- Linux: `$XDG_CONFIG_HOME/DepthPlan/templates` (normally `~/.config/DepthPlan/templates`)
+- Windows: `%APPDATA%\DepthPlan\templates`
+
+These files survive application updates and restarts. Development builds use
+`DepthPlan Development` instead; automated checks use an isolated test profile.
+Export templates to back them up or transfer them to another computer.
+
+## Selection menu
+
+Right-click an object or connection to select it and open its actions. Clicking
+a member of the current selection keeps the whole selection. Right-drag still
+pans. The keyboard Menu key or Shift+F10 opens the same menu; arrows navigate and
+Escape closes it.
+
+Cut, Copy, Paste, Duplicate, Delete, stacking, flips and style copying use ordinary
+editable objects and Undo. Cut removes content only after copying succeeds. Flips
+mirror the active arrangement while keeping text readable. Copy styles transfers
+appearance without replacing links or containment settings.
+
+**Add link** accepts web, email and DepthPlan object links. **Copy link to object**
+copies a stable board/item reference. Paste it into an item's link or rich text
+link; opening it focuses the item in an already-open board in DepthPlan. Open the
+target board first if it is closed. These links do not launch the app externally.
 
 ## Bundled starters
 

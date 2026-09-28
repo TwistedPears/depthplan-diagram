@@ -76,10 +76,12 @@ const categories = [
 
 export default function TemplateLibrary({
   owner,
+  initialAuthoring = null,
   onClose,
   onStatus,
 }: {
   owner: ReturnType<typeof useDocumentState>;
+  initialAuthoring?: 'selection' | null;
   onClose: () => void;
   onStatus: (message: string) => void;
 }) {
@@ -94,7 +96,7 @@ export default function TemplateLibrary({
   const [category, setCategory] = useState('All templates');
   const [selected, setSelected] = useState('');
   const [authoring, setAuthoring] = useState<'board' | 'selection' | null>(
-    null,
+    initialAuthoring,
   );
   const [authorDraft, setAuthorDraft] = useState<TemplateManifest>();
   const [review, setReview] = useState<{
@@ -281,6 +283,8 @@ export default function TemplateLibrary({
         document={current}
         selection={authoring === 'selection' ? selection : undefined}
         personal={personal}
+        busy={busy}
+        libraryError={error}
         initial={authorDraft}
         onCancel={() => setAuthoring(null)}
         onSave={(document, expected) => {
@@ -515,6 +519,8 @@ function TemplateAuthor({
   document,
   selection,
   personal,
+  busy,
+  libraryError,
   initial,
   onCancel,
   onSave,
@@ -522,6 +528,8 @@ function TemplateAuthor({
   document: RecursiveDocument;
   selection?: string[];
   personal: TemplateEntry[];
+  busy: boolean;
+  libraryError: string;
   initial?: TemplateManifest;
   onCancel: () => void;
   onSave: (document: Template, expected?: string) => void;
@@ -545,6 +553,7 @@ function TemplateAuthor({
     <FormDialog
       title="Save template"
       description="Save an editable example to your personal gallery."
+      submitDisabled={busy || !!libraryError}
       onCancel={onCancel}
       submitLabel={replacement ? 'Review replacement' : 'Review template'}
       onSubmit={() => {
@@ -624,7 +633,8 @@ function TemplateAuthor({
           unchanged.
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
+      {busy && <p role="status">Loading personal templates…</p>}
+      {(error || libraryError) && <p role="alert">{error || libraryError}</p>}
     </FormDialog>
   );
 }

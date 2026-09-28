@@ -980,7 +980,7 @@ async fn desktop(
         }
         "link:open" => {
             let url = string(a)?;
-            if !validation::valid_link(url) {
+            if !validation::valid_link(url) || url.to_ascii_lowercase().starts_with("depthplan:") {
                 return Err("Unsupported link".into());
             }
             app.opener()

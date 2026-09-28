@@ -10,6 +10,9 @@ import {
   pasteSelection,
 } from '../../shared/recursiveClipboard';
 import { isEditingText } from './useDocumentHistoryActions';
+import { deleteSelection } from '../../shared/recursiveDeletion';
+
+type ClipboardAction = 'copy' | 'cut' | 'paste';
 
 export default function useCanvasClipboard({
   document,
@@ -27,8 +30,9 @@ export default function useCanvasClipboard({
   onStatus: (message: string) => void;
 }) {
   const queue = useRef(Promise.resolve());
+  const lifetime = useRef({ active: false });
   const previous = useRef({ text: '', pastes: 0 });
-  const paste = useEffectEvent((text: string) => {
+  const paste = (text: string) => {
     if (
       isBusy() ||
       isEditingText(window.document.activeElement) ||
@@ -45,73 +49,103 @@ export default function useCanvasClipboard({
       previous.current = { text, pastes: count };
       onSelect(copy.selection);
     } else if (result?.status === 'rejected') onStatus(result.error);
-  });
-  const handle = useEffectEvent(
-    (event: KeyboardEvent | ClipboardEvent, active: () => boolean) => {
+  };
+  const latestPaste = useRef(paste);
+  latestPaste.current = paste;
+  const run = (action: ClipboardAction, data?: DataTransfer | null) => {
+    if (isBusy() || (action !== 'paste' && !selection.length)) return;
+    const active = lifetime.current;
+    try {
+      const text =
+        action === 'paste'
+          ? data?.getData('text/plain')
+          : copySelection(document, selection);
+      if (action !== 'paste' && data) data.setData('text/plain', text!);
+      queue.current = queue.current
+        .then(async () => {
+          if (!active.active) return;
+          if (action === 'paste') {
+            const value = text ?? (await window.desktop.clipboard.readText());
+            if (active.active) latestPaste.current(value);
+            return;
+          }
+          if (!data) await window.desktop.clipboard.writeText(text!);
+          if (!active.active) return;
+          previous.current = { text: text!, pastes: 0 };
+          if (action === 'cut') {
+            const result = onEdit((draft) => {
+              if (
+                isBusy() ||
+                JSON.stringify(draft) !== JSON.stringify(document)
+              )
+                throw new Error(
+                  'Selection copied. The board changed before Cut could finish; nothing was removed.',
+                );
+              deleteSelection(
+                selection
+                  .filter((id) => id.startsWith('object-'))
+                  .map((id) => id.slice(7)),
+                selection
+                  .filter((id) => id.startsWith('connection-'))
+                  .map((id) => id.slice(11)),
+              )(draft);
+            });
+            if (result?.status === 'accepted') onSelect([]);
+            else if (result?.status === 'rejected') onStatus(result.error);
+          }
+        })
+        .catch((error) => {
+          if (active.active)
+            onStatus(
+              `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+        });
+    } catch (error) {
+      onStatus(
+        `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
+  const handle = useEffectEvent((event: KeyboardEvent | ClipboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      isEditingText(event.target) ||
+      isBusy() ||
+      window.document.querySelector('dialog[open]')
+    )
+      return;
+    let action = event.type;
+    if (event instanceof KeyboardEvent) {
       if (
-        event.defaultPrevented ||
-        isEditingText(event.target) ||
-        isBusy() ||
-        window.document.querySelector('dialog[open]')
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.repeat
       )
         return;
-      let action = event.type;
-      if (event instanceof KeyboardEvent) {
-        if (
-          !(event.ctrlKey || event.metaKey) ||
-          event.altKey ||
-          event.shiftKey ||
-          event.repeat
-        )
-          return;
-        action = { c: 'copy', v: 'paste' }[event.key.toLowerCase()] ?? '';
-      }
-      if (action !== 'copy' && action !== 'paste') return;
-      if (action === 'copy' && !selection.length) return;
-      event.preventDefault();
-      try {
-        const data = 'clipboardData' in event ? event.clipboardData : null;
-        const text =
-          action === 'copy'
-            ? copySelection(document, selection)
-            : data?.getData('text/plain');
-        if (action === 'copy' && data) data.setData('text/plain', text!);
-        queue.current = queue.current
-          .then(async () => {
-            if (!active()) return;
-            if (action === 'copy') {
-              if (!data) await window.desktop.clipboard.writeText(text!);
-              previous.current = { text: text!, pastes: 0 };
-            } else {
-              const value = text ?? (await window.desktop.clipboard.readText());
-              if (active()) paste(value);
-            }
-          })
-          .catch((error) => {
-            if (active())
-              onStatus(
-                `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`,
-              );
-          });
-      } catch (error) {
-        onStatus(
-          `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    },
-  );
+      action =
+        { c: 'copy', x: 'cut', v: 'paste' }[event.key.toLowerCase()] ?? '';
+    }
+    if (action !== 'copy' && action !== 'cut' && action !== 'paste') return;
+    if (action !== 'paste' && !selection.length) return;
+    event.preventDefault();
+    run(action, 'clipboardData' in event ? event.clipboardData : null);
+  });
   useEffect(() => {
-    let active = true;
-    const listener = (event: KeyboardEvent | ClipboardEvent) =>
-      handle(event, () => active);
+    const active = { active: true };
+    lifetime.current = active;
+    const listener = (event: KeyboardEvent | ClipboardEvent) => handle(event);
     window.addEventListener('keydown', listener);
     window.addEventListener('copy', listener);
+    window.addEventListener('cut', listener);
     window.addEventListener('paste', listener);
     return () => {
-      active = false;
+      active.active = false;
       window.removeEventListener('keydown', listener);
       window.removeEventListener('copy', listener);
+      window.removeEventListener('cut', listener);
       window.removeEventListener('paste', listener);
     };
   }, []);
+  return run;
 }

@@ -68,3 +68,26 @@ export function patchSelectionStyle(
     }
   };
 }
+
+/** Copy appearance only: links and containment behavior belong to the destination. */
+export function copyStyle(item: DiagramObject | DiagramConnection) {
+  const shape = 'type' in item;
+  const defaults = {
+    fill: '#ffffff',
+    fillType: 'solid',
+    stroke: shape ? '#64748b' : '#475569',
+    strokeWidth: shape ? 1.5 : 2,
+    opacity: 1,
+    cornerRadius: 0,
+    strokeStyle: 'solid',
+    lineType: 'sharp',
+    arrowheadStart: 'none',
+    arrowheadEnd: !shape && item.kind === 'arrow' ? 'arrow' : 'none',
+  };
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, value]) => [
+      key,
+      item.style?.[key] ?? value,
+    ]),
+  );
+}

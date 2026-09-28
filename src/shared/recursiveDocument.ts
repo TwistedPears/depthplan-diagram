@@ -182,12 +182,46 @@ export function validLink(value: unknown): value is string {
   try {
     const url = new URL(value);
     return (
-      ['https:', 'http:', 'mailto:'].includes(url.protocol) &&
+      (['https:', 'http:', 'mailto:'].includes(url.protocol) ||
+        !!objectLinkTarget(value)) &&
       !url.username &&
       !url.password
     );
   } catch {
     return false;
+  }
+}
+/** Board identities survive saves; object links resolve only inside DepthPlan. */
+export function objectLinkTarget(value: string) {
+  try {
+    const url = new URL(value);
+    const board = url.searchParams.get('board');
+    const item = url.searchParams.get('item') ?? '';
+    const collection: 'objects' | 'connections' | null = item.startsWith(
+      'object-',
+    )
+      ? 'objects'
+      : item.startsWith('connection-')
+        ? 'connections'
+        : null;
+    const id = item.slice(collection === 'objects' ? 7 : 11);
+    if (
+      url.protocol !== 'depthplan:' ||
+      url.hostname !== 'object' ||
+      url.pathname ||
+      url.port ||
+      url.hash ||
+      url.username ||
+      url.password ||
+      url.searchParams.size !== 2 ||
+      !validId(board) ||
+      !collection ||
+      !validId(id)
+    )
+      return null;
+    return { board, collection, id };
+  } catch {
+    return null;
   }
 }
 export function validProjectLink(value: unknown): value is ProjectLink {

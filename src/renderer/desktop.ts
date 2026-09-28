@@ -8,6 +8,7 @@ import { listen } from '@tauri-apps/api/event';
 import {
   createRecursiveDocument,
   validateRecursiveDocument,
+  objectLinkTarget,
 } from '../shared/recursiveDocument';
 import type { RecursiveDocument } from '../shared/recursiveDocument';
 import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
@@ -379,7 +380,14 @@ const desktopHandler = {
       };
     },
   },
-  openLink: (url: string): Promise<void> => native('link:open', url),
+  openLink: (url: string): Promise<void> => {
+    const target = objectLinkTarget(url);
+    if (!target) return native('link:open', url);
+    window.dispatchEvent(
+      new CustomEvent('depthplan:open-object', { detail: target }),
+    );
+    return Promise.resolve();
+  },
   getAppInstanceId: (): Promise<string> => native('app:instance-id'),
   quit: (): Promise<void> => native('app:quit'),
   editHistory: (direction: 'undo' | 'redo'): Promise<void> => {

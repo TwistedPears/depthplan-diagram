@@ -245,7 +245,7 @@ summary {
   scrollbar-color: var(--line) var(--surface);
 }
 .bookmark-item,
-:is(.bookmark-menu, .project-board-menu) > button {
+:is(.bookmark-menu, .project-board-menu, .selection-menu) > button {
   width: 100%;
   border-color: transparent;
   text-align: left;
@@ -256,7 +256,8 @@ summary {
   white-space: nowrap;
 }
 .bookmark-item:focus-visible,
-:is(.bookmark-menu, .project-board-menu) > button:focus-visible {
+:is(.bookmark-menu, .project-board-menu, .selection-menu)
+  > button:focus-visible {
   outline-offset: -2px;
 }
 .bookmark-panel p {
@@ -277,7 +278,7 @@ summary {
   width: 34px;
   padding: 7px;
 }
-:is(.bookmark-menu, .project-board-menu) {
+:is(.bookmark-menu, .project-board-menu, .selection-menu) {
   position: fixed;
   margin: 0;
   padding: 5px;
@@ -287,7 +288,7 @@ summary {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.bookmark-menu > hr {
+:is(.bookmark-menu, .selection-menu) > hr {
   margin: 5px 6px;
   border: 0;
   border-top: 1px solid var(--line);
@@ -1106,4 +1107,27 @@ dialog label {
   .template-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.selection-menu {
+  width: min(280px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  box-shadow: 0 12px 30px #0f172a24;
+}
+.selection-menu > button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.selection-menu kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+}
+.selection-menu > .selection-delete {
+  color: var(--danger);
 }
