@@ -256,7 +256,7 @@ A compact disclosure reads **Depth** followed by the root count, such as **2 roo
 
 Parents keep their original shape as children are revealed. A light dashed enclosure groups child content. Collapsed parents show a child-count disclosure on the canvas; selecting any parent exposes the same action in the sidebar. Each disclosure opens one branch by one level. A compact parent path helps navigate nested selections.
 
-Ordinary movement has no parent highlight. A 400ms hover over a different shape arms a blue outline and “Move into” hint; leaving a parent shows “Move to top level”. Only the previewed relationship is committed. Dragged objects remain visible above the diagram, and a drop preserves the destination’s open or closed state.
+Ordinary movement has no parent highlight. A 400ms hover over an existing parent arms a blue outline and “Move into” hint; holding for one second reveals its children so the object can be positioned inside, including over nested parents. An empty parent accepts a quick drop and immediately reveals its first child. Leaving a parent shows “Move to top level”. Dragged objects remain visible above the diagram. Reveals stay in the drag preview until the drop commits them with the final placement in one undo step; Escape, blur, or Ctrl-drag discards them.
 
 ### Panels and Dialogs
 

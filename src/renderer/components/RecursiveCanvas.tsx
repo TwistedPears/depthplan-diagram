@@ -111,6 +111,7 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
+import { recursiveVisibility } from '../../shared/recursiveVisibility';
 import {
   objectContentBounds,
   type TextExclusion,
@@ -564,6 +565,8 @@ export default memo(function RecursiveCanvas({
     ids: string[];
     start: Point;
     document: RecursiveDocument;
+    expandedDocument: RecursiveDocument;
+    revealParents: string[];
     world: Map<string, Geometry>;
     resize?: { x: number; y: number };
     rotate: boolean;
@@ -656,6 +659,8 @@ export default memo(function RecursiveCanvas({
       ids: movers,
       start: pointer(),
       document,
+      expandedDocument: document,
+      revealParents: [],
       world: scene.world,
       resize: typeof handle === 'object' ? handle : undefined,
       rotate: handle === 'rotate',
@@ -703,7 +708,7 @@ export default memo(function RecursiveCanvas({
           active.snapped = snapped;
           return [id, { rotation }];
         }
-        return [id, { x: g.x + delta.x, y: g.y + delta.y }];
+        return [id, { ...g, x: g.x + delta.x, y: g.y + delta.y }];
       }),
     );
     if (active.resize) {
@@ -712,14 +717,12 @@ export default memo(function RecursiveCanvas({
         if (document.objects[id].parentId === active.ids[0])
           active.patches.set(id, geometry);
     }
-    setPreview({
-      base: document,
-      value: previewGeometry(document, active.patches),
-    });
     if (preserveParent) {
       for (const change of active.parentChanges.values())
         clearTimeout(change.timer);
       active.parentChanges.clear();
+      active.expandedDocument = document;
+      active.revealParents = [];
       setDropTargets([]);
     } else if (!active.resize && !active.rotate) {
       const publish = () =>
@@ -731,7 +734,11 @@ export default memo(function RecursiveCanvas({
       for (const id of active.ids) {
         const center = { ...active.world.get(id)!, ...active.patches.get(id) };
         const current = document.objects[id].parentId;
-        let candidate = eligibleParent(document, center, new Set(active.ids));
+        let candidate = eligibleParent(
+          active.expandedDocument,
+          center,
+          new Set(active.ids),
+        );
         // Small edge movements stay within the current parent without flicker.
         if (
           candidate === null &&
@@ -754,18 +761,45 @@ export default memo(function RecursiveCanvas({
             parent: string | null;
             ready: boolean;
             timer?: ReturnType<typeof setTimeout>;
-          } = { parent: candidate, ready: candidate === null };
+          } = {
+            parent: candidate,
+            ready:
+              candidate === null || !scene.hierarchy.children.has(candidate),
+          };
           active.parentChanges.set(id, change);
-          if (candidate !== null)
+          if (candidate !== null && !change.ready)
             change.timer = setTimeout(() => {
               if (gesture.current !== active) return;
               change.ready = true;
               publish();
+              if (
+                !recursiveVisibility(active.expandedDocument).expanded.has(
+                  candidate,
+                )
+              )
+                change.timer = setTimeout(() => {
+                  if (gesture.current !== active) return;
+                  const result = transactDocument(
+                    active.expandedDocument,
+                    setChildrenExpanded(candidate, true),
+                  );
+                  if (result.status === 'rejected') {
+                    setMoveError(result.error);
+                    return;
+                  }
+                  active.expandedDocument = result.document;
+                  active.revealParents.push(candidate);
+                  updateGeometry(false);
+                }, 600);
             }, 400);
         }
       }
       publish();
     }
+    setPreview({
+      base: document,
+      value: previewGeometry(active.expandedDocument, active.patches),
+    });
   };
   const updateDragModifier = useEffectEvent((event: KeyboardEvent) => {
     if (
@@ -809,6 +843,7 @@ export default memo(function RecursiveCanvas({
                 ];
               }),
             ),
+            active.revealParents,
           );
     const result = transactDocument(document, edit);
     if (result.status === 'rejected') setMoveError(result.error);

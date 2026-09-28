@@ -7,7 +7,7 @@ import {
   toWorldGeometry,
 } from './recursiveHierarchy';
 import { reparentLayouts } from './recursiveReparent';
-import { editWorldGeometry } from './recursiveLayouts';
+import { editWorldGeometry, setChildrenExpanded } from './recursiveLayouts';
 import { repairConnections } from './recursiveConnectionRepair';
 import {
   collapsedObjects,
@@ -63,6 +63,7 @@ export function moveSelection(
   ids: string[],
   delta: { x: number; y: number },
   parents: ReadonlyMap<string, string | null>,
+  revealParents: string[] = [],
 ): DocumentEdit {
   return (draft) => {
     const before = JSON.parse(JSON.stringify(draft)) as RecursiveDocument;
@@ -71,17 +72,22 @@ export function moveSelection(
     const moves = movers.map((id) => {
       const g = world.get(id);
       if (!g) throw new Error('Move requires visible objects');
-      const point = { x: g.x + delta.x, y: g.y + delta.y };
+      const point = { ...g, x: g.x + delta.x, y: g.y + delta.y };
       const parent = parents.has(id)
         ? parents.get(id)!
         : draft.objects[id].parentId;
       return { id, parent, point };
     });
+    for (const parent of revealParents)
+      setChildrenExpanded(parent, true)(draft);
+    const depths = { ...draft.rootDepths };
+    const { expanded } = recursiveVisibility(draft);
     for (const { id, parent, point } of moves)
       placeSubtree(id, parent, point)(draft);
-    // A previewed canvas drop preserves the destination's current disclosure.
-    const { expanded } = recursiveVisibility(before);
+    // Existing parents retain their disclosure unless the drag opened them.
     const collapsed = collapsedObjects(draft);
+    const children = indexHierarchy(before.objects).children;
+    const firstParents = new Set<string>();
     for (const { id, parent } of moves) {
       if (
         parent !== null &&
@@ -89,14 +95,19 @@ export function moveSelection(
         !expanded.has(parent)
       )
         collapsed.add(parent);
+      if (parent !== null && !children.has(parent)) firstParents.add(parent);
     }
     setCollapsedObjects(draft, collapsed);
     for (const root of Object.keys(draft.rootDepths)) {
-      if (Object.hasOwn(before.rootDepths, root))
-        draft.rootDepths[root] = Math.min(
-          draft.rootDepths[root],
-          before.rootDepths[root],
-        );
+      if (Object.hasOwn(depths, root))
+        draft.rootDepths[root] = Math.min(draft.rootDepths[root], depths[root]);
+    }
+    for (const parent of firstParents) setChildrenExpanded(parent, true)(draft);
+    // Disclosure can arrange neighbors; the user's final drop positions win.
+    if (firstParents.size) {
+      const visible = recursiveVisibility(draft).visible;
+      for (const { id, point } of moves)
+        if (visible.has(id)) editWorldGeometry(id, point)(draft);
     }
     repairConnections(before, draft);
   };
