@@ -1060,7 +1060,7 @@ dialog label {
   background: var(--canvas);
 }
 .template-details {
-  width: 850px;
+  width: 1200px;
   max-width: calc(100vw - 32px);
 }
 .template-empty {

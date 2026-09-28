@@ -80,19 +80,54 @@ target board first if it is closed. These links do not launch the app externally
 
 ## Bundled starters
 
-- **ERD:** schema → tables → columns. Use plural snake_case table names and explicit
-  PK/FK, type and nullability annotations. Reconnect relationships after adding a
-  table or column. No SQL is executed.
-- **Isometric infrastructure:** site → rack/zone → server/switch → ports/services.
-  A diamond rack plane and staggered editable 2D shapes provide the isometric
-  arrangement. Use environment-zone-role-number names; document VLANs and peers.
-- **ISA-95 / Purdue Model:** site with peer functional levels 0–4, then devices and
-  details. D0/D1 disclosure does not change functional level labels. The optional
-  **3.5 industrial DMZ** is a Purdue network-security adaptation, distinct from
-  the functional levels. Edit or remove it for your architecture. This starter
-  documents functions and boundaries and does not validate/certify compliance.
-  Authoring references: [ISA overview](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard)
-  and [Cisco industrial reference](https://www.cisco.com/c/en/us/td/docs/solutions/Verticals/Oil_and_Gas/Pipeline/SecurityReference/Security-IRD/Security-IRD.html).
+All 28 examples work offline and insert ordinary editable content. Each includes
+an on-board **How to extend this example** note. The seven gallery filters each
+contain four starters; **My templates** remains a separate personal-library view.
+Search also matches descriptions and aliases such as C4, ETL, CI/CD, UML, CX,
+MVP, WIP, RACI, Ishikawa and VSM.
+
+| Category                  | Template                              | Example                                                           |
+| ------------------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| Architecture & data       | System context map                    | Ordering application, two user roles and three external partners  |
+| Architecture & data       | Application / service architecture    | Client, API, services, database, cache and event queue            |
+| Architecture & data       | ERD · database schema                 | Commerce database, tables, PK/FK/type/nullability columns         |
+| Architecture & data       | Data pipeline                         | Events and CSV through validation, quarantine and reporting       |
+| Infrastructure & delivery | Isometric infrastructure              | Site, rack, server/switch and ports in editable 2D                |
+| Infrastructure & delivery | Cloud deployment topology             | Load balancer, two zones, private database and object storage     |
+| Infrastructure & delivery | Network zones & connectivity          | Edge, public, application, data and management connectivity       |
+| Infrastructure & delivery | CI/CD delivery pipeline               | Commit through production, approval, failure and rollback         |
+| Workflows & decisions     | Basic process flowchart               | Refund decision and missing-information rework loop               |
+| Workflows & decisions     | Cross-functional swimlane             | Refund handoffs between requester, operations and finance         |
+| Workflows & decisions     | Sequence / interaction diagram        | Checkout requests, responses, lifelines and error alternative     |
+| Workflows & decisions     | Decision tree                         | Two-level support triage with four outcomes                       |
+| Product & experience      | Customer journey map                  | Refill-shop actions, touchpoints, pain points and opportunities   |
+| Product & experience      | Service blueprint                     | Bicycle repair, frontstage/backstage work and visibility boundary |
+| Product & experience      | Sitemap / information architecture    | Shop navigation with sections, pages and product details          |
+| Product & experience      | User story map                        | Account-to-purchase activities and three release slices           |
+| Planning & teamwork       | Product roadmap                       | Now / Next / Later outcomes across three product areas            |
+| Planning & teamwork       | Kanban work board                     | Five columns, owners, notes and editable WIP limits               |
+| Planning & teamwork       | Organization / team chart             | Organization, teams, roles and a dashed collaboration link        |
+| Planning & teamwork       | Responsibility matrix (RACI)          | Four roles, five release activities and an R/A/C/I legend         |
+| Strategy & workshops      | Mind map                              | Four first-purchase themes and a second level of ideas            |
+| Strategy & workshops      | SWOT analysis                         | Refill-shop quadrants with observations and next actions          |
+| Strategy & workshops      | Impact / effort prioritization        | Six initiatives placed in labeled quadrants                       |
+| Strategy & workshops      | Start / Stop / Continue retrospective | Observations and an action with owner and next step               |
+| Operations & industry     | ISA-95 / Purdue Model                 | Peer functional levels 0–4 and optional industrial DMZ            |
+| Operations & industry     | Incident timeline & response          | Detection to follow-up, decisions, owners and open questions      |
+| Operations & industry     | Fishbone / cause-and-effect analysis  | Six cause families with hypotheses and verified factors           |
+| Operations & industry     | Value stream map                      | Work, queues, handoffs, example times and a bottleneck            |
+
+Duplicate cells, cards, devices or activities using ordinary board tools. Reparent
+cards into another lane or column to move them between groups. Matrix cells remain
+flat objects. Dates, WIP limits, process times and statuses are text; the templates
+do not execute jobs, calculate schedules, enforce workflow rules or run SQL.
+
+For the industrial starter, D0/D1 disclosure does not change functional level
+labels. The optional **3.5 industrial DMZ** is a Purdue network-security
+adaptation, distinct from ISA-95 functional levels. Edit or remove it for your
+architecture. This example does not validate or certify compliance. Authoring
+references: [ISA overview](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard)
+and [Cisco industrial reference](https://www.cisco.com/c/en/us/td/docs/solutions/Verticals/Oil_and_Gas/Pipeline/SecurityReference/Security-IRD/Security-IRD.html).
 
 ## Portable compatibility
 

@@ -9,7 +9,9 @@ export async function templates() {
   const { click, sync, js, until, dialogs, native, profile, request, session } =
     driver;
   const boardFile = path.join(profile, 'gallery-board.depthplan');
+  const galleryTimes = [];
   const open = async () => {
+    const started = performance.now();
     await click('Menu');
     await click('Templates');
     await until(() =>
@@ -17,6 +19,7 @@ export async function templates() {
         'return !!document.querySelector("dialog[aria-label=Templates] canvas") && document.querySelector(".template-gallery").getAttribute("aria-busy") === "false"',
       ),
     );
+    galleryTimes.push(performance.now() - started);
   };
   const field = (label, value) =>
     sync(
@@ -77,10 +80,10 @@ export async function templates() {
       width: 1440,
       height: 900,
     });
-    await click('Infrastructure');
+    await click('Infrastructure & delivery');
     assert.equal(
       await sync('return document.querySelectorAll(".template-card").length'),
-      1,
+      4,
     );
     await click('All templates');
     await click('Preview ERD · database schema');
@@ -93,7 +96,7 @@ export async function templates() {
     );
     await dialogs('save', boardFile);
     await click('Save document');
-    const initial = await readBoard(9);
+    const initial = await readBoard(10);
     assert.equal(initial.extensions?.templateSources, undefined);
     assert.equal(initial.extensions?.template, undefined);
     assert.equal(Object.keys(initial.namedViews ?? {}).length, 0);
@@ -116,7 +119,7 @@ export async function templates() {
     await open();
     await click('Insert ERD · database schema');
     await click('Save document');
-    const twice = await readBoard(18);
+    const twice = await readBoard(20);
     assert.equal(twice.id, initial.id);
     for (const id of Object.keys(initial.objects))
       assert.deepEqual(twice.objects[id], initial.objects[id]);
@@ -206,10 +209,10 @@ export async function templates() {
     await until(() => sync('return !document.querySelector("dialog[open]")'));
     await click('Undo');
     await click('Save document');
-    await readBoard(9);
+    await readBoard(10);
     await click('Redo');
     await click('Save document');
-    await readBoard(18);
+    await readBoard(20);
     await dialogs('open', boardFile);
     await click('Menu');
     await click('Open Board…');
@@ -221,9 +224,126 @@ export async function templates() {
     await open();
     await click('Insert ERD · database schema');
     await click('Save document');
-    const reopened = await readBoard(27);
+    const reopened = await readBoard(30);
     assert.equal(reopened.id, initial.id);
     assert.equal(reopened.extensions?.templateSources, undefined);
+    const catalog = JSON.parse(
+      await readFile(
+        new URL('../src-tauri/generated/templates.json', import.meta.url),
+        'utf8',
+      ),
+    );
+    assert.equal(catalog.length, 28);
+    let count = Object.keys(reopened.objects).length;
+    const representative = new Set([
+      'bundled-flowchart',
+      'bundled-application-architecture',
+      'bundled-raci',
+      'bundled-sequence',
+    ]);
+    const labelReview = [];
+    for (const template of catalog) {
+      const { id, name } = template.extensions.template;
+      await open();
+      assert.equal(
+        await sync(
+          'return document.querySelectorAll(".template-card-source").length',
+        ),
+        29,
+      );
+      await click(`Preview ${name}`);
+      labelReview.push({
+        id,
+        clipped: await sync(
+          `const stage=window.Konva.stages.find(s=>s && s.container().closest('dialog')); return stage.find('.object-label').filter(t=>t.measureSize(t.text()).width>t.width()+1).map(t=>({text:t.text(),width:t.width(),needed:t.measureSize(t.text()).width}));`,
+        ),
+      });
+      await writeFile(
+        path.join(profile, 'catalog-labels.json'),
+        JSON.stringify(labelReview, null, 2),
+      );
+      await capture(`${id}-preview`);
+      assert.deepEqual(
+        labelReview.at(-1).clipped,
+        [],
+        `Clipped labels in ${id}`,
+      );
+      await click('Insert template');
+      count += Object.keys(template.objects).length;
+      await click('Save document');
+      const saved = await readBoard(count);
+      await capture(`${id}-inserted`);
+      if (Math.max(...Object.values(template.rootDepths)) > 1) {
+        assert(
+          await sync(
+            `const button=document.querySelector('.selection-hierarchy > button[aria-expanded="true"]'); if(!button)return false; button.click(); return true;`,
+          ),
+        );
+        await capture(`${id}-collapsed`);
+        await click('Undo');
+      }
+      console.log(`Reviewed ${id}`);
+      assert.equal(
+        Object.keys(saved.rootDepths).length,
+        Object.keys(reopened.rootDepths).length + catalog.indexOf(template) + 1,
+      );
+      if (representative.has(id)) {
+        await open();
+        await click('Save selection');
+        await field('Template name', `Smoke ${name}`);
+        await click('Review template');
+        await click('Save to library');
+        await until(() =>
+          sync('return !document.querySelector("dialog[open]")'),
+        );
+        const personal = (await native('template:list')).entries.find(
+          (entry) =>
+            entry.document.extensions.template.name === `Smoke ${name}`,
+        );
+        assert(personal);
+        assert.equal(
+          Object.keys(personal.document.objects).length,
+          Object.keys(template.objects).length,
+        );
+        await native(
+          'template:remove',
+          personal.document.extensions.template.id,
+          personal.fingerprint,
+        );
+      }
+      await click('Undo');
+      await click('Save document');
+      await readBoard(count - Object.keys(template.objects).length);
+      await click('Redo');
+      await click('Save document');
+      await readBoard(count);
+      if (representative.has(id)) {
+        await click('Menu');
+        await click('New Board');
+        await dialogs('open', boardFile);
+        await click('Menu');
+        await click('Open Board…');
+        await until(() =>
+          sync(
+            'return document.querySelector(".document-state").textContent.includes("gallery-board.depthplan")',
+          ),
+        );
+        await click('Save document');
+        assert.deepEqual((await readBoard(count)).objects, saved.objects);
+      }
+    }
+    await writeFile(
+      path.join(profile, 'catalog-timing.json'),
+      JSON.stringify(
+        {
+          platform: process.platform,
+          entries: catalog.length,
+          galleryReadyMs: galleryTimes,
+        },
+        null,
+        2,
+      ),
+    );
     assert.deepEqual(await sync('return window.nativeErrors'), []);
     console.log(
       `PASS template gallery: responsive previews, categories, same-board insertion, non-overlap, selection, Undo/Redo, save/reopen, personal save/replace and import/export. Evidence: ${profile}`,

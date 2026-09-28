@@ -3,7 +3,10 @@ import { Stage, Layer } from 'react-konva';
 import FormDialog from './FormDialog';
 import RecursiveScene from './RecursiveScene';
 import type useDocumentState from '../hooks/useDocumentState';
-import { bundledTemplates } from '../../shared/bundledTemplates';
+import {
+  bundledTemplates,
+  templateCategories,
+} from '../../shared/bundledTemplates';
 import {
   createTemplate,
   insertTemplate,
@@ -67,12 +70,6 @@ function Preview({
     </div>
   );
 }
-
-const categories = [
-  { label: 'Data modelling', tag: 'ERD' },
-  { label: 'Infrastructure', tag: 'infrastructure' },
-  { label: 'Industrial systems', tag: 'industrial' },
-];
 
 export default function TemplateLibrary({
   owner,
@@ -158,18 +155,11 @@ export default function TemplateLibrary({
   const active = entries.find((entry) => entry.key === selected);
   const visible = entries.filter(({ document, label }) => {
     const manifest = document.extensions.template;
-    const useCases = categories
-      .filter(({ tag }) =>
-        manifest.tags.some(
-          (value) => value.toLowerCase() === tag.toLowerCase(),
-        ),
-      )
-      .map(({ label }) => label);
     return (
       (category === 'All templates' ||
         (category === 'My templates' && label === category) ||
-        useCases.includes(category)) &&
-      `${manifest.name} ${manifest.description} ${manifest.tags.join(' ')} ${useCases.join(' ')}`
+        manifest.tags.includes(category)) &&
+      `${manifest.name} ${manifest.description} ${manifest.tags.join(' ')}`
         .toLowerCase()
         .includes(query.trim().toLowerCase())
     );
@@ -502,7 +492,7 @@ export default function TemplateLibrary({
           )
         }
       >
-        <Preview document={active.document} height={360} />
+        <Preview document={active.document} height={560} />
         <p>
           {picking
             ? 'Choose this template to replace its saved content with your current example.'
@@ -551,7 +541,7 @@ export default function TemplateLibrary({
             ))}
             {!picking && <h3>Use cases</h3>}
             {!picking &&
-              categories.map(({ label }) => (
+              templateCategories.map((label) => (
                 <button
                   type="button"
                   key={label}

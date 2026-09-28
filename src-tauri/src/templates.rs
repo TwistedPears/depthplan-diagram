@@ -285,7 +285,7 @@ mod tests {
                 .as_array()
                 .unwrap()
                 .len(),
-            3
+            28
         );
         assert!(path(first.path(), &json!("../escape")).is_err());
         let corrupt = first.path().join("corrupt.depthtemplate");

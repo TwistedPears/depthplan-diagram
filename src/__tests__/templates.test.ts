@@ -1,5 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
-import { bundledTemplates } from '../shared/bundledTemplates';
+import {
+  bundledTemplates,
+  templateCategories,
+} from '../shared/bundledTemplates';
 import {
   createTemplate,
   insertTemplate,
@@ -28,6 +31,7 @@ import { recursiveScene } from '../shared/recursiveScene';
 import { moveSelection } from '../shared/recursiveMovement';
 import { endpointWorld } from '../shared/recursiveConnectionRepair';
 import { worldPoint } from '../shared/connectionGeometry';
+import { duplicateSelection } from '../shared/recursiveDuplication';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const apply = (
@@ -79,6 +83,9 @@ test.each(bundledTemplates)(
       const authored = Object.values(source.objects).find(
         (item) =>
           item.name === object.name &&
+          (item.parentId === null ||
+            (item.geometry.x === object.geometry.x &&
+              item.geometry.y === object.geometry.y)) &&
           (item.parentId === null
             ? object.parentId === null
             : object.parentId !== null &&
@@ -403,3 +410,133 @@ test('wraps unframed multi-root samples without changing visible geometry, folds
   validateRecursiveDocument(clone(moved));
   expect(source).toEqual(before);
 });
+
+test('the offline catalog has the 28 stable identities and four entries per category', () => {
+  const ids = bundledTemplates.map(
+    (template) => template.extensions.template.id,
+  );
+  expect(ids.sort()).toEqual(
+    [
+      'erd',
+      'isometric',
+      'purdue',
+      'system-context',
+      'application-architecture',
+      'data-pipeline',
+      'cloud-topology',
+      'network-zones',
+      'cicd',
+      'flowchart',
+      'swimlane',
+      'sequence',
+      'decision-tree',
+      'customer-journey',
+      'service-blueprint',
+      'sitemap',
+      'story-map',
+      'roadmap',
+      'kanban',
+      'organization',
+      'raci',
+      'mind-map',
+      'swot',
+      'impact-effort',
+      'retrospective',
+      'incident-timeline',
+      'fishbone',
+      'value-stream',
+    ]
+      .map((id) => `bundled-${id}`)
+      .sort(),
+  );
+  expect(new Set(ids).size).toBe(28);
+  for (const category of templateCategories)
+    expect(
+      bundledTemplates.filter((template) =>
+        template.extensions.template.tags.includes(category),
+      ),
+    ).toHaveLength(4);
+  for (const template of bundledTemplates) {
+    validateTemplate(template);
+    expect(
+      templateCategories.filter((category) =>
+        template.extensions.template.tags.includes(category),
+      ),
+    ).toHaveLength(1);
+    expect(template.objects.extend.content).toEqual([
+      {
+        type: 'paragraph',
+        runs: [{ text: template.extensions.template.guidance }],
+      },
+    ]);
+    const scene = recursiveScene(template);
+    expect(scene.world.has('extend')).toBe(true);
+    const root = scene.world.get(Object.keys(template.rootDepths)[0])!;
+    for (const geometry of scene.world.values()) {
+      expect(
+        Math.abs(geometry.x - root.x) + geometry.width / 2,
+      ).toBeLessThanOrEqual(root.width / 2);
+      expect(
+        Math.abs(geometry.y - root.y) + geometry.height / 2,
+      ).toBeLessThanOrEqual(root.height / 2);
+    }
+  }
+});
+
+test.each(bundledTemplates)(
+  '$metadata.title supports an empty board, Undo/Redo, movement, duplication and portable selection save',
+  (source) => {
+    const empty = createRecursiveDocument('empty', 'Empty board');
+    const { result } = renderHook(() => useDocumentState(empty));
+    const insertion = insertTemplate(source, empty);
+    const camera = fitCamera(insertion.bounds, { width: 1280, height: 900 });
+    act(() => {
+      expect(result.current.transact(insertion.edit, camera)?.status).toBe(
+        'accepted',
+      );
+    });
+    const inserted = result.current.document!;
+    act(() => result.current.undo());
+    expect(result.current.document).toEqual(empty);
+    act(() => result.current.redo());
+    expect(result.current.document).toEqual(inserted);
+    expect(result.current.camera).toEqual(camera);
+    const root = insertion.selection[0].slice(7);
+    const moved = apply(
+      inserted,
+      moveSelection([root], { x: 100, y: 75 }, new Map()),
+    );
+    const before = recursiveScene(inserted),
+      after = recursiveScene(moved);
+    for (const [id, geometry] of before.world) {
+      expect(after.world.get(id)!.x).toBeCloseTo(geometry.x + 100);
+      expect(after.world.get(id)!.y).toBeCloseTo(geometry.y + 75);
+    }
+    const duplicate = duplicateSelection(moved, insertion.selection);
+    const doubled = apply(moved, duplicate.edit);
+    expect(Object.keys(doubled.objects)).toHaveLength(
+      Object.keys(moved.objects).length * 2,
+    );
+    expect(Object.keys(doubled.connections)).toHaveLength(
+      Object.keys(moved.connections).length * 2,
+    );
+    const reopened = clone(doubled);
+    validateRecursiveDocument(reopened);
+    const personal = createTemplate(
+      reopened,
+      { ...source.extensions.template, id: 'personal-copy' },
+      duplicate.selection,
+    );
+    validateTemplate(personal);
+    const restored = apply(empty, insertTemplate(personal, empty).edit);
+    expect(Object.keys(restored.objects)).toHaveLength(
+      Object.keys(source.objects).length,
+    );
+    expect(Object.keys(restored.connections)).toHaveLength(
+      Object.keys(source.connections).length,
+    );
+    const repeated = insertTemplate(source, inserted);
+    for (const box of sceneBounds(inserted).objects.values())
+      expect(intersectsBounds(repeated.bounds, box)).toBe(false);
+  },
+);
