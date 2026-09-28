@@ -1185,35 +1185,8 @@ export default memo(function RecursiveCanvas({
     renderBoundaryPoints,
     liftedIds,
   ]);
-  const rotationAt = (target: Konva.Node) => {
-    if (
-      tool !== ToolMode.POINTER ||
-      selection.length !== 1 ||
-      !selection[0].startsWith('object-') ||
-      draw ||
-      selectedPoint ||
-      textEditing ||
-      properties ||
-      linkEditing ||
-      isBusy() ||
-      target.hasName('resize-handle') ||
-      target.findAncestor('.child-stack-toggle, .boundary-point', true)
-    )
-      return false;
-    const g = scene.world.get(selection[0].slice(7))!;
-    const p = localPoint(pointer(), g);
-    return transformHandles.some(({ x, y }) => {
-      const offset = 14 / (Math.hypot(x, y) * camera.scale);
-      return (
-        Math.hypot(
-          p.x - x * (g.width / 2 + offset),
-          p.y - y * (g.height / 2 + offset),
-        ) *
-          camera.scale <=
-        10
-      );
-    });
-  };
+  const rotationAt = (target: Konva.Node) =>
+    target.hasName('rotation-handle') && !isBusy();
   return (
     <div
       className="canvas-container"
@@ -1619,8 +1592,28 @@ export default memo(function RecursiveCanvas({
             (() => {
               const id = selection[0].slice(7),
                 g = scene.world.get(id)!;
+              const rotationHandles = transformHandles.filter(({ x, y }) =>
+                ['ellipse', 'diamond'].includes(document.objects[id].type)
+                  ? x === 0 || y === 0
+                  : x !== 0 && y !== 0,
+              );
               return (
                 <Group x={g.x} y={g.y} rotation={g.rotation}>
+                  {rotationHandles.map(({ x, y }) => {
+                    const offset = 20 / (Math.hypot(x, y) * camera.scale);
+                    return (
+                      <Circle
+                        key={`rotate-${x}:${y}`}
+                        name="rotation-handle"
+                        x={x * (g.width / 2 + offset)}
+                        y={y * (g.height / 2 + offset)}
+                        radius={3 / camera.scale}
+                        fill="#2563eb"
+                        stroke="white"
+                        strokeWidth={1 / camera.scale}
+                      />
+                    );
+                  })}
                   {transformHandles.map(({ x, y }) => (
                     <Rect
                       key={`${x}:${y}`}

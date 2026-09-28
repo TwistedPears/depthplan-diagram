@@ -31,11 +31,15 @@ export async function rotation(driver, probe) {
       objects: [id],
       connections: [],
     });
-  const camera = (scale) =>
+  const camera = (scale, id = 'rectangle') =>
     command('depthplan_camera', {
       action: {
         type: 'set',
-        camera: { x: 650 - 520 * scale, y: 400 - 280 * scale, scale },
+        camera: {
+          x: 650 - document.objects[id].geometry.x * scale,
+          y: 400 - document.objects[id].geometry.y * scale,
+          scale,
+        },
       },
     });
   let file;
@@ -74,13 +78,14 @@ export async function rotation(driver, probe) {
     return {...n.getAbsolutePosition(), width:n.width(), height:n.height(), rotation:n.getAbsoluteRotation()};`,
       [id],
     );
-  const handles = () =>
-    sync(`const stage=window.Konva.stages[0], box=stage.container().getBoundingClientRect();
-    return stage.find('.resize-handle').map(n=>{
-      const x=n.x()+n.width()/2,y=n.y()+n.height()/2;
-      const dx=Math.sign(x),dy=Math.sign(y),offset=14/(Math.hypot(dx,dy)*stage.scaleX());
-      const p=n.getParent().getAbsoluteTransform().point({x:x+dx*offset,y:y+dy*offset});
-      return {x:Math.round(p.x+box.left),y:Math.round(p.y+box.top)};});`);
+  const handles = (offset = 0) =>
+    sync(
+      `const stage=window.Konva.stages[0], box=stage.container().getBoundingClientRect();
+    return stage.find('.rotation-handle').map(n=>{
+      const p=n.getAbsoluteTransform().point({x:arguments[0]/stage.scaleX(),y:0});
+      return {x:Math.round(p.x+box.left),y:Math.round(p.y+box.top)};});`,
+      [offset],
+    );
   const cursor = () =>
     sync(
       `return getComputedStyle(window.Konva.stages[0].container().querySelector('canvas')).cursor;`,
@@ -147,22 +152,64 @@ export async function rotation(driver, probe) {
     document.rootDepths[type] = 0;
   }
   await open(document);
-  // Every shape and all eight external handle zones support rotation.
+  // Four visible dots follow the shape's original axes; only the dots rotate.
+  for (const id of Object.keys(document.objects)) {
+    await select(id);
+    const cardinal = id === 'ellipse' || id === 'diamond';
+    assert.deepEqual(
+      await sync(`return window.Konva.stages[0].find('.rotation-handle')
+        .map(n=>[Math.sign(n.x()),Math.sign(n.y())]);`),
+      cardinal
+        ? [
+            [-1, 0],
+            [0, -1],
+            [0, 1],
+            [1, 0],
+          ]
+        : [
+            [-1, -1],
+            [-1, 1],
+            [1, -1],
+            [1, 1],
+          ],
+      `${id} rotation dot placement`,
+    );
+    for (const scale of [0.5, 1, 2]) {
+      await camera(scale, id);
+      for (const angle of [0, 37]) {
+        await edit({ type: 'geometry', id, patch: { rotation: angle } });
+        for (const offset of [0, 6]) {
+          for (const point of await handles(offset)) {
+            await pointer('mousemove', point, 0);
+            assert.equal(
+              /url\(/.test(await cursor()),
+              offset === 0,
+              `${id} cursor ${offset}px from dot, ${scale}x zoom, ${angle}°`,
+            );
+          }
+        }
+        if (scale === 1) await capture(`rotation-dots-${id}-${angle}.png`);
+      }
+    }
+    await edit({ type: 'geometry', id, patch: { rotation: 0 } });
+  }
+  await camera(1);
+  // Every dot supports rotation while preserving the existing drag behavior.
   for (const id of Object.keys(document.objects)) {
     await select(id);
     const before = await pose(id);
     const zones = await handles();
-    assert.equal(zones.length, 8);
+    assert.equal(zones.length, 4);
     const initialRevision = (await state()).revision;
     await pointer('mousedown', zones[0]);
     await pointer('mouseup', zones[0]);
     assert.equal(
       (await handles()).length,
-      8,
+      4,
       'click without rotation keeps selection',
     );
     assert.equal((await state()).revision, initialRevision);
-    for (const start of id === 'rectangle' ? zones : [zones[6]]) {
+    for (const start of zones) {
       await pointer('mousemove', start, 0);
       assert.match(
         await cursor(),
@@ -202,7 +249,7 @@ export async function rotation(driver, probe) {
     await select('rectangle');
     await camera(scale);
     const before = await pose('rectangle'),
-      start = (await handles())[6];
+      start = (await handles())[3];
     await pointer('mousedown', start);
     const far = around(before, start, 22, 45);
     await pointer('mousemove', far);
@@ -221,7 +268,7 @@ export async function rotation(driver, probe) {
   await edit({ type: 'geometry', id: 'rectangle', patch: { rotation: 350 } });
   await select('rectangle');
   let before = await pose('rectangle'),
-    start = (await handles())[6];
+    start = (await handles())[3];
   await pointer('mousedown', start);
   let end = around(before, start, 17);
   await pointer('mousemove', end);
@@ -253,7 +300,7 @@ export async function rotation(driver, probe) {
   for (const cancel of ['Escape', 'blur']) {
     await select('rectangle');
     before = await pose('rectangle');
-    start = (await handles())[6];
+    start = (await handles())[3];
     const revision = (await state()).revision;
     await pointer('mousedown', start);
     end = around(before, start, 53);
@@ -335,7 +382,7 @@ export async function rotation(driver, probe) {
   await open(nested);
   await select('rectangle');
   before = await pose('rectangle');
-  start = (await handles())[6];
+  start = (await handles())[3];
   const parentBefore = await pose('frame');
   const route = () =>
     sync(
@@ -377,6 +424,6 @@ export async function rotation(driver, probe) {
   assert.equal(Math.round((await pose('ellipse')).rotation), 62);
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
-    'PASS rotation: all shapes/eight handle zones, cursor, whole degrees, outward 15° snapping and release at different zooms, one-step Undo/Redo, resize, wraparound, Escape/blur cancellation, nested children/arrows and reopen.',
+    'PASS rotation: four visible shape-specific dots, hover-only cursor at different zooms/angles, whole degrees, outward 15° snapping and release at different zooms, one-step Undo/Redo, resize, wraparound, Escape/blur cancellation, nested children/arrows and reopen.',
   );
 }
