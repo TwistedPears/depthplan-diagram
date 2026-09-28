@@ -111,10 +111,8 @@ function Minimap({
 
   return (
     <div
+      className="canvas-minimap"
       style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
         width: MINIMAP_WIDTH,
         height: MINIMAP_HEIGHT,
         background: 'rgba(40, 44, 52, 0.95)',
@@ -122,7 +120,6 @@ function Minimap({
         borderRadius: '8px',
         overflow: 'hidden',
         boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-        zIndex: 1000,
       }}
     >
       <Stage

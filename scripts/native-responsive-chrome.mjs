@@ -6,6 +6,7 @@ import { launchNative } from './native-driver.mjs';
 const driver = await launchNative();
 const { request, session, sync, js, click, profile } = driver;
 try {
+  await click('Minimap');
   for (const autosave of [true, false]) {
     if (!autosave) {
       await click('Menu');
@@ -14,8 +15,8 @@ try {
       await click('Menu');
     }
     for (const width of [
-      1440, 1100, 1024, 941, 940, 781, 780, 521, 520, 503, 502, 480, 401, 400,
-      360, 320,
+      1440, 1100, 1024, 941, 940, 781, 780, 761, 760, 521, 520, 503, 502, 480,
+      401, 400, 360, 320,
     ]) {
       await request(`/session/${session}/window/rect`, { width, height: 800 });
       await js(
@@ -34,6 +35,7 @@ try {
           tools:rect('.shape-toolbar'),
           history:rect('.document-history'),
           navigation:rect('.canvas-navigation'),
+          minimap:rect('.canvas-minimap'),
           bookmark:rect('.recursive-bookmarks > summary'),
           bookmarkLabel:rect('.bookmark-label'),
           zoom:[...document.querySelectorAll('.zoom-control')].map(el=>!!el.getClientRects().length),
@@ -54,6 +56,9 @@ try {
       assert.equal(history.bottom, navigation.bottom, context);
       assert(history.right + 18 <= navigation.left, context);
       assert(history.left >= 0 && navigation.right <= width, context);
+      assert.equal(navigation.top - layout.minimap.bottom, 18, context);
+      assert.equal(layout.minimap.right, navigation.right, context);
+      assert(layout.minimap.left >= 0, context);
       for (const button of buttons) {
         assert(
           button.left >= tools.left && button.right <= tools.right,
@@ -117,9 +122,11 @@ try {
     );
     await click('Menu');
   }
+  await click('Minimap');
+  assert(await sync('return !document.querySelector(".canvas-minimap")'));
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
-    `PASS responsive chrome: centered tools, progressive file/bookmark/zoom controls, flush narrow rows, Autosave and menu access. Evidence: ${profile}`,
+    `PASS responsive chrome: centered tools, progressive file/bookmark/zoom controls, anchored minimap, flush narrow rows, Autosave and menu access. Evidence: ${profile}`,
   );
 } finally {
   await driver.close();

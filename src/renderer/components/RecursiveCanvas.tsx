@@ -1929,17 +1929,15 @@ export default memo(function RecursiveCanvas({
         >
           <Icon name="map" />
         </button>
-      </div>
-      {minimap && (
-        <div className="canvas-minimap">
+        {minimap && (
           <Minimap
             blocks={bounds.objects}
             containerSize={size}
             viewBox={camera}
             onViewBoxChange={(p) => setCamera((c) => ({ ...c, ...p }))}
           />
-        </div>
-      )}
+        )}
+      </div>
       <RecursiveExport
         stamp={stamp}
         ref={exportRef}

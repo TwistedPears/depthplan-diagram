@@ -310,15 +310,13 @@ summary {
 .canvas-navigation > button:first-child {
   margin-right: 5px;
 }
-.canvas-navigation > button:last-child {
+.canvas-navigation > button:last-of-type {
   margin-left: 5px;
 }
 .canvas-minimap {
   position: absolute;
-  bottom: 114px;
-  right: 18px;
-  width: 220px;
-  height: 190px;
+  bottom: calc(100% + 18px);
+  right: 0;
   z-index: 900;
 }
 .canvas-gesture-hint {
@@ -822,14 +820,11 @@ dialog label {
     min-width: 52px;
   }
   .canvas-navigation > button:first-child,
-  .canvas-navigation > button:last-child {
+  .canvas-navigation > button:last-of-type {
     margin: 0;
   }
   .recovery-control {
     bottom: 86px;
-  }
-  .canvas-minimap {
-    bottom: 138px;
   }
   .canvas-welcome h1 {
     font-size: 25px;
