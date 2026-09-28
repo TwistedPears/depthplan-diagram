@@ -144,6 +144,32 @@ export async function selectionMenu() {
       'Delete',
     ]);
     await capture('selection-menu-single');
+    // Count opens, not just final visibility: a stale menu can flash and close.
+    await driver.sync(`
+      window.menuReopens = 0;
+      window.trackMenu = (event) => {
+        if (event.target.matches('.selection-menu') && event.newState === 'open') window.menuReopens++;
+      };
+      document.addEventListener('beforetoggle', window.trackMenu, true);
+    `);
+    await driver.drag(950, 300, 0, 0, 0);
+    await driver.until(() =>
+      driver.sync('return !document.querySelector(".selection-menu")'),
+    );
+    const reselect = await position('a');
+    await driver.drag(reselect.x, reselect.y, 0, 0, 0);
+    await driver.js(
+      'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))',
+    );
+    assert.equal(
+      await driver.sync('return window.menuReopens'),
+      0,
+      'Left-clicking a deselected object must not reopen its context menu, even briefly',
+    );
+    await driver.sync(
+      'document.removeEventListener("beforetoggle", window.trackMenu, true)',
+    );
+    await menu();
     await driver.click('Copy styles');
     await menu('b');
     await driver.click('Paste styles');

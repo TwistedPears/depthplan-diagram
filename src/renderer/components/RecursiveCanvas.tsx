@@ -1218,6 +1218,11 @@ export default memo(function RecursiveCanvas({
     <div
       className="canvas-container"
       tabIndex={-1}
+      onMouseDownCapture={(event) => {
+        // Clear the open request before selection changes can unmount the popover.
+        if (event.button === 0 && event.target instanceof HTMLCanvasElement)
+          setContext(null);
+      }}
       data-rotation-cursor={
         rotationHover || gesture.current?.rotate || undefined
       }
