@@ -1833,6 +1833,7 @@ test.each(['Open Recent', 'Settings'])(
 test('Settings restores a saved Autosave preference', async () => {
   localStorage.setItem('depthplan.autosave', 'off');
   await setup();
+  expect(screen.getByRole('button', { name: 'Save document' })).toBeVisible();
   await click('Menu');
   await click('Settings');
   expect(
@@ -1851,8 +1852,10 @@ test('Settings Autosave defaults on, pauses every project board, permits manual 
     const toggle = () =>
       screen.getByRole('menuitemcheckbox', { name: 'Autosave' });
     expect(toggle()).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Save document' })).toBeNull();
     fireEvent.click(toggle());
     expect(toggle()).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Save document' })).toBeVisible();
     expect(localStorage.getItem('depthplan.autosave')).toBe('off');
     act(() => {
       controller('a').owner.transact(editObject('api', { name: 'Manual A' }));
@@ -1870,6 +1873,7 @@ test('Settings Autosave defaults on, pauses every project board, permits manual 
     await click('Settings');
     fireEvent.click(toggle());
     expect(localStorage.getItem('depthplan.autosave')).toBe('on');
+    expect(screen.queryByRole('button', { name: 'Save document' })).toBeNull();
     act(() =>
       controller('a').owner.transact(
         editObject('api', { name: 'Automatic A' }),
