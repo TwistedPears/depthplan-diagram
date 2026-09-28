@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import TemplateLibrary from '../renderer/components/TemplateLibrary';
 import useDocumentState from '../renderer/hooks/useDocumentState';
-import { bundledTemplates } from '../shared/bundledTemplates';
+import {
+  bundledTemplates,
+  templateCategories,
+} from '../shared/bundledTemplates';
 import { type TemplateEntry } from '../shared/templates';
 import { recursiveFixture } from './recursiveFixtures';
 
@@ -94,7 +97,9 @@ test('gallery filters, previews, inserts on the same board and supports one-step
   await start();
   const before = screen.getByTestId('document').textContent!;
   const source = screen.getByTestId('source').textContent;
-  fireEvent.click(screen.getByRole('button', { name: 'Infrastructure' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Infrastructure & delivery' }),
+  );
   expect(
     screen.queryByRole('button', { name: 'Preview ERD · database schema' }),
   ).not.toBeInTheDocument();
@@ -113,7 +118,8 @@ test('gallery filters, previews, inserts on the same board and supports one-step
   expect(after.id).toBe(JSON.parse(before).id);
   expect(after.objects).toMatchObject(JSON.parse(before).objects);
   expect(Object.keys(after.objects)).toHaveLength(
-    Object.keys(JSON.parse(before).objects).length + 9,
+    Object.keys(JSON.parse(before).objects).length +
+      Object.keys(bundledTemplates[0].objects).length,
   );
   expect(after.extensions?.templateSources).toBeUndefined();
   expect(screen.getByTestId('source').textContent).toBe(source);
@@ -302,4 +308,39 @@ test('library loading failures leave the built-in gallery usable', async () => {
     screen.getByRole('button', { name: 'Insert ERD · database schema' }),
   );
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test('each category exposes its four starters and every catalog entry is searchable by name and alias', async () => {
+  await start();
+  for (const category of templateCategories) {
+    fireEvent.click(screen.getByRole('button', { name: category }));
+    const expected = bundledTemplates.filter((template) =>
+      template.extensions.template.tags.includes(category),
+    );
+    expect(screen.getAllByRole('button', { name: /^Preview / })).toHaveLength(
+      4,
+    );
+    for (const template of expected)
+      expect(
+        screen.getByRole('button', {
+          name: `Preview ${template.extensions.template.name}`,
+        }),
+      ).toBeVisible();
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'All templates' }));
+  for (const template of bundledTemplates) {
+    for (const query of [
+      template.extensions.template.name,
+      template.extensions.template.tags.at(-1)!,
+    ]) {
+      fireEvent.change(screen.getByLabelText('Search templates'), {
+        target: { value: query },
+      });
+      expect(
+        screen.getByRole('button', {
+          name: `Preview ${template.extensions.template.name}`,
+        }),
+      ).toBeVisible();
+    }
+  }
 });
