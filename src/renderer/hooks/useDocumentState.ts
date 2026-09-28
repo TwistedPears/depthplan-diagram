@@ -244,7 +244,7 @@ function reduce(state: State, action: Action): State {
 export default function useDocumentState(
   initial: RecursiveDocument | null,
   appInstanceId: string | null = null,
-  options: { source?: SourceFile | null; dirty?: boolean } = {},
+  options: { source?: SourceFile | null } = {},
 ) {
   const [state, setState] = useState(() =>
     initialState(initial, crypto.randomUUID(), options),

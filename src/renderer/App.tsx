@@ -36,7 +36,6 @@ import type useAutomation from './hooks/useAutomation';
 import useWorkspaceAutomation from './hooks/useWorkspaceAutomation';
 import './App.css';
 import UnifiedToolbar from './components/UnifiedToolbar';
-import { createTemplate, newFromTemplate } from '../shared/templates';
 import exportAsJSON from './utils/jsonExport';
 import useProjectWorkspace, {
   ProjectWorkspace,
@@ -150,7 +149,6 @@ function BoardWorkspace({
   useLayoutEffect(() => setVisible(active), [active]);
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
-    dirty: session.dirty,
   });
   const recovery = useRecovery(
     owner,
@@ -528,23 +526,6 @@ function BoardWorkspace({
             owner={owner}
             onClose={() => setTemplatesOpen(false)}
             onStatus={showStatus}
-            onOpen={(template, editing) => {
-              const document = editing
-                ? createTemplate(template, template.extensions.template)
-                : newFromTemplate(template);
-              if (editing) {
-                document.id = crypto.randomUUID();
-                document.metadata.title = template.extensions.template.name;
-              }
-              owner.setBusy('templates', false);
-              setTemplatesOpen(false);
-              void projectWorkspace.standalone(async () => ({
-                status: 'success',
-                document,
-                source: null,
-                dirty: true,
-              }));
-            }}
           />
         </Suspense>
       )}

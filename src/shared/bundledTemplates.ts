@@ -3,11 +3,10 @@ import {
   type Geometry,
   type RecursiveDocument,
 } from './recursiveDocument';
-import { editNamedView } from './namedViews';
-import { createTemplate, type TemplateManifest } from './templates';
+import { createTemplate } from './templates';
 
 const guidance =
-  'Choose a component in Templates, select its destination, then Add component. Rename the new item and edit its content. Use the child toggle to collapse or expand independently. Capture a bookmark after arranging your new instance.';
+  'Insert this example, then rename, duplicate, delete and connect its shapes using the normal board tools. Expand children to explore the details.';
 function object(
   document: RecursiveDocument,
   id: string,
@@ -87,41 +86,16 @@ function layouts(document: RecursiveDocument, root: string, maximum: number) {
   }
   document.rootDepths[root] = 1;
 }
-function bookmark(
-  document: RecursiveDocument,
-  root: string,
-  name: string,
-  depth: number,
-  focus = { x: 0, y: 0 },
-  scale = 0.65,
-) {
-  document.rootDepths[root] = depth;
-  editNamedView(
-    {
-      type: 'create',
-      id: name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-'),
-      name,
-    },
-    { x: 500 - focus.x * scale, y: 350 - focus.y * scale, scale },
-    { width: 1000, height: 700 },
-  )(document);
-}
-function component(
-  rootId: string,
-  name: string,
-  parentRole: string,
-  hint: string,
-) {
-  return { id: rootId, rootId, name, parentRole, guidance: hint };
-}
 function finish(
   document: RecursiveDocument,
   id: string,
   description: string,
   tags: string[],
-  components: TemplateManifest['components'],
 ) {
-  document.rootDepths[Object.keys(document.rootDepths)[0]] = 1;
+  for (const root of Object.keys(document.rootDepths))
+    document.rootDepths[root] = Math.max(
+      ...Object.keys(document.layouts[root]).map(Number),
+    );
   const template = createTemplate(document, {
     formatVersion: 1,
     id,
@@ -130,10 +104,10 @@ function finish(
     description,
     tags,
     guidance,
-    components,
+    components: [],
     excludedConnections: [],
   });
-  // Bundled sources must compare identically after save/reopen and repeated insertion.
+  // Keep bundled export metadata stable.
   template.metadata.created = template.metadata.modified =
     '2026-09-28T00:00:00.000Z';
   return template;
@@ -145,7 +119,7 @@ function erd() {
     'database',
     null,
     'commerce / public',
-    'Schema overview. Expand to inspect tables; choose Table detail for columns. Add tables under this database and columns under a table.',
+    'Schema overview. Expand to inspect tables; expand a table for columns. Add tables under this database and columns under a table.',
     0,
     0,
     1120,
@@ -221,27 +195,11 @@ function erd() {
     endArrowhead: 'bar',
   };
   layouts(d, 'database', 2);
-  bookmark(d, 'database', 'Overview', 1);
-  bookmark(d, 'database', 'Table detail', 2, { x: -260, y: 0 }, 1.2);
   return finish(
     d,
     'bundled-erd',
     'An editable database, tables, columns and a labeled foreign-key relationship.',
     ['database', 'ERD', 'SQL'],
-    [
-      component(
-        'customers',
-        'Table',
-        'Database / schema',
-        'Use plural snake_case, then add columns. Reconnect foreign keys after insertion.',
-      ),
-      component(
-        'customers-column-0',
-        'Column',
-        'Table',
-        'Use name · type · PK/FK · NULL/NOT NULL. Rename id when adding a non-key column.',
-      ),
-    ],
   );
 }
 function infrastructure() {
@@ -325,40 +283,11 @@ function infrastructure() {
   );
   connection(d, 'network-link', 'rack', 'port', 'uplink', 'VLAN 20 · 1 Gbit/s');
   layouts(d, 'site', 3);
-  bookmark(d, 'site', 'Overview', 1);
-  bookmark(d, 'site', 'Rack detail', 2);
-  bookmark(d, 'site', 'Ports and services', 3, { x: 0, y: 0 }, 0.85);
   return finish(
     d,
     'bundled-isometric',
     'A site, rack, server, switch and ports arranged on an isometric rack plane using editable 2D shapes.',
     ['network', 'infrastructure', 'isometric'],
-    [
-      component(
-        'rack',
-        'Rack and connection',
-        'Site / environment',
-        'Rename zone and rack; the internal server-to-switch link is copied with the rack.',
-      ),
-      component(
-        'server',
-        'Server',
-        'Rack / network zone',
-        'Use environment-zone-role-number. Edit resource notes and add ports.',
-      ),
-      component(
-        'switch',
-        'Switch',
-        'Rack / network zone',
-        'Name the switch and document VLANs, then add uplinks.',
-      ),
-      component(
-        'port',
-        'Port / service',
-        'Device',
-        'Name the interface or service; document protocol, port, VLAN and peer.',
-      ),
-    ],
   );
 }
 function purdue() {
@@ -487,41 +416,11 @@ function purdue() {
   connection(d, 'scada-plc', 'plant', 'scada', 'plc', 'setpoints / telemetry');
   connection(d, 'plc-process', 'plant', 'plc', 'process', 'control / feedback');
   layouts(d, 'plant', 3);
-  bookmark(d, 'plant', 'Overview', 1, { x: 0, y: 0 }, 0.34);
-  bookmark(d, 'plant', 'Operations', 2, { x: 0, y: 0 }, 0.52);
-  bookmark(d, 'plant', 'Device detail', 3, { x: -190, y: 440 }, 1.1);
-  bookmark(d, 'plant', 'IT-OT boundary', 2, { x: 0, y: -440 }, 0.7);
   return finish(
     d,
     'bundled-purdue',
     'A functional IT/OT architecture with peer levels 0–4, an optional DMZ band and labeled information/control flows.',
     ['ISA-95', 'Purdue', 'industrial', 'IT/OT'],
-    [
-      component(
-        'level1',
-        'Level / area',
-        'Site / system',
-        'Rename the functional level or area. Level labels are independent of D0/D1 disclosure.',
-      ),
-      component(
-        'plc',
-        'Controller / device and control link',
-        'Level / area',
-        'Name site-area-controller-number. The sensor, actuator and internal control connection are included.',
-      ),
-      component(
-        'mes',
-        'Application',
-        'Level / area',
-        'Name the application and document function, owner and exchanges. Reconnect cross-level flows explicitly.',
-      ),
-      component(
-        'dmz',
-        'Optional industrial DMZ',
-        'Site / system',
-        '3.5 is a common Purdue network-security adaptation, not an ISA-95 functional level.',
-      ),
-    ],
   );
 }
 export const bundledTemplates = [erd(), infrastructure(), purdue()];

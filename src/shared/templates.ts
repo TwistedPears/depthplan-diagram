@@ -5,12 +5,11 @@ import {
   type Json,
   type RecursiveDocument,
 } from './recursiveDocument';
-import { duplicateSelection, copyScope } from './recursiveDuplication';
+import { duplicateSelection } from './recursiveDuplication';
+import { copySelection, readSelection } from './recursiveClipboard';
 import { indexHierarchy } from './recursiveHierarchy';
-import { ensureDepthLayout } from './recursiveLayouts';
-import { reparentLayouts, worldAt } from './recursiveReparent';
+import { intersectsBounds, sceneBounds } from './recursiveCamera';
 import { collapsedObjects, setCollapsedObjects } from './recursiveVisibility';
-import { localPoint, worldPoint } from './connectionGeometry';
 import type { DocumentEdit } from './documentTransactions';
 
 const templateId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
@@ -157,269 +156,120 @@ function cleanDocument(source: RecursiveDocument): RecursiveDocument {
   return document;
 }
 
-/** Extract every descendant and depth, including a selected object hidden by its ancestors. */
-export function templateComponent(source: RecursiveDocument, rootId: string) {
-  const { members, hierarchy } = copyScope(source, [`object-${rootId}`]);
-  const entry = hierarchy.entries.get(rootId);
-  if (!entry) throw new Error('Component no longer exists.');
-  const document = cleanDocument(source);
-  const excluded: string[] = [];
-  const origin = worldAt(
-    source,
-    entry.root,
-    source.rootDepths[entry.root],
-    rootId,
-  );
-  for (const c of Object.values(document.connections)) {
-    const ends = [c.start, c.end];
-    const touches =
-      ends.some((end) => end.kind !== 'free' && members.has(end.objectId)) ||
-      members.has(c.ownerId ?? '');
-    const internal =
-      ends.every((end) => end.kind === 'free' || members.has(end.objectId)) &&
-      (members.has(c.ownerId ?? '') ||
-        ends.every((end) => end.kind !== 'free' && members.has(end.objectId)));
-    if (!internal) {
-      if (touches) excluded.push(c.label || c.id);
-      delete document.connections[c.id];
-    } else if (!members.has(c.ownerId ?? '')) {
-      const owner =
-        c.ownerId === null
-          ? undefined
-          : worldAt(
-              source,
-              entry.root,
-              source.rootDepths[entry.root],
-              c.ownerId,
-            );
-      const point = (p: { x: number; y: number }) =>
-        localPoint(worldPoint(p, owner), origin);
-      c.ownerId = rootId;
-      if (c.points) c.points = c.points.map(point);
-    }
-  }
-  document.objects = Object.fromEntries(
-    [...members].map((key) => [key, document.objects[key]]),
-  );
-  document.objects[rootId].parentId = null;
-  document.objects[rootId].geometry = {
-    ...document.objects[rootId].geometry,
-    x: 0,
-    y: 0,
-  };
-  document.rootDepths = {
-    [rootId]: Math.max(0, source.rootDepths[entry.root] - entry.generation),
-  };
-  document.layouts = { [rootId]: {} };
-  for (const [depth, layout] of Object.entries(source.layouts[entry.root]).sort(
-    ([a], [b]) => Number(a) - Number(b),
-  )) {
-    const mapped = Math.max(0, Number(depth) - entry.generation);
-    document.layouts[rootId][mapped] = Object.fromEntries(
-      Object.entries(layout)
-        .filter(([key]) => members.has(key))
-        .map(([key, g]) => [
-          key,
-          { ...g, ...(key === rootId ? { x: 0, y: 0 } : {}) },
-        ]),
-    );
-  }
-  for (const depth of new Set([
-    0,
-    document.rootDepths[rootId],
-    ...Object.keys(document.layouts[rootId]).map(Number),
-  ]))
-    ensureDepthLayout(document, rootId, depth);
-  delete document.namedViews;
-  setCollapsedObjects(
-    document,
-    new Set([...collapsedObjects(source)].filter((key) => members.has(key))),
-  );
-  validateRecursiveDocument(document);
-  return { document, excluded };
-}
-
 export function createTemplate(
   source: RecursiveDocument,
   manifest: TemplateManifest,
-  rootId?: string,
+  selection?: string[],
 ): Template {
-  const scope = rootId ? templateComponent(source, rootId) : null;
-  const document = scope?.document ?? cleanDocument(source);
+  const content = selection
+    ? readSelection(copySelection(source, selection))!
+    : source;
+  const document = cleanDocument(content);
   document.extensions = {
     ...document.extensions,
     template: clone({
       ...manifest,
-      excludedConnections: scope?.excluded ?? manifest.excludedConnections,
+      excludedConnections: selection
+        ? Object.values(source.connections)
+            .filter(
+              (connection) =>
+                !Object.hasOwn(content.connections, connection.id) &&
+                [connection.start, connection.end].some(
+                  (end) =>
+                    end.kind !== 'free' &&
+                    Object.hasOwn(content.objects, end.objectId),
+                ),
+            )
+            .map((connection) => connection.label || connection.id)
+        : manifest.excludedConnections,
     }) as unknown as Json,
   };
   validateTemplate(document);
   return document;
 }
 
-export function retainedTemplates(document: RecursiveDocument): Template[] {
-  const sources = document.extensions?.templateSources ?? [];
-  if (!Array.isArray(sources) || sources.length > 100)
-    throw new Error('Invalid retained template library.');
-  sources.forEach(validateTemplate);
-  return sources as unknown as Template[];
-}
-function retain(document: RecursiveDocument, template: Template) {
-  const sources = retainedTemplates(document);
-  const m = template.extensions.template;
-  const existing = sources.find(
-    (s) =>
-      s.extensions.template.id === m.id &&
-      s.extensions.template.version === m.version,
-  );
-  if (existing) {
-    if (JSON.stringify(existing) !== JSON.stringify(template))
-      throw new Error(
-        'This template version conflicts with the copy retained in the document. Import it as a separate copy.',
-      );
-    return;
-  }
-  if (sources.length >= 100)
-    throw new Error('A document can retain up to 100 template versions.');
-  document.extensions = {
-    ...document.extensions,
-    templateSources: [...sources, clone(template)] as unknown as Json,
-  };
-}
-
-export function newFromTemplate(source: Template): RecursiveDocument {
+/** Insert ordinary objects near the current view, clearing existing painted content. */
+export function insertTemplate(
+  source: Template,
+  destination: RecursiveDocument,
+  center = { x: 0, y: 0 },
+) {
   validateTemplate(source);
-  const document = createRecursiveDocument(
-    crypto.randomUUID(),
-    source.extensions.template.name,
-  );
+  if (![center.x, center.y].every(Number.isFinite))
+    throw new Error('Invalid insertion position.');
   const copy = duplicateSelection(
     source,
     [
-      ...Object.keys(source.rootDepths).map((key) => `object-${key}`),
-      ...Object.keys(source.connections).map((key) => `connection-${key}`),
+      ...Object.keys(source.rootDepths).map((id) => `object-${id}`),
+      ...Object.keys(source.connections).map((id) => `connection-${id}`),
     ],
     0,
   );
-  copy.edit(document);
-  const remap = (key: string) => copy.objects.get(key);
-  document.namedViews = {};
-  for (const view of Object.values(source.namedViews ?? {})) {
-    const id = crypto.randomUUID();
-    document.namedViews[id] = {
-      ...clone(view),
-      id,
-      rootDepths: Object.fromEntries(
-        Object.entries(view.rootDepths)
-          .filter(([key]) => remap(key))
-          .map(([key, depth]) => [remap(key)!, depth]),
-      ),
-      ...(view.layouts
-        ? {
-            layouts: Object.fromEntries(
-              Object.entries(view.layouts)
-                .filter(([root]) => remap(root))
-                .map(([root, layout]) => [
-                  remap(root)!,
-                  Object.fromEntries(
-                    Object.entries(layout)
-                      .filter(([key]) => remap(key))
-                      .map(([key, g]) => [
-                        remap(key)!,
-                        {
-                          ...g,
-                          parentId:
-                            g.parentId === null
-                              ? null
-                              : (remap(g.parentId) ?? null),
-                        },
-                      ]),
-                  ),
-                ]),
-            ),
-          }
-        : {}),
-      metadata: {
-        collapsedObjects: (
-          (view.metadata?.collapsedObjects as string[]) ?? []
-        ).flatMap((key) => (remap(key) ? [remap(key)!] : [])),
-      },
-    };
-  }
-  retain(document, source);
-  validateRecursiveDocument(document);
-  return document;
-}
-
-export function insertTemplate(
-  source: Template,
-  componentId: string,
-  parentId: string | null,
-  point = { x: 24, y: 24 },
-) {
-  validateTemplate(source);
-  const component = source.extensions.template.components.find(
-    (c) => c.id === componentId,
+  const instance = createRecursiveDocument(
+    crypto.randomUUID(),
+    'Template sample',
   );
-  if (!component) throw new Error('Select an available component.');
-  const extracted = templateComponent(source, component.rootId);
-  const copy = duplicateSelection(
-    extracted.document,
-    [`object-${component.rootId}`],
-    0,
-  );
-  const instance = createRecursiveDocument(crypto.randomUUID(), 'Component');
   copy.edit(instance);
-  const root = copy.objects.get(component.rootId)!;
+  const original = sceneBounds(instance).bounds;
+  if (!original) throw new Error('This template has no content to insert.');
+  const bounds = {
+    ...original,
+    x: center.x - original.width / 2,
+    y: center.y - original.height / 2,
+  };
+  const occupied = sceneBounds(destination);
+  // ponytail: scan one row; use a 2D search only if closer placement is needed.
+  for (const box of [
+    ...occupied.objects.values(),
+    ...occupied.connections.values(),
+  ].sort((a, b) => a.x - b.x)) {
+    if (
+      intersectsBounds(bounds, {
+        x: box.x - 48,
+        y: box.y - 48,
+        width: box.width + 96,
+        height: box.height + 96,
+      })
+    )
+      bounds.x = box.x + box.width + 48;
+  }
+  const dx = bounds.x - original.x,
+    dy = bounds.y - original.y;
+  for (const root of Object.keys(instance.rootDepths)) {
+    instance.objects[root].geometry.x += dx;
+    instance.objects[root].geometry.y += dy;
+    for (const layout of Object.values(instance.layouts[root])) {
+      layout[root].x += dx;
+      layout[root].y += dy;
+    }
+  }
+  for (const connection of Object.values(instance.connections)) {
+    if (connection.ownerId !== null) continue;
+    for (const endpoint of [connection.start, connection.end])
+      if (endpoint.kind === 'free') {
+        endpoint.x += dx;
+        endpoint.y += dy;
+      }
+    for (const point of connection.points ?? []) {
+      point.x += dx;
+      point.y += dy;
+    }
+  }
   const edit: DocumentEdit = (draft) => {
-    if (parentId !== null && !Object.hasOwn(draft.objects, parentId))
-      throw new Error('Destination no longer exists.');
-    if (![point.x, point.y].every(Number.isFinite))
-      throw new Error('Invalid insertion position.');
-    const depths = { ...draft.rootDepths };
-    const archive = draft.extensions?.layoutArchive;
-    for (const collection of ['objects', 'connections'] as const)
-      for (const key of Object.keys(instance[collection]))
-        if (Object.hasOwn(draft[collection], key))
+    for (const collection of ['objects', 'connections'] as const) {
+      for (const id of Object.keys(instance[collection]))
+        if (Object.hasOwn(draft[collection], id))
           throw new Error('Duplicate instance ID.');
-    Object.assign(draft.objects, clone(instance.objects));
-    Object.assign(draft.connections, clone(instance.connections));
+      Object.assign(draft[collection], clone(instance[collection]));
+    }
     Object.assign(draft.rootDepths, clone(instance.rootDepths));
     Object.assign(draft.layouts, clone(instance.layouts));
     setCollapsedObjects(
       draft,
       new Set([...collapsedObjects(draft), ...collapsedObjects(instance)]),
     );
-    if (parentId !== null) reparentLayouts(root, parentId)(draft);
-    const hierarchy = indexHierarchy(draft.objects);
-    const target = hierarchy.entries.get(root)!;
-    // Incoming top-level geometry is relative to the destination, even when rotated or hidden.
-    draft.objects[root].geometry = {
-      ...extracted.document.objects[component.rootId].geometry,
-      ...point,
-    };
-    for (const [depth, layout] of Object.entries(draft.layouts[target.root])) {
-      if (!layout[root]) continue;
-      const localDepth = Math.max(0, Number(depth) - target.generation);
-      const authored =
-        extracted.document.layouts[component.rootId][localDepth]?.[
-          component.rootId
-        ] ?? extracted.document.objects[component.rootId].geometry;
-      layout[root] = { ...authored, ...point };
-    }
-    Object.assign(draft.rootDepths, depths);
-    if (draft.extensions) {
-      if (archive === undefined) delete draft.extensions.layoutArchive;
-      else draft.extensions.layoutArchive = archive;
-    }
-    retain(draft, source);
   };
-  return {
-    edit,
-    selection: copy.selection,
-    rootId: root,
-    excluded: extracted.excluded,
-  };
+  return { edit, selection: copy.selection, bounds };
 }
 
 export function templateLinks(document: RecursiveDocument): string[] {

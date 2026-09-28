@@ -2,19 +2,19 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { launchNative, clickToPaint } from './native-driver.mjs';
+import { launchNative } from './native-driver.mjs';
 
 export async function templates() {
   const driver = await launchNative();
   const { click, sync, js, until, dialogs, native, profile, request, session } =
     driver;
-  const timings = [];
+  const boardFile = path.join(profile, 'gallery-board.depthplan');
   const open = async () => {
     await click('Menu');
-    timings.push(await clickToPaint(driver, 'Templates'));
+    await click('Templates');
     await until(() =>
       sync(
-        'return !!document.querySelector("dialog[aria-label=Templates] canvas")',
+        'return !!document.querySelector("dialog[aria-label=Templates] canvas") && document.querySelector(".template-gallery").getAttribute("aria-busy") === "false"',
       ),
     );
   };
@@ -27,6 +27,8 @@ export async function templates() {
     await js(
       'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))',
     );
+    // Let the existing button color transitions settle before visual capture.
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await writeFile(
       path.join(profile, `${name}.png`),
       Buffer.from(
@@ -35,15 +37,12 @@ export async function templates() {
       ),
     );
   };
-  const save = async (filename) => {
-    const target = path.join(profile, filename);
-    await dialogs('save', target);
-    await click('Save document');
+  const readBoard = async (count) => {
     let document;
     await until(async () => {
       try {
-        document = JSON.parse(await readFile(target, 'utf8'));
-        return true;
+        document = JSON.parse(await readFile(boardFile, 'utf8'));
+        return Object.keys(document.objects).length === count;
       } catch {
         return false;
       }
@@ -57,190 +56,139 @@ export async function templates() {
       `const toggle=document.querySelector('[aria-label="Autosave"]'); if(toggle.getAttribute('aria-checked')==='true') toggle.click();`,
     );
     await click('Menu');
+    const originalName = await sync(
+      'return document.querySelector(".document-name").textContent',
+    );
     await open();
-    for (const id of ['erd', 'isometric', 'purdue']) {
-      await field('Template', `bundled:bundled-${id}`);
-      for (const view of ['collapsed', 'expanded']) {
-        await field('Preview view', view);
-        await capture(`${id}-${view}`);
-      }
+    for (const [width, height] of [
+      [1440, 900],
+      [768, 1024],
+      [390, 844],
+    ]) {
+      await request(`/session/${session}/window/rect`, { width, height });
+      await capture(`gallery-${width}`);
+      assert(
+        await sync(
+          `const d=document.querySelector('dialog'), r=d.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth && d.scrollWidth<=d.clientWidth;`,
+        ),
+      );
     }
     await request(`/session/${session}/window/rect`, {
-      width: 390,
-      height: 760,
-    });
-    await capture('templates-narrow');
-    assert(
-      await sync(
-        `const r=document.querySelector('dialog').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth`,
-      ),
-    );
-    await request(`/session/${session}/window/rect`, {
-      width: 1280,
+      width: 1440,
       height: 900,
     });
-    await field('Template', 'bundled:bundled-erd');
-    await click('New from template');
-    await until(() =>
-      sync(
-        'return !document.querySelector("dialog[open]") && document.querySelector(".document-name").textContent.includes("ERD")',
-      ),
+    await click('Infrastructure');
+    assert.equal(
+      await sync('return document.querySelectorAll(".template-card").length'),
+      1,
     );
-    const initial = await save('starter.depthplan');
-    assert(initial.extensions.templateSources.length === 1);
-    assert(Object.keys(initial.namedViews).length === 2);
-    assert(Object.keys(initial.objects).length === 9);
+    await click('All templates');
+    await click('Preview ERD · database schema');
+    await capture('gallery-preview');
+    await click('Insert template');
+    await until(() => sync('return !document.querySelector("dialog[open]")'));
+    assert.equal(
+      await sync('return document.querySelector(".document-name").textContent'),
+      originalName,
+    );
+    await dialogs('save', boardFile);
+    await click('Save document');
+    const initial = await readBoard(9);
+    assert.equal(initial.extensions?.templateSources, undefined);
+    assert.equal(initial.extensions?.template, undefined);
+    assert.equal(Object.keys(initial.namedViews ?? {}).length, 0);
+    await capture('inserted-sample');
     await open();
-    await click('Create from document');
-    await field('Template name', 'Native schema');
-    await field(
-      'How to add another item',
-      'Use the Table component and rename it.',
+    await click('Insert ERD · database schema');
+    await click('Save document');
+    const twice = await readBoard(18);
+    assert.equal(twice.id, initial.id);
+    for (const id of Object.keys(initial.objects))
+      assert.deepEqual(twice.objects[id], initial.objects[id]);
+    for (const id of Object.keys(initial.layouts))
+      assert.deepEqual(twice.layouts[id], initial.layouts[id]);
+    const roots = Object.keys(twice.rootDepths);
+    const left = twice.layouts[roots[0]][twice.rootDepths[roots[0]]][roots[0]];
+    const right = twice.layouts[roots[1]][twice.rootDepths[roots[1]]][roots[1]];
+    assert(
+      right.x - right.width / 2 > left.x + left.width / 2,
+      'Repeated samples must not overlap',
     );
-    const customer = Object.values(initial.objects).find(
-      (o) => o.name === 'customers',
-    ).id;
-    await field('Example object', customer);
-    await click('Add reusable pattern');
-    await click('Save personal copy');
+    await capture('second-sample-selected');
+    await open();
+    await click('Save selection');
+    await field('Template name', 'My diagram sample');
+    await field('Description', 'An editable example');
+    await click('Review template');
+    await click('Cancel');
+    assert.equal(
+      await sync('return document.querySelector("dialog input").value'),
+      'My diagram sample',
+    );
+    await click('Review template');
     await click('Save to library');
     await until(
       async () => (await native('template:list')).entries.length === 1,
     );
     const entry = (await native('template:list')).entries[0];
+    assert.deepEqual(entry.document.extensions.template.components, []);
+    await click('Preview My diagram sample');
     const shared = path.join(profile, 'shared.depthtemplate');
     await click('Export template');
     await dialogs('template-save', shared);
     await click('Export file');
-    await until(async () => {
-      try {
-        return (
-          JSON.parse(await readFile(shared, 'utf8')).extensions.template
-            .name === 'Native schema'
-        );
-      } catch {
-        return false;
-      }
-    });
+    await click('Back to gallery');
     await dialogs('template-open', shared);
     await click('Import template');
     await click('Import separate copy');
     await until(
       async () => (await native('template:list')).entries.length === 2,
     );
-    const imported = (await native('template:list')).entries.find(
-      (e) =>
-        e.document.extensions.template.id !==
-        entry.document.extensions.template.id,
-    );
-    assert.equal(
-      imported.document.extensions.template.name,
-      'Native schema copy',
-    );
-    await click('Edit template');
-    await until(() => sync('return !document.querySelector("dialog[open]")'));
-    await open();
-    await click('Create from document');
-    await field(
-      'Description',
-      'Edited through the existing editor and explicitly updated.',
-    );
-    await click('Update library entry');
-    await click('Save to library');
-    await until(async () =>
-      (await native('template:list')).entries.some(
-        (e) => e.document.extensions.template.version === 2,
-      ),
-    );
+    await click('Preview My diagram sample copy');
     await click('Remove');
     await click('Remove');
     await until(
       async () => (await native('template:list')).entries.length === 1,
     );
-    // Cancel protects the unsaved editor copy; Save persists it before replacing.
-    await dialogs('message', 'Cancel');
-    await click('New from template');
-    await until(() => sync('return !document.querySelector("dialog[open]")'));
-    assert(
-      (
-        await sync(
-          'return document.querySelector(".document-name").textContent',
-        )
-      ).includes('Native schema copy'),
+    await click('Save selection');
+    await field('Template name', 'My revised example');
+    await field('Save as', entry.document.extensions.template.id);
+    await click('Review replacement');
+    await click('Save to library');
+    await until(
+      async () =>
+        (await native('template:list')).entries[0].document.extensions.template
+          .version === 2,
     );
-    await open();
-    await native('test:dialogs', [
-      { kind: 'message', value: 'Save' },
-      { kind: 'save', value: path.join(profile, 'edited.depthplan') },
-    ]);
-    await click('New from template');
-    await until(() =>
-      sync(
-        'return document.querySelector(".document-name").textContent.includes("ERD")',
-      ),
-    );
-    assert.equal(
-      JSON.parse(await readFile(path.join(profile, 'edited.depthplan'), 'utf8'))
-        .extensions.template.version,
-      1,
-    );
-    await open();
-    await field('Template', 'document:bundled-erd:1');
-    await field('Reusable component', 'customers');
-    await click('Add component');
-    await click('Add component');
-    await click('Reveal inserted item');
-    const extended = await save('extended.depthplan');
-    assert.equal(Object.keys(extended.objects).length, 17);
-    assert.equal(extended.extensions.templateSources.length, 1);
-    assert.equal(Object.keys(extended.namedViews).length, 2);
-    await open();
-    await dialogs('message', 'Discard');
-    await click('New from template');
-    await until(() => sync('return !document.querySelector("dialog[open]")'));
-    await capture('starter-canvas');
-    await native('test:dialogs', [
-      { kind: 'open', value: path.join(profile, 'extended.depthplan') },
-      { kind: 'message', value: 'Discard' },
-    ]);
+    await click('Close templates');
+    await click('Undo');
+    await click('Save document');
+    await readBoard(9);
+    await click('Redo');
+    await click('Save document');
+    await readBoard(18);
+    await dialogs('open', boardFile);
     await click('Menu');
     await click('Open Board…');
     await until(() =>
       sync(
-        'return document.querySelector(".document-state").textContent.includes("extended.depthplan")',
+        'return document.querySelector(".document-state").textContent.includes("gallery-board.depthplan")',
       ),
     );
     await open();
-    await field('Template', 'document:bundled-erd:1');
-    await field('Reusable component', 'customers-column-0');
-    await click('Add component');
-    await click('Close');
-    // Normal Save writes the reopened board, preserving its retained definitions.
+    await click('Insert ERD · database schema');
     await click('Save document');
-    await until(
-      async () =>
-        Object.keys(
-          JSON.parse(
-            await readFile(path.join(profile, 'extended.depthplan'), 'utf8'),
-          ).objects,
-        ).length === 18,
-    );
+    const reopened = await readBoard(27);
+    assert.equal(reopened.id, initial.id);
+    assert.equal(reopened.extensions?.templateSources, undefined);
     assert.deepEqual(await sync('return window.nativeErrors'), []);
-    await writeFile(
-      path.join(profile, 'template-timing.json'),
-      JSON.stringify(
-        { platform: process.platform, libraryOpenToPaintMs: timings },
-        null,
-        2,
-      ),
-    );
     console.log(
-      `PASS native templates: previews, create/edit/update, sharing, duplicate import, removal, independent insertion/reopen/offline guidance, dirty Cancel/Save/Discard. Evidence: ${profile}`,
+      `PASS template gallery: responsive previews, categories, same-board insertion, non-overlap, selection, Undo/Redo, save/reopen, personal save/replace and import/export. Evidence: ${profile}`,
     );
     return profile;
   } catch (error) {
-    await capture('templates-failure').catch(() => {});
-    console.error(`Template failure evidence: ${profile}`);
+    await capture('gallery-failure').catch(() => {});
+    console.error(`Template gallery failure evidence: ${profile}`);
     throw error;
   } finally {
     await driver.close();

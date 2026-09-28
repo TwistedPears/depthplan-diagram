@@ -1,10 +1,8 @@
+import { act, renderHook } from '@testing-library/react';
 import { bundledTemplates } from '../shared/bundledTemplates';
 import {
   createTemplate,
   insertTemplate,
-  newFromTemplate,
-  retainedTemplates,
-  templateComponent,
   validateTemplate,
 } from '../shared/templates';
 import {
@@ -18,13 +16,16 @@ import {
   collapsedObjects,
   setCollapsedObjects,
 } from '../shared/recursiveVisibility';
-import { resolveNamedViewCamera } from '../shared/namedViews';
-import { indexHierarchy } from '../shared/recursiveHierarchy';
-import { selectRootDepth } from '../shared/recursiveLayouts';
-import { act, renderHook } from '@testing-library/react';
+import {
+  fitCamera,
+  intersectsBounds,
+  sceneBounds,
+} from '../shared/recursiveCamera';
 import useDocumentState from '../renderer/hooks/useDocumentState';
+import { recursiveFixture } from './recursiveFixtures';
+import { editNamedView } from '../shared/namedViews';
 
-const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const apply = (
   document: RecursiveDocument,
   edit: Parameters<typeof transactDocument>[1],
@@ -35,176 +36,225 @@ const apply = (
 };
 
 test.each(bundledTemplates)(
-  '$metadata.title preserves independent starters, bookmarks and portable definitions',
+  '$metadata.title inserts independent ordinary shapes, wiring and every depth',
   (source) => {
-    validateTemplate(source);
-    const first = newFromTemplate(source),
-      second = newFromTemplate(source);
-    expect(first.id).not.toBe(source.id);
-    expect(first.id).not.toBe(second.id);
-    expect(
-      Object.keys(first.objects).some(
-        (id) => id in source.objects || id in second.objects,
+    const before = clone(source);
+    let destination = recursiveFixture();
+    destination.metadata.title = 'Keep this board';
+    destination = apply(
+      destination,
+      editNamedView(
+        { type: 'create', id: 'keep', name: 'Keep' },
+        { x: 0, y: 0, scale: 1 },
+        { width: 1280, height: 900 },
       ),
-    ).toBe(false);
-    expect(
-      Object.keys(first.connections).some((id) => id in source.connections),
-    ).toBe(false);
-    expect(
-      Object.keys(first.namedViews!).some((id) => id in source.namedViews!),
-    ).toBe(false);
-    expect(Object.keys(first.objects)).toHaveLength(
-      Object.keys(source.objects).length,
     );
-    for (const view of Object.values(first.namedViews!)) {
-      expect(
-        Object.keys(view.rootDepths).every((id) => id in first.rootDepths),
-      ).toBe(true);
-      const camera = resolveNamedViewCamera(view, { width: 400, height: 600 })!;
-      expect((200 - camera.x) / camera.scale).toBeCloseTo(view.cameraFocus!.x);
-      expect((300 - camera.y) / camera.scale).toBeCloseTo(view.cameraFocus!.y);
-      for (const layout of Object.values(view.layouts!))
-        for (const [id, g] of Object.entries(layout)) {
-          expect(first.objects[id]).toBeDefined();
-          expect(g.parentId).toBe(first.objects[id].parentId);
+    destination.extensions = {
+      localPreference: true,
+      templateSources: ['legacy metadata'],
+    };
+    const original = clone(destination);
+    const insertion = insertTemplate(source, destination);
+    destination = apply(destination, insertion.edit);
+    expect(destination.id).toBe(original.id);
+    expect(destination.metadata.title).toBe(original.metadata.title);
+    expect(destination.namedViews).toEqual(original.namedViews);
+    expect(destination.extensions).toMatchObject(original.extensions!);
+    expect(destination.extensions?.template).toBeUndefined();
+    for (const id of Object.keys(original.objects))
+      expect(destination.objects[id]).toEqual(original.objects[id]);
+    for (const id of Object.keys(original.layouts))
+      expect(destination.layouts[id]).toEqual(original.layouts[id]);
+    expect(destination.connections).toMatchObject(original.connections);
+    const incoming = Object.values(destination.objects).filter(
+      (object) => !(object.id in original.objects),
+    );
+    expect(incoming).toHaveLength(Object.keys(source.objects).length);
+    for (const object of incoming) {
+      expect(source.objects[object.id]).toBeUndefined();
+      const authored = Object.values(source.objects).find(
+        (item) =>
+          item.name === object.name &&
+          (item.parentId === null
+            ? object.parentId === null
+            : object.parentId !== null &&
+              source.objects[item.parentId].name ===
+                destination.objects[object.parentId].name),
+      )!;
+      expect(object.content).toEqual(authored.content);
+      if (object.parentId !== null)
+        expect(object.geometry).toEqual(authored.geometry);
+      else {
+        expect(destination.rootDepths[object.id]).toBe(
+          source.rootDepths[authored.id],
+        );
+        const dx = object.geometry.x - authored.geometry.x;
+        const dy = object.geometry.y - authored.geometry.y;
+        for (const [depth, layout] of Object.entries(
+          source.layouts[authored.id],
+        )) {
+          expect(
+            destination.layouts[object.id][depth][object.id],
+          ).toMatchObject({
+            x: layout[authored.id].x + dx,
+            y: layout[authored.id].y + dy,
+          });
+          expect(
+            Object.keys(destination.layouts[object.id][depth]),
+          ).toHaveLength(Object.keys(layout).length);
         }
-    }
-    expect(retainedTemplates(clone(first))).toEqual([source]);
-    first.objects[Object.keys(first.objects)[0]].name = 'Changed';
-    expect(source.objects[Object.keys(source.objects)[0]].name).not.toBe(
-      'Changed',
-    );
-    validateRecursiveDocument(clone(second));
-  },
-);
-
-test('hidden subtree extraction excludes external wiring and cleans provenance', () => {
-  const source = clone(bundledTemplates[0]);
-  source.rootDepths.database = 0;
-  source.metadata.filePath = '/private/source';
-  source.extensions.clipboardParents = { customers: 'database' };
-  source.extensions.layoutArchive = [];
-  const extracted = templateComponent(source, 'customers');
-  expect(Object.keys(extracted.document.objects)).toHaveLength(4);
-  expect(extracted.document.layouts.customers[1]['customers-column-0']).toEqual(
-    source.layouts.database[2]['customers-column-0'],
-  );
-  expect(extracted.excluded).toEqual(['orders.customer_id → customers.id']);
-  expect(extracted.document.namedViews).toBeUndefined();
-  expect(extracted.document.extensions).toEqual({});
-  expect(extracted.document.metadata.filePath).toBeUndefined();
-});
-
-test('insertion under a rotated hidden parent preserves unrelated layouts, bookmarks, folds, wiring and one-step history', () => {
-  const source = clone(bundledTemplates[2]);
-  setCollapsedObjects(source, new Set(['plc']));
-  const destination = newFromTemplate(bundledTemplates[0]);
-  const table = Object.values(destination.objects).find(
-    (o) => o.name === 'customers',
-  )!;
-  table.geometry.rotation = 35;
-  const hierarchy = indexHierarchy(destination.objects),
-    root = hierarchy.entries.get(table.id)!.root;
-  destination.rootDepths[root] = 0;
-  for (const layout of Object.values(destination.layouts[root]))
-    if (layout[table.id]) layout[table.id].rotation = 35;
-  setCollapsedObjects(destination, new Set([root]));
-  // A copied root must not renumber unrelated destination stacking geometry.
-  for (const layout of Object.values(destination.layouts[root]))
-    layout[root].z = 500;
-  const before = clone(destination);
-  const { result } = renderHook(() => useDocumentState(destination));
-  const insertion = insertTemplate(source, 'plc', table.id, { x: 75, y: 90 });
-  act(() => {
-    expect(result.current.transact(insertion.edit)?.status).toBe('accepted');
-  });
-  const inserted = result.current.document!;
-  expect(inserted.objects[insertion.rootId].parentId).toBe(table.id);
-  expect(inserted.rootDepths).toEqual(before.rootDepths);
-  expect(inserted.namedViews).toEqual(before.namedViews);
-  expect(collapsedObjects(inserted)).toEqual(new Set([root, insertion.rootId]));
-  for (const [depth, layout] of Object.entries(before.layouts[root]))
-    for (const [id, geometry] of Object.entries(layout))
-      expect(inserted.layouts[root][depth][id]).toEqual(geometry);
-  expect(inserted.layouts[root][2][insertion.rootId]).toMatchObject({
-    x: 75,
-    y: 90,
-    rotation: 0,
-  });
-  const internal = Object.values(inserted.connections).find(
-    (c) => c.label === 'control signal',
-  )!;
-  expect(internal.ownerId).toBe(insertion.rootId);
-  expect(
-    internal.start.kind !== 'free' &&
-      inserted.objects[internal.start.objectId].parentId,
-  ).toBe(insertion.rootId);
-  act(() => {
-    result.current.undo();
-  });
-  expect(result.current.document).toEqual(before);
-  act(() => {
-    result.current.redo();
-  });
-  expect(result.current.document).toEqual(inserted);
-  const second = insertTemplate(source, 'plc', table.id);
-  act(() => {
-    result.current.transact(second.edit);
-  });
-  expect(retainedTemplates(result.current.document!)).toHaveLength(2);
-  expect(second.rootId).not.toBe(insertion.rootId);
-  expect(
-    Object.values(result.current.document!.connections).filter(
-      (c) => c.label === 'control signal',
-    ),
-  ).toHaveLength(2);
-  expect(source.objects.plc.name).toBe('PLC-01 · cell controller');
-});
-
-test.each(bundledTemplates)(
-  '$metadata.title inserts all patterns on canvas and at multiple depths',
-  (source) => {
-    for (const component of source.extensions.template.components) {
-      let destination = newFromTemplate(bundledTemplates[0]);
-      const parents = [null, ...Object.keys(destination.objects).slice(0, 3)];
-      for (const parent of parents) {
-        const inserted = insertTemplate(source, component.id, parent);
-        destination = apply(destination, inserted.edit);
-        validateRecursiveDocument(destination);
-        expect(destination.objects[inserted.rootId].parentId).toBe(parent);
       }
     }
+    const first = clone(destination);
+    destination = apply(destination, insertTemplate(source, destination).edit);
+    expect(Object.keys(destination.objects)).toHaveLength(
+      Object.keys(original.objects).length + incoming.length * 2,
+    );
+    expect(destination.extensions).toEqual(first.extensions);
+    expect(source).toEqual(before);
+    validateRecursiveDocument(clone(destination));
   },
 );
 
-test('invalid insertion leaves document/history untouched and retained version conflicts are explicit', () => {
-  const { result } = renderHook(() =>
-    useDocumentState(createRecursiveDocument('target', 'Target')),
-  );
-  const invalid = insertTemplate(bundledTemplates[0], 'customers', 'missing');
-  const before = result.current.document;
-  act(() => {
-    expect(result.current.transact(invalid.edit)?.status).toBe('rejected');
-  });
-  expect(result.current.document).toBe(before);
-  expect(result.current.canUndo).toBe(false);
-  act(() => {
-    result.current.transact(
-      insertTemplate(bundledTemplates[0], 'customers', null).edit,
-    );
-  });
-  const conflicting = clone(bundledTemplates[0]);
-  conflicting.objects.customers.name = 'Changed source';
-  act(() => {
-    expect(
-      result.current.transact(
-        insertTemplate(conflicting, 'customers', null).edit,
-      )?.status,
-    ).toBe('rejected');
-  });
+test('placement clears rotated shapes, visible overflow, connectors and repeated inserts without moving existing content', () => {
+  let destination = recursiveFixture();
+  destination.layouts.app[1].api.x = -800;
+  destination.layouts.app[1].api.rotation = 45;
+  destination.connections.long = {
+    id: 'long',
+    ownerId: null,
+    kind: 'arrow',
+    z: 0,
+    start: { kind: 'free', x: -1000, y: 0 },
+    end: { kind: 'free', x: 1400, y: 150 },
+    label: 'Existing connector',
+  };
+  const original = clone(destination);
+  for (let i = 0; i < 5; i++) {
+    const occupied = sceneBounds(destination);
+    const insertion = insertTemplate(bundledTemplates[0], destination);
+    for (const box of [
+      ...occupied.objects.values(),
+      ...occupied.connections.values(),
+    ])
+      expect(intersectsBounds(insertion.bounds, box)).toBe(false);
+    destination = apply(destination, insertion.edit);
+  }
+  expect(destination.objects).toMatchObject(original.objects);
+  expect(destination.layouts).toMatchObject(original.layouts);
+  expect(destination.connections.long).toEqual(original.connections.long);
 });
 
-test('portable format rejects unsupported/corrupt manifests and source bookkeeping', () => {
+test('uses open space at the current view instead of moving every sample beyond the board edge', () => {
+  const destination = recursiveFixture();
+  const center = { x: -5000, y: 7000 };
+  for (const board of [
+    destination,
+    createRecursiveDocument('empty', 'Empty'),
+  ]) {
+    const insertion = insertTemplate(bundledTemplates[0], board, center);
+    expect(insertion.bounds.x + insertion.bounds.width / 2).toBe(center.x);
+    expect(insertion.bounds.y + insertion.bounds.height / 2).toBe(center.y);
+  }
+});
+
+test('preserves local folds and restores the board and camera in one Undo/Redo action', () => {
+  const source = clone(bundledTemplates[2]);
+  setCollapsedObjects(source, new Set(['plc']));
+  const document = recursiveFixture();
+  const { result } = renderHook(() => useDocumentState(document));
+  const before = result.current.document;
+  const camera = result.current.camera;
+  const insertion = insertTemplate(source, document);
+  const fitted = fitCamera(insertion.bounds, { width: 1280, height: 900 });
+  act(() => {
+    expect(result.current.transact(insertion.edit, fitted)?.status).toBe(
+      'accepted',
+    );
+  });
+  const inserted = result.current.document!;
+  const plc = Object.values(inserted.objects).find(
+    (object) => object.name === source.objects.plc.name,
+  )!;
+  expect(collapsedObjects(inserted).has(plc.id)).toBe(true);
+  expect(result.current.dirty).toBe(true);
+  expect(result.current.camera).toEqual(fitted);
+  act(() => result.current.undo());
+  expect(result.current.document).toEqual(before);
+  expect(result.current.camera).toEqual(camera);
+  expect(result.current.canUndo).toBe(false);
+  act(() => result.current.redo());
+  expect(result.current.document).toEqual(inserted);
+  expect(result.current.camera).toEqual(fitted);
+});
+
+test('standalone connectors translate their endpoints and control points with the sample', () => {
+  const document = createRecursiveDocument('line', 'Line');
+  document.connections.line = {
+    id: 'line',
+    kind: 'line',
+    ownerId: null,
+    z: 0,
+    start: { kind: 'free', x: 0, y: 0 },
+    end: { kind: 'free', x: 100, y: 100 },
+    points: [{ x: 25, y: 75 }],
+  };
+  const source = createTemplate(document, {
+    ...bundledTemplates[0].extensions.template,
+    components: [],
+  });
+  const destination = createRecursiveDocument('target', 'Target');
+  const insertion = insertTemplate(source, destination, { x: -500, y: 800 });
+  const inserted = apply(destination, insertion.edit);
+  const line = Object.values(inserted.connections)[0];
+  expect(line).toMatchObject({
+    start: { x: -550, y: 750 },
+    end: { x: -450, y: 850 },
+    points: [{ x: -525, y: 825 }],
+  });
+  expect(insertion.selection).toEqual([`connection-${line.id}`]);
+  expect(sceneBounds(inserted).bounds).toEqual(insertion.bounds);
+});
+
+test('empty and invalid templates are rejected before touching the board', () => {
+  const document = createRecursiveDocument('target', 'Target');
+  const empty = createTemplate(document, {
+    ...bundledTemplates[0].extensions.template,
+    components: [],
+  });
+  expect(() => insertTemplate(empty, document)).toThrow(/no content/);
+  expect(() =>
+    insertTemplate(bundledTemplates[0], document, { x: NaN, y: 0 }),
+  ).toThrow(/position/);
+  expect(Object.keys(document.objects)).toHaveLength(0);
+});
+
+test('saving a selection reuses ordinary copy semantics, including hidden descendants and multiple roots', () => {
+  const source = clone(bundledTemplates[0]);
+  source.rootDepths.database = 1;
+  source.metadata.filePath = '/private/source';
+  source.extensions.templateSources = [];
+  const manifest = { ...source.extensions.template, components: [] };
+  const selected = createTemplate(source, manifest, ['object-customers']);
+  expect(Object.keys(selected.objects)).toHaveLength(4);
+  expect(selected.objects.customers.parentId).toBeNull();
+  expect(selected.namedViews).toBeUndefined();
+  expect(selected.extensions.templateSources).toBeUndefined();
+  expect(selected.metadata.filePath).toBeUndefined();
+  expect(selected.extensions.template.excludedConnections).toEqual([
+    'orders.customer_id → customers.id',
+  ]);
+  const multiple = createTemplate(source, manifest, [
+    'object-customers',
+    'object-orders',
+  ]);
+  expect(Object.keys(multiple.rootDepths)).toHaveLength(2);
+  expect(Object.keys(multiple.connections)).toHaveLength(1);
+  expect(multiple.extensions.template.excludedConnections).toEqual([]);
+  validateTemplate(multiple);
+});
+
+test('portable format still rejects unsupported manifests and strips source bookkeeping', () => {
   for (const patch of [
     { formatVersion: 2 },
     { id: '../path' },
@@ -232,19 +282,4 @@ test('portable format rejects unsupported/corrupt manifests and source bookkeepi
   const cleaned = createTemplate(bad, bad.extensions.template);
   expect(cleaned.extensions.templateSources).toBeUndefined();
   expect(() => validateTemplate(cleaned)).not.toThrow();
-});
-
-test('Purdue functional labels survive disclosure and cross-level connections survive reopening', () => {
-  const doc = newFromTemplate(bundledTemplates[2]);
-  const root = Object.keys(doc.rootDepths)[0];
-  const expanded = apply(doc, selectRootDepth(root, 'all'));
-  expect(
-    Object.values(expanded.objects).filter((o) => /^Level [0-4]/.test(o.name)),
-  ).toHaveLength(5);
-  expect(
-    Object.values(expanded.objects).some((o) =>
-      o.name.includes('3.5 · optional'),
-    ),
-  ).toBe(true);
-  expect(clone(expanded).connections).toEqual(doc.connections);
 });

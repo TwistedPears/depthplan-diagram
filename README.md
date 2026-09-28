@@ -93,7 +93,7 @@ audit review and read-only placement workflows. See the
 
 ## Documentation
 
-- [Templates](docs/templates.md): reusable starters, components, and portable sharing.
+- [Templates](docs/templates.md): an example gallery, insertion on the current board, and portable sharing.
 
 | Guide                                                | Contents                                                    |
 | ---------------------------------------------------- | ----------------------------------------------------------- |

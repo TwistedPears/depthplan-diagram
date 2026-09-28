@@ -7,10 +7,7 @@ import { bundledTemplates } from '../../shared/bundledTemplates';
 import {
   createTemplate,
   insertTemplate,
-  retainedTemplates,
-  templateComponent,
   templateLinks,
-  templateManifestSchema,
   type Template,
   type TemplateEntry,
   type TemplateManifest,
@@ -18,19 +15,16 @@ import {
 import { type RecursiveDocument } from '../../shared/recursiveDocument';
 import { recursiveScene } from '../../shared/recursiveScene';
 import { fitCamera, sceneBounds } from '../../shared/recursiveCamera';
-import { selectRootDepth } from '../../shared/recursiveLayouts';
-import { editNamedView, resolveNamedViewCamera } from '../../shared/namedViews';
-import { transactDocument } from '../../shared/documentTransactions';
 
 function Preview({
   document,
-  view,
+  height = 180,
 }: {
   document: RecursiveDocument;
-  view: string;
+  height?: number;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(600);
+  const [width, setWidth] = useState(280);
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) =>
       setWidth(Math.max(1, entry.contentRect.width)),
@@ -39,22 +33,22 @@ function Preview({
     return () => observer.disconnect();
   }, []);
   const scene = useMemo(() => recursiveScene(document), [document]);
-  const camera =
-    resolveNamedViewCamera(document.namedViews?.[view], {
-      width,
-      height: 300,
-    }) ??
-    fitCamera(sceneBounds(document, scene).bounds, { width, height: 300 }, 24);
+  const bounds = useMemo(
+    () => sceneBounds(document, scene).bounds,
+    [document, scene],
+  );
+  const camera = fitCamera(bounds, { width, height }, 20);
   return (
     <div
       ref={container}
       className="template-preview"
+      style={{ height }}
       role="img"
       aria-label={`Preview of ${document.metadata.title}`}
     >
       <Stage
         width={width}
-        height={300}
+        height={height}
         x={camera.x}
         y={camera.y}
         scaleX={camera.scale}
@@ -74,49 +68,42 @@ function Preview({
   );
 }
 
+const categories = [
+  { label: 'Data modelling', tag: 'ERD' },
+  { label: 'Infrastructure', tag: 'infrastructure' },
+  { label: 'Industrial systems', tag: 'industrial' },
+];
+
 export default function TemplateLibrary({
   owner,
   onClose,
-  onOpen,
   onStatus,
 }: {
   owner: ReturnType<typeof useDocumentState>;
   onClose: () => void;
-  onOpen: (document: Template, editing: boolean) => void;
   onStatus: (message: string) => void;
 }) {
   const current = owner.document!;
   const [personal, setPersonal] = useState<TemplateEntry[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const locked = useRef(false);
+  const search = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState('bundled:bundled-erd');
-  const [componentId, setComponentId] = useState('');
-  const [view, setView] = useState('authored');
-  const selectedObject = owner.canvas.selected.filter((key) =>
-    key.startsWith('object-'),
-  );
-  const selection =
-    selectedObject.length === 1 &&
-    Object.hasOwn(current.objects, selectedObject[0].slice(7))
-      ? selectedObject[0].slice(7)
-      : '';
-  const [parent, setParent] = useState(selection);
-  const [inserted, setInserted] = useState('');
-  const [authoring, setAuthoring] = useState<'document' | 'component' | null>(
+  const [category, setCategory] = useState('All templates');
+  const [selected, setSelected] = useState('');
+  const [authoring, setAuthoring] = useState<'board' | 'selection' | null>(
     null,
   );
-  const [authorDraft, setAuthorDraft] = useState<
-    TemplateManifest | undefined
-  >();
+  const [authorDraft, setAuthorDraft] = useState<TemplateManifest>();
   const [review, setReview] = useState<{
     document: Template;
     action: 'import' | 'export' | 'save';
     expected?: string;
   } | null>(null);
   const [removing, setRemoving] = useState<TemplateEntry | null>(null);
+  const selection = owner.canvas.selected;
   const run = async (action: () => Promise<void>) => {
     if (locked.current) return;
     locked.current = true;
@@ -134,79 +121,93 @@ export default function TemplateLibrary({
   const refresh = async () => {
     const result = await window.desktop.templates.list();
     setPersonal(result.entries);
-    if (result.warnings.length) setNotice(result.warnings.join('\n'));
+    setNotice(result.warnings.join('\n'));
   };
   useEffect(() => {
     owner.setBusy('templates', true);
     void run(refresh);
     return () => owner.setBusy('templates', false);
-    // One library instance belongs to one editor session.
+    // One gallery instance belongs to one editor session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const retained = useMemo(() => {
-    try {
-      return { sources: retainedTemplates(current), error: '' };
-    } catch (e) {
-      return { sources: [], error: String(e) };
-    }
-  }, [current]);
   const entries = [
     ...bundledTemplates.map((document) => ({
       key: `bundled:${document.extensions.template.id}`,
       document,
-      label: 'Bundled',
+      label: 'Built-in',
       fingerprint: '',
     })),
     ...personal.map((entry) => ({
       ...entry,
       key: `personal:${entry.document.extensions.template.id}`,
-      label: 'Personal',
-    })),
-    ...retained.sources.map((document) => ({
-      key: `document:${document.extensions.template.id}:${document.extensions.template.version}`,
-      document,
-      label: 'In this document',
-      fingerprint: '',
+      label: 'My templates',
     })),
   ];
-  const active = entries.find((e) => e.key === selected);
-  const template = active?.document;
-  const manifest = template?.extensions.template;
-  const component = manifest?.components.find((c) => c.id === componentId);
-  const preview = useMemo(() => {
-    if (!template) return null;
-    const source = component
-      ? templateComponent(template, component.rootId).document
-      : template;
-    const result = transactDocument(source, (draft) => {
-      if (view === 'collapsed' || view === 'expanded')
-        for (const root of Object.keys(draft.rootDepths))
-          selectRootDepth(root, view === 'collapsed' ? 0 : 'all')(draft);
-      else if (view !== 'authored' && !component)
-        editNamedView({ type: 'apply', id: view })(draft);
-    });
-    return result.document;
-  }, [template, component, view]);
-  const capture = (document: Template, expected?: string) => {
-    setAuthorDraft(document.extensions.template);
-    setReview({ document, expected, action: 'save' });
-  };
-  const duplicate =
-    review &&
-    entries.some(
-      (e) =>
-        e.document.extensions.template.id ===
-        review.document.extensions.template.id,
+  const active = entries.find((entry) => entry.key === selected);
+  const visible = entries.filter(({ document, label }) => {
+    const manifest = document.extensions.template;
+    const useCases = categories
+      .filter(({ tag }) =>
+        manifest.tags.some(
+          (value) => value.toLowerCase() === tag.toLowerCase(),
+        ),
+      )
+      .map(({ label }) => label);
+    return (
+      (category === 'All templates' ||
+        (category === 'My templates' && label === category) ||
+        useCases.includes(category)) &&
+      `${manifest.name} ${manifest.description} ${manifest.tags.join(' ')} ${useCases.join(' ')}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase())
     );
+  });
+
+  const insert = (template: Template) => {
+    if (locked.current) return;
+    try {
+      const { viewport } = owner.canvas;
+      const insertion = insertTemplate(template, current, {
+        x: (viewport.width / 2 - owner.camera.x) / owner.camera.scale,
+        y: (viewport.height / 2 - owner.camera.y) / owner.camera.scale,
+      });
+      const result = owner.transact(
+        insertion.edit,
+        fitCamera(insertion.bounds, viewport, 100),
+      );
+      if (result?.status !== 'accepted')
+        throw new Error(
+          result?.status === 'rejected'
+            ? result.error
+            : 'Template could not be inserted.',
+        );
+      owner.setCanvas((canvas) => ({
+        ...canvas,
+        selected: insertion.selection,
+        selectedPoint: null,
+        tool: 'pointer',
+        selectionCollapsed: true,
+      }));
+      onClose();
+      onStatus(
+        `${template.extensions.template.name} inserted. Edit it with the usual board tools.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
   if (review) {
-    const m = review.document.extensions.template;
+    const manifest = review.document.extensions.template;
+    const duplicate = entries.some(
+      (entry) => entry.document.extensions.template.id === manifest.id,
+    );
     const links = templateLinks(review.document);
     return (
       <FormDialog
         title={
           review.action === 'export' ? 'Export template' : 'Review template'
         }
-        description="Review the portable content before continuing."
+        description="Check the content before saving or sharing."
         cancelDisabled={busy}
         submitDisabled={busy}
         submitLabel={
@@ -226,53 +227,48 @@ export default function TemplateLibrary({
               if (!(await window.desktop.templates.export(review.document)))
                 return;
             } else {
-              let document = review.document;
-              if (review.action === 'import' && duplicate)
-                document = createTemplate(document, {
-                  ...m,
-                  id: crypto.randomUUID(),
-                  version: 1,
-                  name: `${m.name} copy`,
-                });
-              const saved = await window.desktop.templates.save(
-                document,
-                review.expected,
-              );
+              const document =
+                review.action === 'import' && duplicate
+                  ? createTemplate(review.document, {
+                      ...manifest,
+                      id: crypto.randomUUID(),
+                      version: 1,
+                      name: `${manifest.name} copy`,
+                    })
+                  : review.document;
+              await window.desktop.templates.save(document, review.expected);
               await refresh();
-              setSelected(`personal:${saved.document.extensions.template.id}`);
-              setComponentId('');
-              setView('authored');
+              setSelected('');
+              setCategory('My templates');
+              setQuery('');
             }
             setReview(null);
             setAuthoring(null);
             setNotice(
               review.action === 'export'
                 ? 'Template exported.'
-                : 'Template saved to your library. Existing instances are unchanged.',
+                : 'Template saved to your library.',
             );
           })
         }
       >
         <p>
-          <strong>{m.name}</strong> · version {m.version} ·{' '}
-          {Object.keys(review.document.objects).length} objects ·{' '}
-          {Object.keys(review.document.connections).length} connections ·{' '}
-          {Object.keys(review.document.namedViews ?? {}).length} bookmarks
+          <strong>{manifest.name}</strong> ·{' '}
+          {Object.keys(review.document.objects).length} shapes ·{' '}
+          {Object.keys(review.document.connections).length} connections
         </p>
-        <p>{m.description}</p>
-        <p>{m.guidance}</p>
-        <p>
-          Reusable components:{' '}
-          {m.components.map((c) => c.name).join(', ') || 'None'}
-        </p>
-        <p>
-          Excluded connections: {m.excludedConnections.join(', ') || 'None'}
-        </p>
-        <p>Content links: {links.join(', ') || 'None'}</p>
+        <p>{manifest.description}</p>
+        {!!manifest.excludedConnections.length && (
+          <p>
+            Connections outside the selection are excluded:{' '}
+            {manifest.excludedConnections.join(', ')}
+          </p>
+        )}
+        {!!links.length && <p>Content links: {links.join(', ')}</p>}
         {review.action === 'import' && duplicate && (
           <p>
             A template with this ID is already available. Import creates a
-            separate copy with a new ID; it will not replace your entry.
+            separate copy; it will not replace your entry.
           </p>
         )}
         {error && <p role="alert">{error}</p>}
@@ -283,18 +279,21 @@ export default function TemplateLibrary({
     return (
       <TemplateAuthor
         document={current}
-        rootId={authoring === 'component' ? selection : undefined}
+        selection={authoring === 'selection' ? selection : undefined}
         personal={personal}
         initial={authorDraft}
         onCancel={() => setAuthoring(null)}
-        onSave={capture}
+        onSave={(document, expected) => {
+          setAuthorDraft(document.extensions.template);
+          setReview({ document, expected, action: 'save' });
+        }}
       />
     );
   if (removing)
     return (
       <FormDialog
         title="Remove personal template"
-        description={`Remove ${removing.document.extensions.template.name} from this library? Placed objects and definitions retained in documents stay available.`}
+        description={`Remove ${removing.document.extensions.template.name} from your gallery? Objects already inserted on boards stay unchanged.`}
         onCancel={() => {
           setRemoving(null);
           setError('');
@@ -311,229 +310,40 @@ export default function TemplateLibrary({
             );
             await refresh();
             setRemoving(null);
-            setSelected('bundled:bundled-erd');
-            setComponentId('');
+            setSelected('');
           })
         }
       >
         {error && <p role="alert">{error}</p>}
       </FormDialog>
     );
-  return (
-    <FormDialog
-      title="Templates"
-      className="template-library"
-      description="Start a diagram or add an independent component. Personal copies stay on this computer; portable files can be shared."
-      onCancel={onClose}
-      cancelDisabled={busy}
-    >
-      <div className="form-dialog-inline-actions">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setAuthorDraft(undefined);
-            setAuthoring('document');
-          }}
-        >
-          Create from document
-        </button>
-        <button
-          type="button"
-          disabled={busy || !selection}
-          onClick={() => {
-            setAuthorDraft(undefined);
-            setAuthoring('component');
-          }}
-        >
-          Create from selection
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() =>
-            void run(async () => {
-              const entry = await window.desktop.templates.import();
-              if (entry)
-                setReview({ document: entry.document, action: 'import' });
-            })
-          }
-        >
-          Import template
-        </button>
-      </div>
-      <label className="form-dialog-field">
-        Filter by name or tag
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
-      <label className="form-dialog-field">
-        Template
-        <select
-          value={selected}
-          onChange={(e) => {
-            setSelected(e.target.value);
-            setComponentId('');
-            setView('authored');
-          }}
-        >
-          <option value="">Choose a template</option>
-          {entries
-            .filter((e) =>
-              `${e.document.extensions.template.name} ${e.document.extensions.template.tags.join(' ')}`
-                .toLowerCase()
-                .includes(query.toLowerCase()),
-            )
-            .map((e) => (
-              <option key={e.key} value={e.key}>
-                {e.label} · {e.document.extensions.template.name} · v
-                {e.document.extensions.template.version}
-              </option>
-            ))}
-        </select>
-      </label>
-      {template && manifest && (
-        <>
-          <p>{manifest.description}</p>
-          <div className="template-controls">
-            <label className="form-dialog-field">
-              Reusable component
-              <select
-                value={componentId}
-                onChange={(e) => {
-                  setComponentId(e.target.value);
-                  setView('authored');
-                }}
-              >
-                <option value="">Whole starter diagram</option>
-                {manifest.components.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="form-dialog-field">
-              Preview view
-              <select value={view} onChange={(e) => setView(e.target.value)}>
-                <option value="authored">As authored</option>
-                <option value="collapsed">Collapsed</option>
-                <option value="expanded">Expanded</option>
-                {!component &&
-                  Object.values(template.namedViews ?? {}).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          </div>
-          {preview && <Preview document={preview} view={view} />}
-          <p>{component?.guidance ?? manifest.guidance}</p>
-          {component && (
-            <>
-              <p>
-                Recommended parent:{' '}
-                {component.parentRole || 'Any canvas or parent'}. You can use
-                any destination.
-              </p>
-              <p>
-                Excluded external connections:{' '}
-                {templateComponent(template, component.rootId).excluded.join(
-                  ', ',
-                ) || 'None'}
-              </p>
-              <label className="form-dialog-field">
-                Destination
-                <select
-                  value={parent}
-                  onChange={(e) => setParent(e.target.value)}
-                >
-                  <option value="">Canvas</option>
-                  {Object.values(current.objects).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name || o.type} ({o.id.slice(0, 8)})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          )}
-          <div className="form-dialog-inline-actions">
-            <button
-              type="button"
-              className="primary-button"
-              disabled={busy}
-              onClick={() => {
-                if (!component) {
-                  onOpen(template, false);
-                  return;
-                }
-                try {
-                  const count = Object.values(current.objects).filter(
-                    (o) => o.parentId === (parent || null),
-                  ).length;
-                  const point = parent
-                    ? { x: 24 + count * 24, y: 24 + count * 24 }
-                    : {
-                        x:
-                          (owner.canvas.viewport.width / 2 - owner.camera.x) /
-                            owner.camera.scale +
-                          count * 24,
-                        y:
-                          (owner.canvas.viewport.height / 2 - owner.camera.y) /
-                            owner.camera.scale +
-                          count * 24,
-                      };
-                  const insertion = insertTemplate(
-                    template,
-                    component.id,
-                    parent || null,
-                    point,
-                  );
-                  const result = owner.transact(insertion.edit);
-                  if (result?.status === 'rejected')
-                    throw new Error(result.error);
-                  owner.setCanvas((canvas) => ({
-                    ...canvas,
-                    selected: insertion.selection,
-                    selectedPoint: null,
-                    tool: 'pointer',
-                  }));
-                  setInserted(insertion.rootId);
-                  setNotice(
-                    'Component added. Reveal it to open its ancestors and focus the new item.',
-                  );
-                  setError('');
-                } catch (e) {
-                  setError(String(e));
-                }
-              }}
-            >
-              {component ? 'Add component' : 'New from template'}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onOpen(template, true)}
-            >
-              {active?.label === 'Personal'
-                ? 'Edit template'
-                : 'Customize a copy'}
-            </button>
+  if (active)
+    return (
+      <FormDialog
+        title={active.document.extensions.template.name}
+        description={active.document.extensions.template.description}
+        className="template-details"
+        onCancel={() => {
+          setSelected('');
+          setError('');
+        }}
+        cancelLabel="Back to gallery"
+        cancelDisabled={busy}
+        submitDisabled={busy}
+        submitLabel="Insert template"
+        onSubmit={() => insert(active.document)}
+        actions={
+          <>
             <button
               type="button"
               disabled={busy}
               onClick={() =>
-                setReview({ document: template, action: 'export' })
+                setReview({ document: active.document, action: 'export' })
               }
             >
               Export template
             </button>
-            {active?.label === 'Personal' && (
+            {active.label === 'My templates' && (
               <button
                 type="button"
                 disabled={busy}
@@ -542,125 +352,231 @@ export default function TemplateLibrary({
                 Remove
               </button>
             )}
-            {inserted && (
+          </>
+        }
+      >
+        <Preview document={active.document} height={360} />
+        <p>
+          Added to open space on this board. Every shape and connection is yours
+          to edit.
+        </p>
+        {error && <p role="alert">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
+      </FormDialog>
+    );
+  return (
+    <FormDialog
+      title="Templates"
+      description="A starting point for your next diagram. Insert an example, then make it your own."
+      className="template-library"
+      onCancel={onClose}
+      cancelLabel={false}
+      cancelDisabled={busy}
+      initialFocus={search}
+    >
+      <div className="template-gallery-layout">
+        <aside className="template-sidebar">
+          <nav aria-label="Template categories">
+            {['All templates', 'My templates'].map((label) => (
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => {
-                  owner.setBusy('templates', false);
-                  onClose();
-                  try {
-                    owner.focusEntity('objects', inserted);
-                  } catch (e) {
-                    onStatus(String(e));
-                  }
-                }}
+                key={label}
+                aria-pressed={category === label}
+                onClick={() => setCategory(label)}
               >
-                Reveal inserted item
+                {label}
               </button>
-            )}
+            ))}
+            <h3>Use cases</h3>
+            {categories.map(({ label }) => (
+              <button
+                type="button"
+                key={label}
+                aria-pressed={category === label}
+                onClick={() => setCategory(label)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="template-library-actions">
+            <h3>Your templates</h3>
+            <button
+              type="button"
+              disabled={
+                busy ||
+                (!Object.keys(current.objects).length &&
+                  !Object.keys(current.connections).length)
+              }
+              onClick={() => {
+                setAuthorDraft(undefined);
+                setAuthoring('board');
+              }}
+            >
+              Save board as template
+            </button>
+            <button
+              type="button"
+              disabled={busy || !selection.length}
+              onClick={() => {
+                setAuthorDraft(undefined);
+                setAuthoring('selection');
+              }}
+            >
+              Save selection
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  const entry = await window.desktop.templates.import();
+                  if (entry)
+                    setReview({ document: entry.document, action: 'import' });
+                })
+              }
+            >
+              Import template
+            </button>
           </div>
-        </>
-      )}
-      {(error || retained.error) && (
-        <p role="alert">{error || retained.error}</p>
-      )}
-      {notice && <p role="status">{notice}</p>}
+        </aside>
+        <section
+          className="template-gallery"
+          aria-label="Template gallery"
+          aria-busy={busy}
+        >
+          <label className="form-dialog-field">
+            <input
+              ref={search}
+              aria-label="Search templates"
+              type="search"
+              placeholder="Search templates by name or category"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <div className="template-gallery-heading">
+            <h3>{category}</h3>
+            <span>
+              {visible.length} {visible.length === 1 ? 'template' : 'templates'}
+            </span>
+          </div>
+          {busy && <p role="status">Loading templates…</p>}
+          {error && <p role="alert">{error}</p>}
+          {notice && <p role="status">{notice}</p>}
+          {!busy && !visible.length && (
+            <div className="template-empty">
+              <h3>{query ? 'No matching templates' : 'No templates yet'}</h3>
+              <p>
+                {query
+                  ? 'Try a different search or category.'
+                  : 'Save a board or import a template to add it here.'}
+              </p>
+            </div>
+          )}
+          <div className="template-grid">
+            {visible.map((entry) => (
+              <article className="template-card" key={entry.key}>
+                <button
+                  type="button"
+                  className="template-card-preview"
+                  aria-label={`Preview ${entry.document.extensions.template.name}`}
+                  onClick={() => {
+                    setSelected(entry.key);
+                    setError('');
+                  }}
+                >
+                  <Preview document={entry.document} />
+                  <span className="template-card-source">{entry.label}</span>
+                  <span className="template-card-title">
+                    {entry.document.extensions.template.name}
+                  </span>
+                </button>
+                <p>{entry.document.extensions.template.description}</p>
+                <button
+                  type="button"
+                  className="primary-button"
+                  aria-label={`Insert ${entry.document.extensions.template.name}`}
+                  disabled={busy}
+                  onClick={() => insert(entry.document)}
+                >
+                  Insert template
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
     </FormDialog>
   );
 }
 
 function TemplateAuthor({
   document,
-  rootId,
+  selection,
   personal,
   initial,
   onCancel,
   onSave,
 }: {
   document: RecursiveDocument;
-  rootId?: string;
+  selection?: string[];
   personal: TemplateEntry[];
   initial?: TemplateManifest;
   onCancel: () => void;
   onSave: (document: Template, expected?: string) => void;
 }) {
-  const parsed = templateManifestSchema.safeParse(
-    document.extensions?.template,
-  );
-  const original = !rootId && parsed.success ? parsed.data : undefined;
-  const existing = personal.find(
-    (entry) => entry.document.extensions.template.id === original?.id,
-  );
-  const values = initial ?? original;
   const [name, setName] = useState(
-    values?.name ??
-      (rootId ? document.objects[rootId].name : document.metadata.title),
+    initial?.name ??
+      (selection?.length === 1 && selection[0].startsWith('object-')
+        ? document.objects[selection[0].slice(7)].name
+        : document.metadata.title),
   );
-  const [description, setDescription] = useState(values?.description ?? '');
-  const [guidance, setGuidance] = useState(values?.guidance ?? '');
-  const [tags, setTags] = useState(values?.tags.join(', ') ?? '');
-  const [components, setComponents] = useState<TemplateManifest['components']>(
-    values?.components ??
-      (rootId
-        ? [
-            {
-              id: crypto.randomUUID(),
-              rootId,
-              name: document.objects[rootId].name || 'Component',
-              parentRole: '',
-              guidance: '',
-            },
-          ]
-        : []),
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
+  const [replacement, setReplacement] = useState(
+    initial &&
+      personal.some((e) => e.document.extensions.template.id === initial.id)
+      ? initial.id
+      : '',
   );
-  const [pattern, setPattern] = useState('');
   const [error, setError] = useState('');
-  const scope = rootId
-    ? templateComponent(document, rootId).document
-    : document;
-  const save = (update: boolean) => {
-    try {
-      const manifest: TemplateManifest = {
-        formatVersion: 1,
-        id: update ? original!.id : crypto.randomUUID(),
-        version: update
-          ? existing!.document.extensions.template.version + 1
-          : 1,
-        name: name.trim(),
-        description,
-        guidance,
-        tags: tags
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        components,
-        excludedConnections: original?.excludedConnections ?? [],
-        ...(original?.author ? { author: original.author } : {}),
-        ...(original?.license ? { license: original.license } : {}),
-      };
-      onSave(
-        createTemplate(document, manifest, rootId),
-        update ? existing!.fingerprint : undefined,
-      );
-    } catch (e) {
-      setError(String(e));
-    }
-  };
   return (
     <FormDialog
-      title="Create or update template"
-      description="Include the complete document or selected subtree, even hidden children. Choose authored examples to make reusable components."
+      title="Save template"
+      description="Save an editable example to your personal gallery."
       onCancel={onCancel}
-      submitLabel="Save personal copy"
-      onSubmit={() => save(false)}
-      actions={
-        existing && (
-          <button type="button" onClick={() => save(true)}>
-            Update library entry
-          </button>
-        )
-      }
+      submitLabel={replacement ? 'Review replacement' : 'Review template'}
+      onSubmit={() => {
+        try {
+          const existing = personal.find(
+            (e) => e.document.extensions.template.id === replacement,
+          );
+          const manifest: TemplateManifest = {
+            formatVersion: 1,
+            id:
+              existing?.document.extensions.template.id ?? crypto.randomUUID(),
+            version: existing
+              ? existing.document.extensions.template.version + 1
+              : 1,
+            name: name.trim(),
+            description,
+            tags: tags
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+            guidance: '',
+            components: [],
+            excludedConnections: [],
+          };
+          onSave(
+            createTemplate(document, manifest, selection),
+            existing?.fingerprint,
+          );
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      }}
     >
       <label className="form-dialog-field">
         Template name
@@ -680,79 +596,34 @@ function TemplateAuthor({
         />
       </label>
       <label className="form-dialog-field">
-        How to add another item
-        <textarea
-          maxLength={4000}
-          value={guidance}
-          onChange={(e) => setGuidance(e.target.value)}
-        />
-      </label>
-      <label className="form-dialog-field">
         Tags (comma separated)
         <input value={tags} onChange={(e) => setTags(e.target.value)} />
       </label>
-      <label className="form-dialog-field">
-        Example object
-        <select value={pattern} onChange={(e) => setPattern(e.target.value)}>
-          <option value="">Choose an example</option>
-          {Object.values(scope.objects)
-            .filter((o) => !components.some((c) => c.rootId === o.id))
-            .map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name || o.type}
+      {!!personal.length && (
+        <label className="form-dialog-field">
+          Save as
+          <select
+            value={replacement}
+            onChange={(e) => setReplacement(e.target.value)}
+          >
+            <option value="">New template</option>
+            {personal.map((entry) => (
+              <option
+                key={entry.document.extensions.template.id}
+                value={entry.document.extensions.template.id}
+              >
+                Replace {entry.document.extensions.template.name}
               </option>
             ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        disabled={!pattern}
-        onClick={() => {
-          setComponents([
-            ...components,
-            {
-              id: crypto.randomUUID(),
-              rootId: pattern,
-              name: document.objects[pattern].name || 'Component',
-              parentRole: '',
-              guidance: '',
-            },
-          ]);
-          setPattern('');
-        }}
-      >
-        Add reusable pattern
-      </button>
-      {components.map((c, i) => (
-        <fieldset key={c.id}>
-          <legend>{c.name}</legend>
-          {(['name', 'parentRole', 'guidance'] as const).map((key) => (
-            <label className="form-dialog-field" key={key}>
-              {key === 'parentRole'
-                ? 'Recommended parent'
-                : key === 'guidance'
-                  ? 'Naming and usage guidance'
-                  : 'Component name'}
-              <input
-                value={c[key]}
-                onChange={(e) =>
-                  setComponents(
-                    components.map((item, n) =>
-                      n === i ? { ...item, [key]: e.target.value } : item,
-                    ),
-                  )
-                }
-              />
-            </label>
-          ))}
-          <button
-            type="button"
-            onClick={() => setComponents(components.filter((_, n) => n !== i))}
-          >
-            Remove pattern
-          </button>
-        </fieldset>
-      ))}
+          </select>
+        </label>
+      )}
+      {replacement && (
+        <p>
+          The saved template will be replaced. Objects on your boards will stay
+          unchanged.
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
     </FormDialog>
   );

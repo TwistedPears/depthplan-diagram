@@ -1,51 +1,44 @@
 # Templates
 
-Open **Menu → Templates**. Filter by name/tag and select a bundled, personal, or
-**In this document** entry. Preview **As authored**, **Collapsed**, **Expanded**,
-or one of the starter's bookmarks.
+Open **Menu → Templates** to browse the gallery. Search by name, category or tag,
+filter by use case, or choose **My templates**. Select a preview for a closer look,
+or use **Insert template** directly on a card.
 
-- **New from template** creates an independent unsaved diagram. Existing work uses
-  the normal Save/Discard/Cancel flow. In a project, the workspace guard runs
-  before opening the standalone diagram; the project boards are not overwritten.
-- Choose a reusable component and a **Destination** (canvas or any parent), then
-  **Add component**. Hidden descendants and authored depth layouts are included.
-  Parent roles are guidance, not restrictions. **Reveal inserted item** opens its
-  ancestors and focuses it; insertion itself preserves the destination disclosure.
-  Insertion is one Undo/Redo action. Revealing afterward is a separate view edit.
-- Each instance is ordinary editable content. Changing or removing a library
-  entry does not update placed instances. Documents retain a source definition
-  once per template ID/version, so matching components remain available after
-  saving, reopening or sharing without the original library.
+Insertion adds an independent example to the **current board**. It starts near the
+center of your current view and moves right as needed to leave space around
+existing visible shapes and connections. Existing content stays in place. The
+sample is selected and brought into view; Undo removes the whole insertion and
+restores the previous view in one step.
 
-## Create, edit and share
+Templates are diagram accelerators. Rename, resize, duplicate, delete, connect,
+and rearrange the inserted objects with the ordinary board tools. Their hierarchy,
+hidden children and depth layouts still work normally. There are no template
+instances, parent-role rules, special editing modes or links back to the library.
+Inserting a template keeps the current board's identity, file, project membership,
+and bookmarks. It does not create a new board or import the template's bookmarks.
 
-**Create from document** captures the current diagram. **Create from selection**
-captures one selected object and its complete subtree, including hidden children.
-For a component made from several objects, first put them in an ordinary parent.
-Supply a name, description, tags and “How to add another item” instructions. Choose
-example objects with **Add reusable pattern**, then describe their recommended
-parent and naming/content guidance.
+## Save and share
 
-**Edit template** opens a personal entry in the existing diagram editor as an
-unsaved copy. Make your changes, return to Templates → Create from document, and
-choose **Update library entry**. This explicitly saves the next content version.
-**Save personal copy** always creates a separate identity. Bundled entries are
-customized by saving a personal copy.
+**Save board as template** captures the whole current board. **Save selection**
+captures the selected shapes, their descendants, and copied connections using the
+same behavior as normal Copy. This supports multiple shapes and standalone
+connections. Connections outside the selection are listed before saving; explicitly
+selected connections to uncopied objects use free endpoints, as in normal Copy.
 
-**Export template** reviews counts, components, excluded connections, and content
-links before opening the native save dialog. Share the `.depthtemplate` file by
-repository, chat or email. **Import template** validates and previews its metadata
-before saving it. If the ID already exists (even at another version), import offers
-**Import separate copy**; it never silently replaces a customized entry. Cancel
-leaves the library unchanged. A changed library file rejects stale updates/removal.
+Give the example a name, description and optional tags. Save a new personal entry,
+or explicitly choose an entry to replace. Review before saving. To customize an
+existing template, insert it, edit the objects normally, then save the selection.
+Replacing or removing a gallery entry never changes content on boards.
 
-Internal connections survive extraction. Connections crossing outside a selected
-subtree are excluded and listed by label or ID. No endpoint binds back to its
-source document. Intentional rich-text/project links remain in content and are
-listed for review. Repair history, source paths, clipboard bookkeeping and session
-extensions are removed. Component insertion does not import document-wide
-bookmarks; capture a new bookmark with the normal controls. Starter diagrams keep
-remapped bookmarks and camera focus across viewport sizes.
+Open a card's preview to **Export template** as a `.depthtemplate` file, or remove
+a personal entry. **Import template** reviews a portable file before saving it to
+your gallery. A duplicate ID creates a separate copy instead of silently replacing
+an existing entry. Stale replacements and removal are rejected if the library file
+has changed since the gallery opened.
+
+Personal templates stay on this computer. Exported files carry ordinary diagram
+content. Content links remain visible in the review; source paths, session state,
+clipboard bookkeeping and retained template libraries are removed before sharing.
 
 ## Bundled starters
 
@@ -63,20 +56,17 @@ remapped bookmarks and camera focus across viewport sizes.
   Authoring references: [ISA overview](https://www.isa.org/standards-and-publications/isa-standards/isa-95-standard)
   and [Cisco industrial reference](https://www.cisco.com/c/en/us/td/docs/solutions/Verticals/Oil_and_Gas/Pipeline/SecurityReference/Security-IRD/Security-IRD.html).
 
-## Portable contract
+## Portable compatibility
 
-A template is a normal `formatVersion: 2` document with an
-`extensions.template` manifest (`formatVersion: 1`, independent positive integer
-content `version`, identity, name, description, tags, guidance, optional author and
-license, component root references, and excluded-connection report).
-`extensions.templateSources` in instantiated documents stores clean portable
-sources once per version. The application never executes templates or fetches
-remote assets. Personal entries live in the application's local `templates`
-directory alongside its recovery/workspace data; development and automation use
-separate profiles. Portable files include no library paths.
+Portable templates remain normal `formatVersion: 2` documents with a version-1
+`extensions.template` manifest. Name, description and tags describe the gallery
+entry; its ID, version and fingerprint protect personal-library operations. Older
+component/guidance fields remain readable for file compatibility but do not impose
+behavior on inserted objects. No library definitions or manifest are copied into
+boards. Existing retained definitions in older boards are ignored by the gallery.
 
-Both native and renderer boundaries validate manifests and document payloads.
-Limits: 8 MiB per template, 5,000 objects, 10,000 connections, 64 hierarchy/JSON
-levels, 128 layouts per root, 100 reusable components, and 100 retained template
-versions per document. Unknown template format versions and malformed data fail
-with an error. Ordinary document format compatibility is unchanged.
+The native and renderer boundaries still validate files. Limits remain 8 MiB,
+5,000 objects, 10,000 connections, 64 hierarchy/JSON levels and 128 layouts per
+root. Malformed or unsupported templates fail with an error. The application does
+not execute templates or fetch remote assets. Ordinary board format compatibility
+is unchanged.

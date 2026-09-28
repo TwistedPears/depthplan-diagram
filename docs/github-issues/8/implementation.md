@@ -1,76 +1,61 @@
-# Issue #8 — reusable templates
+# Issue #8 — template gallery revision
 
-Base: `bc2a495` (latest origin/main at implementation start).
+Base: `04f44d7` on `feature/reusable-templates` (draft PR #39).
 
-## Plan
+## Current direction
 
-Implement a versioned template manifest inside a normal document extension,
-three bundled starters, independent document/component instantiation, a personal
-native app-data library, and a Templates dialog for preview, authoring, import,
-export, and insertion. Retain one portable source per template version in created
-documents. Reuse document validation, duplication, reparenting, bookmark, history,
-dirty-work guards, dialog styling, and native atomic writes.
+Templates accelerate drawing on the current board. The user's Miro screenshots
+supply the gallery structure: categories, search, preview cards and insertion.
+DepthPlan's existing FormDialog, typography, palette and controls supply the style.
+This supersedes the initial new-board/component-library workflow.
 
-No hosted catalog, executable content, live inheritance, SQL engine, or 3D renderer.
-Component bookmarks stay out of destination documents. External connections are
-excluded with a visible report; intentional content links remain reviewable.
+Insert creates a plain copy of the complete example, starting near the current
+view and moving right to clear visible objects and connections with a 48-unit gap.
+The selected sample is fitted into view. Its shapes, internal wiring, hierarchy,
+folds and depth layouts remain editable with ordinary board tools. Board identity,
+file association, project membership, existing geometry and bookmarks are retained.
+One Undo restores the board and camera. No template manifest, source library or
+bookmarks are added to the board.
 
-Validate engine behavior (hidden descendants, rotated/deep parents, IDs, layouts,
-bookmarks, folds, history and rejection), renderer flows, and native library/file
-boundaries. Run the repository local checks and native template smoke, then review
-for correctness and over-engineering before an explicit-path local commit.
-Cross-platform execution can only be claimed for platforms actually exercised.
+The gallery has all/personal views, use-case filters, search, larger previews and
+responsive three/two/one-column layouts. Built-in examples start expanded. Personal
+save/import/export remain available. Saving a selection uses ordinary Copy,
+including multiple roots and standalone connectors; replacing an entry is explicit.
+File validation, sharing review, duplicate-import protection and stale-write checks
+remain in place. Existing template files stay compatible.
 
-Rollback: revert the feature commit. Ordinary documents remain formatVersion 2;
-template metadata is optional, and no document or library migration is required.
+## Complexity review
 
-## Delivered
+Ponytail-review suggestions applied:
 
-- Shared v1 manifest schema generated for the renderer/native boundaries; ordinary
-  documents remain formatVersion 2. Clean portable `.depthtemplate` files and
-  app-data personal entries use validated, conflict-checked atomic writes.
-- Full hierarchy/depth/fold copying, fresh instance identities, remapped starter
-  bookmarks/cameras, independent subtree insertion and retained source definitions.
-  Insertion preserves destination disclosure, unrelated geometry and bookmarks.
-- Templates dialog: bundled/personal/document sources, name/tag filter, shared
-  canvas preview, collapsed/expanded/bookmark views, guidance, authoring, explicit
-  update/copy/remove, import/export review, duplicate-copy handling and reveal.
-- ERD, isometric 2D infrastructure and ISA-95/Purdue starters with reusable patterns,
-  overview/detail bookmarks and extension instructions. See `docs/templates.md`.
+- Replace dedicated subtree extraction with existing `copySelection` / `readSelection`.
+- Delete the unused bundled component catalog and its generator.
+- `src/shared/bundledTemplates.ts:L90: delete: unused bookmark generation. Nothing replaces it.`
+- `src/shared/recursiveDuplication.ts:L133: delete: unused returned ID map. Return only the edit and selection.`
 
-## Review and validation
+The final two findings removed 29 lines plus the unused return field. Final complexity pass: **Lean already. Ship.** New-board
+transitions, retained-source/version-conflict logic, destination roles, and special
+template-editing mode were removed as part of the requested behavior change. No
+new dependency, template runtime or placement framework was added.
 
-Ponytail-review applied: replaced hand-written manifest shape validation with the
-existing Zod → native JSON Schema pattern, and removed an unused duplication
-return value. Final complexity review: **Lean already. Ship.** No dependencies
-were added. Correctness review also fixed preview clipping, editor naming,
-review/back draft preservation, and unrelated Z-order changes during insertion.
+## Validation
 
-`DEVELOPER_DIR=/Library/Developer/CommandLineTools npm run check:local` passed on
-macOS on 2026-09-28. This includes formatting, lint, types, hook/driver tests,
-**66 JavaScript suites / 555 tests**, **40 native tests**, Clippy, full native smoke,
-ordinary release build, license generation, automation exclusion and dependency
-audits. Cargo audit reported six existing allowed warnings; its exit status was 0.
+Focused engine/renderer/clipboard checks passed (20 tests). Native gallery testing
+passed: category filtering, preview, insertion into the same saved board, repeated
+non-overlapping samples, Undo/Redo, personal capture/replacement, portable sharing,
+duplicate import, removal and reopening the board. Screenshots were inspected at
+1440×900, 768×1024 and 390×844, including the larger preview and selected insertion.
 
-The new `scripts/native-templates.mjs` probe is included in native smoke and can
-also run independently after `npm run build:automation`. It exercises create,
-explicit edit/update, export/import, duplicate import, removal, repeated insertion,
-Save/Discard/Cancel, and reopening a saved document to add a retained component.
-All three starters were visually inspected collapsed and expanded; the library
-was also checked at a 390px window width. Native tests round-trip portable templates
-between two independent library directories and reject corrupt/oversize payloads,
-stale updates, duplicate writes and path traversal.
+The first native run exposed a test-order assumption: Undo clears the selection.
+The save-selection journey now runs before Undo/Redo, consistent with normal editor
+behavior. The corrected native journey passes.
 
-Performance baseline: macOS native automation build, three bundled starters and
-up to two personal entries plus a retained source; seven library-open-to-next-paint
-samples were 19, 32, 22, 16, 26, 28 and 29 ms (median **26 ms**). This measures local
-UI response, not end-to-end disk loading or hardware input latency. The native
-probe writes repeatable timing and screenshot evidence to its disposable profile.
+`DEVELOPER_DIR=/Library/Developer/CommandLineTools npm run check:local` passed:
+formatting, lint, TypeScript, 66 JavaScript suites / 555 tests, 40 Rust tests,
+hook/driver tests, Clippy, full native smoke (including the gallery), release build,
+license checks and dependency audits. Cargo audit has six existing allowed
+unmaintained-package warnings and exited successfully. The final log is
+`/tmp/depthplan-gallery-check-local.log`.
 
-The initial full native run failed only because the menu expectation lacked the
-new Templates entry. The expectation was updated and the complete local check
-was rerun successfully. Final local log: `/tmp/depthplan-templates-check-local-final.log`.
-
-Windows and Linux native execution and installed-package acceptance remain
-unverified on this host. No push, PR, remote CI dispatch or issue-state change
-was requested. The pre-existing `docs/sample/.depthproject.lock` remains excluded.
+Windows/Linux execution is not covered by this macOS run. This revision is a local
+commit; GitHub Actions are outside the requested scope.

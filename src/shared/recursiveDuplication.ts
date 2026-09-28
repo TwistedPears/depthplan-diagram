@@ -130,5 +130,5 @@ export function duplicateSelection(
     }
     stackSelection(selected, 'bring-to-front')(draft);
   };
-  return { edit, selection: selected, objects };
+  return { edit, selection: selected };
 }

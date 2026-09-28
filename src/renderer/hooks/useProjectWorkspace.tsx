@@ -16,7 +16,7 @@ import {
 } from '../../shared/recursiveDocument';
 import type { Camera } from '../../shared/recursiveCamera';
 import { recursiveScene } from '../../shared/recursiveScene';
-import type { FileResult } from '../../shared/fileContract';
+import type { FileCandidate, FileResult } from '../../shared/fileContract';
 import {
   projectFilename,
   projectNameSchema,
@@ -24,8 +24,7 @@ import {
   type ProjectAction,
   type ProjectSnapshot,
 } from '../../shared/projectContract';
-import useDocumentSessions, { type BoardSession } from './useDocumentSessions';
-type StandaloneCandidate = Pick<BoardSession, 'document' | 'source' | 'dirty'>;
+import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
   | { kind: 'search'; query?: string }
@@ -446,7 +445,7 @@ function useProject() {
       if (!created) return false;
       await install(created.project);
     });
-  const acceptStandalone = async (candidate: StandaloneCandidate | null) => {
+  const acceptStandalone = async (candidate: FileCandidate | null) => {
     if (!(await guardProject()) || !(await registry.prepare())) return false;
     await registry.retire();
     if (live.current)
@@ -459,11 +458,10 @@ function useProject() {
           candidate?.document ??
           createRecursiveDocument(crypto.randomUUID(), 'Untitled Document'),
         source: candidate?.source ?? null,
-        dirty: candidate?.dirty,
       },
     ]);
   };
-  const standalone = (read?: () => Promise<FileResult<StandaloneCandidate>>) =>
+  const standalone = (read?: () => Promise<FileResult<FileCandidate>>) =>
     run(async () => {
       const candidate = read ? success(await read()) : null;
       return read && !candidate ? false : acceptStandalone(candidate);
