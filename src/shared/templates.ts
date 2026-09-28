@@ -7,7 +7,12 @@ import {
 } from './recursiveDocument';
 import { duplicateSelection } from './recursiveDuplication';
 import { copySelection, readSelection } from './recursiveClipboard';
-import { indexHierarchy } from './recursiveHierarchy';
+import { indexHierarchy, toLocalGeometry } from './recursiveHierarchy';
+import { createShape } from './recursiveCreation';
+import { reparentLayouts } from './recursiveReparent';
+import { ensureDepthLayout } from './recursiveLayouts';
+import { recursiveScene } from './recursiveScene';
+import { localPoint } from './connectionGeometry';
 import { intersectsBounds, sceneBounds } from './recursiveCamera';
 import { collapsedObjects, setCollapsedObjects } from './recursiveVisibility';
 import type { DocumentEdit } from './documentTransactions';
@@ -210,8 +215,67 @@ export function insertTemplate(
     'Template sample',
   );
   copy.edit(instance);
-  const original = sceneBounds(instance).bounds;
-  if (!original) throw new Error('This template has no content to insert.');
+  const scene = recursiveScene(instance);
+  const content = sceneBounds(instance, scene).bounds;
+  if (!content) throw new Error('This template has no content to insert.');
+  const roots = Object.keys(instance.rootDepths);
+  let frame = roots[0];
+  if (
+    roots.length !== 1 ||
+    instance.objects[frame].type !== 'frame' ||
+    Object.values(instance.connections).some((c) => c.ownerId === null)
+  ) {
+    const depth = roots.length
+      ? Math.max(...Object.values(instance.rootDepths)) + 1
+      : 0;
+    frame = crypto.randomUUID();
+    const geometry = {
+      x: content.x + content.width / 2,
+      y: content.y + content.height / 2,
+      width: content.width + 48,
+      height: content.height + 48,
+      rotation: 0,
+      z: 0,
+    };
+    createShape(frame, 'frame', geometry, null)(instance);
+    instance.objects[frame].name = source.extensions.template.name;
+    for (const root of roots) reparentLayouts(root, frame)(instance);
+    instance.rootDepths[frame] = depth;
+    const layout = ensureDepthLayout(instance, frame, depth);
+    const folds = collapsedObjects(instance);
+    // A shared outer root must preserve each original root's active arrangement and disclosure.
+    for (const [id, local] of scene.local) {
+      layout[id] = roots.includes(id)
+        ? toLocalGeometry(local, geometry)
+        : { ...local };
+      if (scene.hierarchy.children.has(id) && !scene.expanded.has(id))
+        folds.add(id);
+    }
+    setCollapsedObjects(instance, folds);
+    for (const connection of Object.values(instance.connections)) {
+      if (connection.ownerId !== null) continue;
+      connection.ownerId = frame;
+      for (const key of ['start', 'end'] as const)
+        if (connection[key].kind === 'free')
+          connection[key] = {
+            kind: 'free',
+            ...localPoint(connection[key], geometry),
+          };
+      if (connection.points)
+        connection.points = connection.points.map((p) =>
+          localPoint(p, geometry),
+        );
+    }
+  }
+  instance.objects[frame].style = {
+    ...instance.objects[frame].style,
+    stroke: '#cbd5e1',
+    strokeWidth: 1.5,
+    strokeStyle: 'dotted',
+    fill: 'transparent',
+    fillType: 'none',
+  };
+  const original = sceneBounds(instance).bounds!;
   const bounds = {
     ...original,
     x: center.x - original.width / 2,
@@ -235,25 +299,11 @@ export function insertTemplate(
   }
   const dx = bounds.x - original.x,
     dy = bounds.y - original.y;
-  for (const root of Object.keys(instance.rootDepths)) {
-    instance.objects[root].geometry.x += dx;
-    instance.objects[root].geometry.y += dy;
-    for (const layout of Object.values(instance.layouts[root])) {
-      layout[root].x += dx;
-      layout[root].y += dy;
-    }
-  }
-  for (const connection of Object.values(instance.connections)) {
-    if (connection.ownerId !== null) continue;
-    for (const endpoint of [connection.start, connection.end])
-      if (endpoint.kind === 'free') {
-        endpoint.x += dx;
-        endpoint.y += dy;
-      }
-    for (const point of connection.points ?? []) {
-      point.x += dx;
-      point.y += dy;
-    }
+  instance.objects[frame].geometry.x += dx;
+  instance.objects[frame].geometry.y += dy;
+  for (const layout of Object.values(instance.layouts[frame])) {
+    layout[frame].x += dx;
+    layout[frame].y += dy;
   }
   const edit: DocumentEdit = (draft) => {
     for (const collection of ['objects', 'connections'] as const) {
@@ -269,7 +319,7 @@ export function insertTemplate(
       new Set([...collapsedObjects(draft), ...collapsedObjects(instance)]),
     );
   };
-  return { edit, selection: copy.selection, bounds };
+  return { edit, selection: [`object-${frame}`], bounds };
 }
 
 export function templateLinks(document: RecursiveDocument): string[] {

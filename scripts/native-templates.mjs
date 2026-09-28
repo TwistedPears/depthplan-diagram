@@ -97,6 +97,21 @@ export async function templates() {
     assert.equal(initial.extensions?.templateSources, undefined);
     assert.equal(initial.extensions?.template, undefined);
     assert.equal(Object.keys(initial.namedViews ?? {}).length, 0);
+    const outer = initial.objects[Object.keys(initial.rootDepths)[0]];
+    assert.equal(outer.type, 'frame');
+    assert.equal(outer.style.stroke, '#cbd5e1');
+    assert.equal(outer.style.strokeStyle, 'dotted');
+    assert.equal(outer.style.fillType, 'none');
+    const paint = await sync(
+      `const shape=window.Konva.stages[0].findOne('#object-'+arguments[0]).findOne('.object-hit-area'); return {stroke:shape.stroke(),dash:shape.dash(),fill:shape.fill()};`,
+      [outer.id],
+    );
+    assert.deepEqual(paint, {
+      stroke: '#cbd5e1',
+      dash: [2, 4],
+      fill: 'transparent',
+    });
+    await driver.drag(1400, 300, 0, 0, 0);
     await capture('inserted-sample');
     await open();
     await click('Insert ERD · database schema');

@@ -24,6 +24,10 @@ import {
 import useDocumentState from '../renderer/hooks/useDocumentState';
 import { recursiveFixture } from './recursiveFixtures';
 import { editNamedView } from '../shared/namedViews';
+import { recursiveScene } from '../shared/recursiveScene';
+import { moveSelection } from '../shared/recursiveMovement';
+import { endpointWorld } from '../shared/recursiveConnectionRepair';
+import { worldPoint } from '../shared/connectionGeometry';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const apply = (
@@ -105,6 +109,15 @@ test.each(bundledTemplates)(
         }
       }
     }
+    const outer = destination.objects[insertion.selection[0].slice(7)];
+    expect(outer.type).toBe('frame');
+    expect(outer.parentId).toBeNull();
+    expect(outer.style).toMatchObject({
+      stroke: '#cbd5e1',
+      strokeStyle: 'dotted',
+      fill: 'transparent',
+      fillType: 'none',
+    });
     const first = clone(destination);
     destination = apply(destination, insertTemplate(source, destination).edit);
     expect(Object.keys(destination.objects)).toHaveLength(
@@ -207,13 +220,51 @@ test('standalone connectors translate their endpoints and control points with th
   const insertion = insertTemplate(source, destination, { x: -500, y: 800 });
   const inserted = apply(destination, insertion.edit);
   const line = Object.values(inserted.connections)[0];
-  expect(line).toMatchObject({
-    start: { x: -550, y: 750 },
-    end: { x: -450, y: 850 },
-    points: [{ x: -525, y: 825 }],
+  const frame = Object.values(inserted.objects)[0];
+  expect(frame).toMatchObject({
+    type: 'frame',
+    parentId: null,
+    style: { strokeStyle: 'dotted', stroke: '#cbd5e1', fillType: 'none' },
   });
-  expect(insertion.selection).toEqual([`connection-${line.id}`]);
+  expect(line.ownerId).toBe(frame.id);
+  expect(endpointWorld(inserted, line, line.start)).toEqual({
+    x: -550,
+    y: 750,
+  });
+  expect(endpointWorld(inserted, line, line.end)).toEqual({ x: -450, y: 850 });
+  const scene = recursiveScene(inserted);
+  expect(worldPoint(line.points![0], scene.world.get(frame.id))).toEqual({
+    x: -525,
+    y: 825,
+  });
+  expect(scene.connections.get(frame.id)).toHaveLength(1);
+  expect(insertion.selection).toEqual([`object-${frame.id}`]);
   expect(sceneBounds(inserted).bounds).toEqual(insertion.bounds);
+  const saved = createTemplate(
+    inserted,
+    source.extensions.template,
+    insertion.selection,
+  );
+  const reinserted = apply(
+    destination,
+    insertTemplate(saved, destination).edit,
+  );
+  expect(Object.keys(reinserted.objects)).toHaveLength(1);
+  expect(Object.keys(reinserted.connections)).toHaveLength(1);
+  const folded = clone(inserted);
+  setCollapsedObjects(folded, new Set([frame.id]));
+  expect(recursiveScene(folded).connections.size).toBe(0);
+  const moved = apply(
+    inserted,
+    moveSelection([frame.id], { x: 120, y: -75 }, new Map()),
+  );
+  expect(
+    endpointWorld(
+      moved,
+      moved.connections[line.id],
+      moved.connections[line.id].start,
+    ),
+  ).toEqual({ x: -430, y: 675 });
 });
 
 test('empty and invalid templates are rejected before touching the board', () => {
@@ -282,4 +333,73 @@ test('portable format still rejects unsupported manifests and strips source book
   const cleaned = createTemplate(bad, bad.extensions.template);
   expect(cleaned.extensions.templateSources).toBeUndefined();
   expect(() => validateTemplate(cleaned)).not.toThrow();
+});
+
+test('wraps unframed multi-root samples without changing visible geometry, folds or saved arrangements', () => {
+  const document = recursiveFixture();
+  document.rootDepths.app = 0;
+  document.layouts.app[0].app.rotation = 25;
+  document.connections.between = {
+    id: 'between',
+    kind: 'arrow',
+    ownerId: null,
+    z: 0,
+    start: { kind: 'object', objectId: 'app', side: 'right', offset: 0.5 },
+    end: { kind: 'object', objectId: 'payments', side: 'left', offset: 0.5 },
+    points: [{ x: 600, y: 150 }],
+  };
+  const source = createTemplate(document, {
+    ...bundledTemplates[0].extensions.template,
+    components: [],
+  });
+  const before = clone(source);
+  const destination = createRecursiveDocument('target', 'Target');
+  const insertion = insertTemplate(source, destination);
+  const inserted = apply(destination, insertion.edit);
+  const roots = Object.keys(inserted.rootDepths);
+  expect(roots).toHaveLength(1);
+  const frame = inserted.objects[roots[0]];
+  expect(frame.type).toBe('frame');
+  expect(Object.keys(inserted.objects)).toHaveLength(
+    Object.keys(source.objects).length + 1,
+  );
+  const oldScene = recursiveScene(source),
+    newScene = recursiveScene(inserted);
+  const app = Object.values(inserted.objects).find(
+    (object) => object.name === source.objects.app.name,
+  )!;
+  const delta = {
+    x: newScene.world.get(app.id)!.x - oldScene.world.get('app')!.x,
+    y: newScene.world.get(app.id)!.y - oldScene.world.get('app')!.y,
+  };
+  for (const [id, geometry] of oldScene.world) {
+    const copy = Object.values(inserted.objects).find(
+      (object) => object.name === source.objects[id].name,
+    )!;
+    const actual = newScene.world.get(copy.id)!;
+    expect(actual.x).toBeCloseTo(geometry.x + delta.x);
+    expect(actual.y).toBeCloseTo(geometry.y + delta.y);
+    expect(actual.rotation).toBeCloseTo(geometry.rotation);
+    expect(actual.width).toBe(geometry.width);
+  }
+  expect(newScene.world.size).toBe(oldScene.world.size + 1);
+  expect(collapsedObjects(inserted).has(app.id)).toBe(true);
+  expect(Object.keys(inserted.layouts[frame.id])).toContain('3');
+  const connection = Object.values(inserted.connections)[0];
+  expect(connection.ownerId).toBe(frame.id);
+  const moved = apply(
+    inserted,
+    moveSelection([frame.id], { x: 120, y: -75 }, new Map()),
+  );
+  expect(recursiveScene(moved).world.get(app.id)!.x).toBeCloseTo(
+    newScene.world.get(app.id)!.x + 120,
+  );
+  const bend = worldPoint(
+    connection.points![0],
+    recursiveScene(moved).world.get(frame.id),
+  );
+  expect(bend.x).toBeCloseTo(600 + delta.x + 120);
+  expect(bend.y).toBeCloseTo(150 + delta.y - 75);
+  validateRecursiveDocument(clone(moved));
+  expect(source).toEqual(before);
 });

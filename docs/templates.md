@@ -10,6 +10,11 @@ existing visible shapes and connections. Existing content stays in place. The
 sample is selected and brought into view; Undo removes the whole insertion and
 restores the previous view in one step.
 
+Each inserted example has an outer frame with a light grey dotted outline and
+transparent fill. An existing enclosing frame is reused; otherwise a frame is
+added around the sample. Shapes and connectors move with this ordinary editable
+frame.
+
 Templates are diagram accelerators. Rename, resize, duplicate, delete, connect,
 and rearrange the inserted objects with the ordinary board tools. Their hierarchy,
 hidden children and depth layouts still work normally. There are no template
