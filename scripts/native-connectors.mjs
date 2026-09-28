@@ -148,6 +148,37 @@ export async function connectors(driver, probe) {
     binding: 'fixed',
   });
 
+  assert.equal((await state()).canvas.tool, 'arrow');
+  await pointer('mousedown', 870, 550);
+  await pointer('mousemove', 960, 550);
+  await pointer('mouseup', 960, 550);
+  assert.equal(Object.keys((await save()).connections).length, 2);
+  assert.equal((await state()).canvas.tool, 'arrow');
+  await click('Undo');
+  for (const [x, y] of [
+    [250, 180],
+    [340, 130],
+    [500, 180],
+  ]) {
+    await pointer('mousedown', x, y);
+    await pointer('mouseup', x, y);
+  }
+  await sync(
+    `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+  );
+  const multi = Object.values((await save()).connections).find(
+    (c) => c.id !== id,
+  );
+  assert.equal(multi.points.length, 1);
+  assert.equal((await state()).canvas.tool, 'arrow');
+  await click('Undo');
+  await click('Pointer (Select/Edit)');
+  assert.equal((await state()).canvas.tool, 'pointer');
+  await select(id);
+  console.log(
+    'PASS persistent Arrow mode: consecutive drags, multipoint completion and explicit tool switching.',
+  );
+
   // The start handle supports the same reattachment and Undo flow.
   const start = await startHandle();
   await pointer('mousedown', start.x, start.y);
@@ -317,6 +348,8 @@ export async function connectors(driver, probe) {
       'parent-child preview is valid',
     );
     await pointer('mouseup', ...to);
+    assert.equal((await state()).canvas.tool, 'arrow');
+    await click('Pointer (Select/Edit)');
     return save();
   };
   saved = await draw([860, 420], [800, 420]);
@@ -677,5 +710,42 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
     'PASS connected-object dragging: arrows stay visible during drag/drop/cancel, nested owner transforms and opacity are preserved, internal routes paint once, saved bindings and Z survive Undo.',
+  );
+
+  document.objects.b.type = 'diamond';
+  for (const [id, from, startSide, to, endSide, point] of [
+    ['top', 'a', 'right', 'b', 'top', { x: 600, y: 150 }],
+    ['bottom', 'b', 'bottom', 'c', 'left', { x: 580, y: 450 }],
+    ['ellipse', 'c', 'right', 'd', 'top', { x: 1160, y: 360 }],
+  ]) {
+    document.connections[id] = {
+      id,
+      kind: 'arrow',
+      ownerId: null,
+      z: 0,
+      start: endpoint(from, startSide),
+      end: endpoint(to, endSide),
+      points: [point],
+      style: { lineType: 'curved', arrowheadStart: 'arrow' },
+    };
+  }
+  file = path.join(profile, 'curved-attachments.depthplan');
+  await writeFile(file, JSON.stringify(document));
+  await dialogs('open', file);
+  await click('Menu');
+  await click('Open Board…');
+  await until(async () => (await state()).source?.path === file);
+  await click('Reset view');
+  const angles = await sync(`const stage=window.Konva.stages[0];
+    return ['top','bottom','ellipse'].flatMap(id=>['start','end'].map(end=>
+      stage.findOne('#connection-'+id).findOne('.connection-marker-'+end).rotation()));`);
+  assert.deepEqual(
+    angles.map((angle) => (angle + 360) % 360),
+    [180, 90, 270, 0, 180, 90],
+  );
+  await capture('curved-attachments.png');
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS curved arrows: both markers aim into rectangle, diamond and ellipse attachments.',
   );
 }

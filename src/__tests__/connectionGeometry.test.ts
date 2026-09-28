@@ -77,6 +77,54 @@ it('validates path points and bindings in native documents and the complete mark
       }).success,
     ).toBe(true);
 });
+it('aims curved endpoints into rotated shapes and inward parent borders without moving authored bends', () => {
+  const d = recursiveFixture();
+  Object.assign(d.layouts.app[1].app, {
+    width: 500,
+    height: 400,
+    rotation: 37,
+  });
+  for (const type of ['rectangle', 'ellipse', 'diamond', 'frame'] as const)
+    for (const rotation of [0, 29]) {
+      d.objects.api.type = type;
+      d.layouts.app[1].api.rotation = rotation;
+      const world = activeWorldGeometry(d),
+        owner = world.get('app')!;
+      for (const points of [undefined, [], [{ x: 160, y: -130 }]]) {
+        const c: DiagramConnection = {
+          ...free(),
+          ownerId: 'app',
+          start: {
+            kind: 'object',
+            objectId: 'app',
+            side: 'right',
+            offset: 0.5,
+          },
+          end: { kind: 'object', objectId: 'api', side: 'top', offset: 0.5 },
+          style: { lineType: 'curved' },
+          points,
+        };
+        const r = connectionRoute(d, c, world)!;
+        expect(r.vertices.slice(1, -1)).toEqual(points ?? []);
+        for (const [index, objectId, direction] of [
+          [0, 'app', -1],
+          [r.route.length - 1, 'api', 1],
+        ] as const) {
+          const tip = r.route[index],
+            control = r.route[index === 0 ? 1 : index - 1],
+            center = localPoint(world.get(objectId)!, owner);
+          const dx = tip.x - center.x,
+            dy = tip.y - center.y;
+          expect(
+            (control.x - tip.x) * dy - (control.y - tip.y) * dx,
+          ).toBeCloseTo(0);
+          expect(
+            direction * ((control.x - tip.x) * dx + (control.y - tip.y) * dy),
+          ).toBeGreaterThan(0);
+        }
+      }
+    }
+});
 it.each([undefined, 'sharp'])(
   'preserves bends when editing other properties of an already straight path (%s)',
   (lineType) => {

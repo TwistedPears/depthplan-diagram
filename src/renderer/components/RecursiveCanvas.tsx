@@ -1372,7 +1372,7 @@ export default memo(function RecursiveCanvas({
                 );
               }
               cancelDrag();
-              setTool(ToolMode.POINTER);
+              if (tool !== ToolMode.ARROW) setTool(ToolMode.POINTER);
               suppressClick.current = true;
               return;
             }

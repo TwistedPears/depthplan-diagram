@@ -429,7 +429,7 @@ export function connectionRoute(
       ...pins.slice(1).flatMap((p, i) => orthogonal(pins[i], p, boxes)),
       end,
     ]);
-  } else if (bezier)
+  } else if (bezier) {
     route =
       authored.length === 0 && connection.points === undefined
         ? [
@@ -439,6 +439,28 @@ export function connectionRoute(
             end,
           ]
         : cubicPoints(vertices);
+    // Meet bound shapes along their attachment gap, including inward owner borders.
+    for (const [tipIndex, endpoint] of [
+      [0, startEndpoint],
+      [route.length - 1, endEndpoint],
+    ] as const) {
+      if (endpoint.kind === 'free') continue;
+      const tip = route[tipIndex];
+      const controlIndex = tipIndex === 0 ? 1 : tipIndex - 1;
+      const center = localPoint(world.get(endpoint.objectId)!, owner);
+      const length = Math.max(
+        distance(tip, route[controlIndex]),
+        distance(tip, route[tipIndex === 0 ? 3 : tipIndex - 3]) / 6,
+      );
+      const direction =
+        ((endpoint.objectId === connection.ownerId ? -1 : 1) * length) /
+        (distance(tip, center) || 1);
+      route[controlIndex] = {
+        x: tip.x + (tip.x - center.x) * direction,
+        y: tip.y + (tip.y - center.y) * direction,
+      };
+    }
+  }
   const samples = bezier ? sampleCurve(route) : route;
   return {
     vertices,

@@ -291,7 +291,7 @@ export default function useConnectionEditing({
       );
     }
     cancel();
-    onFinish();
+    if (active.kind !== 'arrow') onFinish();
     consumed.current = true;
   };
   const updateGesture = (point: Point, modifiers: BindingModifiers) => {
