@@ -31,6 +31,9 @@ try {
         return {
           width:innerWidth,
           menu:rect('.document-switcher'),
+          menuButton:rect('.toolbar-button'),
+          menuIcon:rect('.toolbar-button svg'),
+          toolIcon:rect('.shape-toolbar .tool-button svg'),
           actions:rect('.document-actions'),
           tools:rect('.shape-toolbar'),
           history:rect('.document-history'),
@@ -50,6 +53,9 @@ try {
       assert.equal(actions.visible, width > 940, context);
       assert(tools.left >= 0 && tools.right <= width, context);
       assert(menu.left >= 0 && menu.right <= width, context);
+      assert.equal(tools.height, menu.height, context);
+      assert.equal(layout.toolIcon.width, layout.menuIcon.width, context);
+      assert.equal(layout.toolIcon.height, layout.menuIcon.height, context);
       assert.equal(layout.bookmarkLabel.visible, width > 520, context);
       assert(layout.bookmark.visible, context);
       assert.deepEqual(layout.zoom, Array(3).fill(width > 400), context);
@@ -65,6 +71,9 @@ try {
           context,
         );
         assert.equal(button.top, buttons[0].top, context);
+        assert.equal(button.height, layout.menuButton.height, context);
+        if (width > 502)
+          assert.equal(button.width, layout.menuButton.width, context);
       }
       if (width > 780) {
         assert.equal(tools.top, menu.top, context);
@@ -84,7 +93,7 @@ try {
           context,
         );
       }
-      if (width <= 502) {
+      if (width <= 780) {
         assert.equal(menu.top, 0, context);
         assert.equal(tools.top, menu.bottom, context);
         for (const row of [menu, tools]) {

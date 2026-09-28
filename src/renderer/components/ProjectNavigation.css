@@ -165,8 +165,8 @@
 }
 @media (max-width: 780px) {
   .project-drawer {
-    top: 144px;
-    max-height: calc(100vh - 230px);
+    top: 110px;
+    max-height: calc(100vh - 196px);
   }
 }
 

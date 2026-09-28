@@ -766,18 +766,16 @@ dialog label {
 @media (max-width: 780px) {
   .recursive-selection-toolbar,
   .object-search-results,
-  .selection-reopen {
-    top: 150px;
-  }
+  .selection-reopen,
   .drawing-hint {
-    top: 138px;
+    top: 110px;
   }
   .canvas-container:has(.object-search-form:not([hidden]))
     .object-search-results,
   .canvas-container:has(.object-search-form:not([hidden]))
     .recursive-selection-toolbar {
-    top: 202px;
-    max-height: calc(100vh - 332px);
+    top: 164px;
+    max-height: calc(100vh - 294px);
   }
 }
 @media (max-width: 760px) {
