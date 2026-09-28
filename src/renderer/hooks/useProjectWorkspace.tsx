@@ -19,23 +19,19 @@ import { recursiveScene } from '../../shared/recursiveScene';
 import type { FileCandidate, FileResult } from '../../shared/fileContract';
 import {
   projectFilename,
+  projectNameSchema,
+  projectPathSchema,
   type ProjectAction,
   type ProjectSnapshot,
 } from '../../shared/projectContract';
 import useDocumentSessions from './useDocumentSessions';
 
 export type ProjectDialog =
-  | { kind: 'search' }
-  | { kind: 'recents' }
-  | { kind: 'settings' }
+  | { kind: 'search'; query?: string }
+  | { kind: 'openBoard' }
   | { kind: 'saveIssue'; boardId: string }
   | {
-      kind:
-        | 'create'
-        | 'createBoard'
-        | 'renameBoard'
-        | 'duplicateBoard'
-        | 'removeBoard';
+      kind: 'createBoard' | 'duplicateBoard' | 'removeBoard';
       boardId?: string;
     };
 function success<T>(result: FileResult<T>): T | null {
@@ -45,22 +41,23 @@ function success<T>(result: FileResult<T>): T | null {
 function useProject() {
   const registry = useDocumentSessions();
   const [project, setProject] = useState<ProjectSnapshot | null>(null);
+  const [autosave, setAutosave] = useState(
+    () => localStorage.getItem('depthplan.autosave') !== 'off',
+  );
   const live = useRef(project);
   const [backStack, setBackStack] = useState<
     { boardId: string; camera: Camera; selected: string[] }[]
   >([]);
   const [busy, setBusy] = useState(false);
-  const [loadingBoard, setLoadingBoard] = useState<string | null>(null);
   const locked = useRef(false);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<ProjectDialog | null>(null);
   const [drawer, setDrawer] = useState(() => window.innerWidth >= 1100);
-  const [filter, setFilter] = useState('');
   const [recoveryReady, setRecoveryReady] = useState(false);
   const writes = useRef(Promise.resolve());
   const remember = async (activeKey = registry.snapshot().activeKey) => {
     const current = live.current;
-    if (!current) return;
+    if (!current?.location) return;
     const tabs = registry.snapshot().sessions.flatMap((session) => {
       const owner = registry.controllers.get(session.key)?.owner;
       return session.project && owner
@@ -125,7 +122,6 @@ function useProject() {
     };
   }, [scheduleRemember]);
   const toggle = useRef<HTMLButtonElement>(null);
-  const search = useRef<HTMLInputElement>(null);
   const update = (next: ProjectSnapshot | null) => {
     if (next?.sessionId !== live.current?.sessionId) setBackStack([]);
     live.current = next;
@@ -162,7 +158,6 @@ function useProject() {
     const opened = await registry.open(
       key(boardId),
       async () => {
-        setLoadingBoard(boardId);
         try {
           const result = success(
             await window.desktop.projects.readBoard(
@@ -176,6 +171,7 @@ function useProject() {
                 status: 'success' as const,
                 document: result.board.document,
                 source: result.board.source,
+                fingerprint: result.board.fingerprint,
               }
             : { status: 'canceled' as const };
         } catch (error) {
@@ -191,8 +187,6 @@ function useProject() {
               ],
             });
           throw error;
-        } finally {
-          setLoadingBoard(null);
         }
       },
       { sessionId: current.sessionId, boardId },
@@ -226,8 +220,8 @@ function useProject() {
     if (moved)
       requestAnimationFrame(() =>
         document
-          .querySelector<HTMLButtonElement>(
-            '.project-tabs [aria-selected="true"]',
+          .querySelector<HTMLElement>(
+            '[data-board-session][data-active="true"]',
           )
           ?.focus(),
       );
@@ -360,11 +354,79 @@ function useProject() {
     }
     await openHome(next);
   };
+  const guardProject = async () => {
+    const current = live.current;
+    if (!current || current.location) return true;
+    const choice = await window.desktop.transitions.confirm(
+      'document',
+      current.manifest.name,
+      true,
+    );
+    if (choice === 'save')
+      return locked.current ? saveProject() : run(saveProject);
+    return choice === 'discard';
+  };
+  const saveProject = async () => {
+    const current = live.current!;
+    const active = registry.snapshot().activeKey;
+    setError('');
+    try {
+      const keys = registry.sessions
+        .filter((session) => session.project?.sessionId === current.sessionId)
+        .map((session) => session.key);
+      if (!(await registry.prepare(keys, true))) return false;
+      const saved = success(
+        await window.desktop.projects.save(
+          current.sessionId,
+          current.fingerprint,
+          current.manifest,
+          keys.map(
+            (key) => registry.controllers.get(key)!.owner.snapshot().document!,
+          ),
+        ),
+      );
+      if (!saved) return false;
+      update(saved.project);
+      // Keep the owners, histories and navigation handles; only their sources change.
+      for (const board of saved.project.manifest.boards) {
+        const controller = registry.controllers.get(key(board.id));
+        if (!controller) continue;
+        const read = success(
+          await window.desktop.projects.readBoard(current.sessionId, board.id),
+        );
+        if (!read) throw new Error('Could not read the saved board');
+        controller.owner.relocate(board.name, read.board.source);
+        controller.owner.markSaved(
+          read.board.document,
+          controller.owner.snapshot().sessionId,
+          read.board.source ?? undefined,
+        );
+        controller.files.clearFailure();
+      }
+      return true;
+    } catch (e) {
+      if (live.current?.location !== current.location) {
+        setError(
+          `Project saved, but a board could not reopen: ${String(e)}. Close and reopen the affected board before editing.`,
+        );
+      } else setError(String(e));
+      return false;
+    } finally {
+      registry.release();
+      registry.activate(active);
+    }
+  };
+  const saveAll = () => {
+    if (!live.current) return registry.saveAll();
+    return run(() =>
+      live.current!.location ? registry.saveAll() : saveProject(),
+    );
+  };
   const acceptProject = async (candidate: ProjectSnapshot) => {
     if (candidate.sessionId === live.current?.sessionId) return true;
     let installed = false;
     try {
-      if (!(await registry.prepare())) return false;
+      if (!(await guardProject()) || !(await registry.prepare())) return false;
       await install(candidate);
       installed = true;
     } finally {
@@ -376,24 +438,15 @@ function useProject() {
       const candidate = success(await read());
       return candidate ? acceptProject(candidate.project) : false;
     });
-  const createProject = (name: string, folder: string, copy: boolean) =>
+  const createProject = () =>
     run(async () => {
-      const active = registry.activeKey;
-      if (!(await registry.prepare(undefined, copy ? active : undefined)))
-        return false;
-      const document = copy
-        ? (registry.controllers.get(active)?.owner.snapshot().document ??
-          undefined)
-        : undefined;
-      const created = success(
-        await window.desktop.projects.create(name, folder, document),
-      );
+      if (!(await guardProject()) || !(await registry.prepare())) return false;
+      const created = success(await window.desktop.projects.new());
       if (!created) return false;
       await install(created.project);
-      setDialog(null);
     });
   const acceptStandalone = async (candidate: FileCandidate | null) => {
-    if (!(await registry.prepare())) return false;
+    if (!(await guardProject()) || !(await registry.prepare())) return false;
     await registry.retire();
     if (live.current)
       success(await window.desktop.projects.close(live.current.sessionId));
@@ -437,10 +490,7 @@ function useProject() {
     return result.project;
   };
   const manage = (
-    kind: Exclude<
-      ProjectDialog['kind'],
-      'settings' | 'saveIssue' | 'recents' | 'search'
-    >,
+    kind: 'createBoard' | 'renameBoard' | 'duplicateBoard' | 'removeBoard',
     name = '',
     path = '',
     boardId?: string,
@@ -449,12 +499,7 @@ function useProject() {
       const sessionKey = boardId ? key(boardId) : '';
       const controller = registry.controllers.get(sessionKey);
       if (controller) {
-        if (
-          !(await registry.prepare(
-            [sessionKey],
-            kind === 'removeBoard' ? undefined : sessionKey,
-          ))
-        )
+        if (!(await registry.prepare([sessionKey], kind !== 'removeBoard')))
           return false;
         if (
           kind === 'renameBoard' &&
@@ -503,6 +548,62 @@ function useProject() {
         await openBoard(next.manifest.boards.at(-1)!.id);
       setDialog(null);
     });
+  const renameBoard = (boardId: string, name: string) => {
+    const board = live.current!.manifest.boards.find((b) => b.id === boardId)!;
+    if (name === board.name) return Promise.resolve(true);
+    if (!projectNameSchema.safeParse(name).success) {
+      setError(
+        'Enter a board name without path separators, control characters or a trailing period.',
+      );
+      return Promise.resolve(false);
+    }
+    return manage(
+      'renameBoard',
+      name,
+      projectFilename(
+        name,
+        live
+          .current!.manifest.boards.filter((b) => b.id !== boardId)
+          .map((b) => b.path),
+      ),
+      boardId,
+    );
+  };
+  const renameFilename = (boardId: string, value: string) => {
+    const board = live.current!.manifest.boards.find((b) => b.id === boardId)!;
+    const filename =
+      value.replace(/\.depthplan(?:\.json)?$/i, '') + '.depthplan';
+    const path =
+      board.path.slice(0, board.path.lastIndexOf('/') + 1) + filename;
+    if (
+      !value ||
+      value.includes('/') ||
+      !projectPathSchema.safeParse(path).success
+    ) {
+      setError(
+        'Enter a filename without folder separators or reserved characters.',
+      );
+      return Promise.resolve(false);
+    }
+    if (path === board.path) return Promise.resolve(true);
+    return manage('renameBoard', board.name, path, boardId);
+  };
+  const newBoard = () => {
+    if (live.current?.location) setDialog({ kind: 'createBoard' });
+    else {
+      const names = new Set(live.current?.manifest.boards.map((b) => b.name));
+      let name = 'Untitled Board';
+      for (let n = 2; names.has(name); n++) name = `Untitled Board ${n}`;
+      void manage(
+        'createBoard',
+        name,
+        projectFilename(
+          name,
+          live.current?.manifest.boards.map((b) => b.path) ?? [],
+        ),
+      );
+    }
+  };
   const resolveDefinition = (overwrite: boolean) =>
     run(async () => {
       const current = live.current!;
@@ -558,56 +659,54 @@ function useProject() {
       );
       if (!result) return false;
       update(result.project);
+      if (!result.project.location) {
+        for (const id of result.imported) {
+          const board = live.current!.manifest.boards.find((b) => b.id === id)!;
+          const read = success(
+            await window.desktop.projects.readBoard(current.sessionId, id),
+          );
+          if (!read) return false;
+          await apply({
+            kind: 'renameBoard',
+            boardId: id,
+            name: board.name,
+            path: projectFilename(
+              board.name,
+              live.current!.manifest.boards.map((b) => b.path),
+            ),
+            expected: read.board.fingerprint,
+          });
+        }
+      }
       if (result.imported.length) await openBoard(result.imported[0]);
       setError(result.errors.join('\n'));
     });
-  const reorder = (boardId: string, delta: number) =>
-    run(async () => {
-      const ids = live.current!.manifest.boards.map((b) => b.id);
-      const from = ids.indexOf(boardId),
-        to = from + delta;
-      if (from < 0 || to < 0 || to >= ids.length) return false;
-      [ids[from], ids[to]] = [ids[to], ids[from]];
-      await apply({ kind: 'reorderBoards', ids });
-    });
-  const quickSwitch = () => {
-    setDrawer(true);
-    requestAnimationFrame(() => search.current?.focus());
-  };
   useEffect(() => {
     if (!window.desktop.projects) return;
     const stops = [
       window.desktop.events.on('menu:new-project', () => {
-        if (!locked.current && !dialog) setDialog({ kind: 'create' });
+        if (!dialog) void createProject();
       }),
       window.desktop.events.on('menu:open-project', () => {
         if (!dialog) void openProject();
       }),
-      window.desktop.events.on('menu:close-project', () => {
-        if (live.current && !dialog) void standalone();
+      window.desktop.events.on('menu:close', () => {
+        if (!dialog) void standalone();
       }),
-      window.desktop.events.on('menu:project-board', quickSwitch),
-      window.desktop.events.on('menu:project-settings', () => {
-        if (live.current && !locked.current && !dialog)
-          setDialog({ kind: 'settings' });
-      }),
-      window.desktop.events.on('menu:save-all', () => {
-        if (live.current && !dialog) void run(() => registry.saveAll());
-      }),
-      window.desktop.events.on('menu:close-tab', () => {
-        if (live.current && registry.activeKey && !dialog)
-          void run(() => registry.close(registry.activeKey));
+      window.desktop.events.on('menu:save-project-as', () => {
+        if (project && !dialog) void run(saveProject);
       }),
     ];
     if (!registry.activeKey && project) {
       stops.push(
-        window.desktop.events.on('menu:new', () =>
-          setDialog({ kind: 'createBoard' }),
-        ),
+        window.desktop.events.on('menu:save', () => {
+          if (!dialog) void saveAll();
+        }),
       );
+      stops.push(window.desktop.events.on('menu:new', () => newBoard()));
       stops.push(
         window.desktop.events.on('menu:open', () => {
-          void standalone(() => window.desktop.fileSystem.openDocument());
+          if (!dialog) setDialog({ kind: 'openBoard' });
         }),
       );
     }
@@ -615,22 +714,23 @@ function useProject() {
   });
   return {
     project,
+    autosave,
+    toggleAutosave: () => {
+      localStorage.setItem('depthplan.autosave', autosave ? 'off' : 'on');
+      setAutosave(!autosave);
+    },
     recoveryReady,
     setRecoveryReady,
     remember,
     scheduleRemember,
     busy,
-    loadingBoard,
     error,
     setError,
     dialog,
     setDialog,
     drawer,
     setDrawer,
-    filter,
-    setFilter,
     toggle,
-    search,
     key,
     run,
     update,
@@ -644,11 +744,30 @@ function useProject() {
     openProject,
     openRequest,
     createProject,
+    newBoard,
+    renameBoard,
+    renameFilename,
+    saveAll,
+    saveProjectAs: () => run(saveProject),
+    guardProject,
+    renameProject: (name: string) =>
+      run(async () => {
+        if (!projectNameSchema.safeParse(name).success)
+          throw new Error(
+            'Enter a project name without path separators, control characters or a trailing period.',
+          );
+        const { description, homeBoardId } = live.current!.manifest;
+        return !!(await apply({
+          kind: 'settings',
+          name,
+          description,
+          homeBoardId,
+          autosave: true,
+        }));
+      }),
     standalone,
     manage,
     importBoards,
-    reorder,
-    quickSwitch,
     filename: (name: string) =>
       projectFilename(name, [
         ...(project?.manifest.boards.map((b) => b.path) ?? []),

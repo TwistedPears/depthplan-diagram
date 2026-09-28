@@ -38,14 +38,19 @@ export async function projectSearch(driver) {
       boards,
     }),
   );
+  // Undo must return to the disk snapshot without Autosave moving that baseline.
+  await click('Menu');
+  await click('Settings');
+  const autosave = await sync(
+    `const button=document.querySelector('[aria-label="Autosave"]'), enabled=button.getAttribute('aria-checked')==='true'; if(enabled) button.click(); return enabled;`,
+  );
   if (!(await native('automation:status')).enabled) {
-    await click('Menu');
     await sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
-    await click('Menu');
   }
+  await click('Menu');
   const probe = client(
     driver.adapter,
     (await native('automation:status')).descriptor,
@@ -55,15 +60,21 @@ export async function projectSearch(driver) {
     await dialogs('project-open', file);
     await click('Menu');
     await click('Open Project…');
-    await until(() => sync('return !!document.getElementById("tab-a")'));
+    await until(() =>
+      sync(
+        'return !!document.querySelector("#board-a[data-active=true]:not(:has(> [inert]))")',
+      ),
+    );
     const before = await probe.call('depthplan_get_state');
-    await click('Menu');
-    await click('Search Project…');
+    if (
+      await sync('return document.getElementById("object-search-form").hidden')
+    )
+      await click('Search boards');
     assert.equal(await sync('return document.activeElement.type'), 'search');
     await sync(
-      `const input=document.querySelector('dialog input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      `const input=document.getElementById('object-search-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
     );
-    await sync(`document.querySelector('dialog form').requestSubmit()`);
+    await sync(`document.getElementById('object-search-form').requestSubmit()`);
     await until(() =>
       sync(
         'return document.querySelector("dialog")?.textContent.includes("Search complete.")',
@@ -76,7 +87,9 @@ export async function projectSearch(driver) {
       3,
     );
     assert.equal(
-      await sync('return document.querySelectorAll("[role=tab]").length'),
+      await sync(
+        'return document.querySelectorAll("[data-board-session]").length',
+      ),
       1,
     );
     assert.equal(
@@ -90,12 +103,14 @@ export async function projectSearch(driver) {
       before,
       'Search must not change accepted content, history or camera',
     );
-    await click('Menu');
-    await click('Search Project…');
+    if (
+      await sync('return document.getElementById("object-search-form").hidden')
+    )
+      await click('Search boards');
     await sync(
-      `const input=document.querySelector('dialog input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
+      `const input=document.getElementById('object-search-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'needle'); input.dispatchEvent(new Event('input',{bubbles:true}));`,
     );
-    await sync(`document.querySelector('dialog form').requestSubmit()`);
+    await sync(`document.getElementById('object-search-form').requestSubmit()`);
     await until(() =>
       sync(
         'return document.querySelector("dialog")?.textContent.includes("Search complete.")',
@@ -142,7 +157,7 @@ export async function projectSearch(driver) {
     await sync('document.activeElement.click()');
     await until(() =>
       sync(
-        'return document.getElementById("tab-b")?.getAttribute("aria-selected")==="true" && !document.querySelector("dialog[open]")',
+        'return document.getElementById("board-b")?.getAttribute("data-active")==="true" && !document.querySelector("dialog[open]")',
       ),
     );
     const shown = await probe.call('depthplan_get_state');
@@ -151,7 +166,7 @@ export async function projectSearch(driver) {
       shown.data.canvas.selected.includes('object-handler'),
       JSON.stringify(shown),
     );
-    assert.equal(await sync('return document.activeElement.id'), 'tab-b');
+    assert.equal(await sync('return document.activeElement.id'), 'board-b');
     assert.equal(
       (
         await probe.call('depthplan_history', {
@@ -166,7 +181,7 @@ export async function projectSearch(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).data.dirty, false);
     await click('Menu');
-    await click('Close Project');
+    await click('Close All');
     await until(() =>
       sync('return !document.querySelector(".project-navigation")'),
     );
@@ -176,6 +191,12 @@ export async function projectSearch(driver) {
         original[i],
       );
     assert.deepEqual(await sync('return window.nativeErrors'), []);
+    if (autosave) {
+      await click('Menu');
+      await click('Settings');
+      await click('Autosave');
+      await click('Menu');
+    }
     console.log(
       `PASS project search: hidden unopened target, same names, focus/button activation, immutable search, one canvas. Evidence: ${profile}`,
     );

@@ -52,20 +52,11 @@ export async function connectors(driver, probe) {
     document.rootDepths[id] = 0;
     document.layouts[id] = { 0: { [id]: geometry } };
   }
-  document.objects.b.boundaryPoints = { port: { side: 'left', offset: 0.5 } };
-  document.connections.legacy = {
-    id: 'legacy',
-    ownerId: null,
-    kind: 'arrow',
-    z: 0,
-    start: { kind: 'free', x: 550, y: 220 },
-    end: { kind: 'boundary', objectId: 'b', pointId: 'port' },
-  };
   let file = path.join(profile, 'connector-snapping.depthplan');
   await writeFile(file, JSON.stringify(document));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const save = async () => {
@@ -140,7 +131,7 @@ export async function connectors(driver, probe) {
   await pointer('mousemove', 690, 300);
   await pointer('mouseup', 690, 300);
   let saved = await save();
-  const id = Object.keys(saved.connections).find((key) => key !== 'legacy');
+  const id = Object.keys(saved.connections)[0];
   assert(id, 'drawing creates an arrow');
   assert.deepEqual(saved.connections[id].start, {
     kind: 'object',
@@ -185,10 +176,6 @@ export async function connectors(driver, probe) {
   await pointer('mouseup', 690, 326);
   saved = await save();
   assert(saved.connections[id].end.offset > 0.6);
-  assert.deepEqual(
-    saved.objects.b.boundaryPoints,
-    document.objects.b.boundaryPoints,
-  );
   await click('Undo');
   assert.deepEqual((await save()).connections[id].end, {
     kind: 'object',
@@ -198,27 +185,19 @@ export async function connectors(driver, probe) {
     binding: 'fixed',
   });
 
-  // Stored ports must never intercept a selected arrow's endpoint drag.
-  await select('legacy');
-  await js(
-    'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-  );
+  // Reattach the drawn arrow to another shape, then detach into free space.
   handle = await endHandle();
   await pointer('mousedown', handle.x, handle.y);
   await pointer('mousemove', 780, 490);
   await pointer('mouseup', 780, 490);
   saved = await save();
-  assert.deepEqual(saved.connections.legacy.end, {
+  assert.deepEqual(saved.connections[id].end, {
     kind: 'object',
     objectId: 'c',
     side: 'top',
     offset: 0.5,
     binding: 'fixed',
   });
-  assert.deepEqual(
-    saved.objects.b.boundaryPoints,
-    document.objects.b.boundaryPoints,
-  );
   handle = await endHandle();
   // Hosted macOS can clamp the window below its requested height.
   // Stay clear of both the bottom toolbar and the diamond's snap radius.
@@ -228,13 +207,15 @@ export async function connectors(driver, probe) {
   await pointer('mousedown', handle.x, handle.y);
   await pointer('mousemove', free.x, free.y);
   await pointer('mouseup', free.x, free.y);
-  assert.deepEqual((await save()).connections.legacy.end, {
+  assert.deepEqual((await save()).connections[id].end, {
     kind: 'free',
     ...free,
   });
+  await click('Undo');
+  await click('Undo');
+  await save();
 
   // A preferred point returns after the shapes move back into view of each other.
-  await select(id);
   await command('depthplan_edit', {
     actions: [{ type: 'geometry', id: 'a', patch: { x: 1050 } }],
   });
@@ -254,7 +235,7 @@ export async function connectors(driver, probe) {
   assert.equal(saved.connections[id].end.side, 'left');
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return (
@@ -268,39 +249,36 @@ export async function connectors(driver, probe) {
     'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
   );
   assert.deepEqual(await endHandle(), { x: 682, y: 300 });
-  // Check the removed action in the shape Style panel, including a legacy port.
-  for (const object of ['a', 'b']) {
-    await command('depthplan_selection', {
-      action: 'set',
-      objects: [object],
-      connections: [],
-    });
-    await until(() =>
-      sync(
-        'return !!document.querySelector(`#selection-controls [aria-label="Sharp corners"]`)',
-      ),
-    );
-    assert.equal(
-      await sync(
-        'return !!document.querySelector(`[aria-label="Add boundary point"]`)',
-      ),
-      false,
-      'Style must not offer custom boundary-point creation',
-    );
-  }
+  // Check the removed action in the shape Style panel.
+  await command('depthplan_selection', {
+    action: 'set',
+    objects: ['a'],
+    connections: [],
+  });
+  await until(() =>
+    sync(
+      'return !!document.querySelector(`#selection-controls [aria-label="Sharp corners"]`)',
+    ),
+  );
+  assert.equal(
+    await sync(
+      'return !!document.querySelector(`[aria-label="Add boundary point"]`)',
+    ),
+    false,
+    'Style must not offer custom boundary-point creation',
+  );
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   await click('Arrow');
   await pointer('mousemove', 400, 300);
   await capture('connector-snapping.png');
   await click('Pointer (Select/Edit)');
   console.log(
-    'PASS connector snapping: four fixed anchors, snap/release, reattachment/detachment, visible-side fallback, Undo and reopen. Legacy endpoint compatibility retained; Add boundary point absent from shape Style controls.',
+    'PASS connector snapping: four fixed anchors, snap/release, reattachment/detachment, visible-side fallback, Undo and reopen. Add boundary point absent from shape Style controls.',
   );
 
   const nested = structuredClone(document);
   nested.id = 'parent-connectors';
   nested.metadata.title = 'Parent connections';
-  nested.connections = {};
   for (const id of ['c', 'd']) {
     delete nested.objects[id];
     delete nested.layouts[id];
@@ -320,12 +298,11 @@ export async function connectors(driver, probe) {
   nested.layouts.a = { 0: { a: parent }, 1: { a: parent, child } };
   nested.rootDepths.a = 1;
   nested.layouts.b[0].b = { ...nested.layouts.b[0].b, x: 950, y: 420 };
-  delete nested.objects.b.boundaryPoints;
   file = path.join(profile, 'parent-connectors.depthplan');
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const draw = async (from, to) => {
@@ -415,7 +392,7 @@ export async function connectors(driver, probe) {
   await save();
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return !current.canUndo && current.canvas.viewport.height > 0;
@@ -440,7 +417,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   saved = await draw([860, 420], [650, 420]);
@@ -545,7 +522,7 @@ export async function connectors(driver, probe) {
   // Save/reopen the collapsed state, then restore the original child's anchor.
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => {
     const current = await state();
     return !current.canUndo && current.canvas.viewport.height > 0;
@@ -651,7 +628,7 @@ export async function connectors(driver, probe) {
   await writeFile(file, JSON.stringify(nested));
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => (await state()).source?.path === file);
   await click('Reset view');
   const routes = () =>

@@ -123,12 +123,13 @@ for (const name of names) {
     await writeFile(source, JSON.stringify(fixture.document));
     result.documentBytes = (await readFile(source)).length;
     await click('Menu');
+    await click('Settings');
     await sync(
-      'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+      'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
     );
     await until(() =>
       sync(
-        'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+        'return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
       ),
     );
     const status = await native('automation:status');
@@ -143,7 +144,7 @@ for (const name of names) {
       const previous = (await probe.call('depthplan_get_context')).state
         .sessionId;
       const start = performance.now();
-      await click('Open');
+      await click('Open Board…');
       await until(async () => {
         const current = await probe.call('depthplan_get_context');
         return current.ok && current.state.sessionId !== previous;

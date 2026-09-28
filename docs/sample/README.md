@@ -2,9 +2,9 @@
 
 Open [sample.depthproject](sample.depthproject) through **Menu → Open Project**
 to browse all three samples together. It starts on Recursive architecture;
-choose another board from the project drawer. Autosave is off so exploring does
-not automatically overwrite the examples. Copy this entire folder to keep a
-separate working version; the project uses the existing diagrams unchanged.
+choose another board from the right-edge **Boards / Project** drawer. Project
+boards save automatically, so copy this entire folder before editing the samples.
+The project uses the existing diagrams unchanged.
 
 Open these files through DepthPlan's File menu. They are small readable regression
 examples, not capacity claims or real project data. Keep generated stress files

@@ -14,16 +14,18 @@ export type FileActionResult = {
   sessionId: string;
   revision: number;
   error?: string;
-  source?: SourceFile;
+  source?: SourceFile | null;
   copied?: boolean;
 };
 export type FileAccess = {
   background?: boolean;
-  read?: () => Promise<FileResult<FileCandidate>>;
+  read?: () => Promise<
+    FileResult<Omit<FileCandidate, 'source'> & { source: SourceFile | null }>
+  >;
   write?: (
     document: RecursiveDocument,
     sourceId?: string,
-  ) => Promise<FileResult<{ source: SourceFile; copied?: boolean }>>;
+  ) => Promise<FileResult<{ source: SourceFile | null; copied?: boolean }>>;
   permit?: () => boolean;
 };
 /** Native file operations capture one session/revision; useDocumentTransitions owns prompts. */
@@ -65,7 +67,10 @@ export default function useDocumentFiles(
     if (locked.current || !captured.document || access.permit?.() === false)
       return result('canceled');
     busy(true, access.background);
-    onStatus('Saving...');
+    const notify = (message: string) => {
+      if (!access.background) onStatus(message);
+    };
+    notify('Saving...');
     try {
       const saved = await (access.write
         ? access.write(
@@ -88,20 +93,29 @@ export default function useDocumentFiles(
             ));
       if (saved.status === 'error') throw new Error(saved.error);
       if (saved.status === 'canceled') {
-        onStatus('Save canceled');
+        notify('Save canceled');
         return result('canceled');
       }
       if (owner.snapshot().sessionId !== captured.sessionId)
         return result('stale');
       if (project && (saveAs || ('copied' in saved && saved.copied))) {
-        onStatus(`Saved copy: ${saved.source.path}`);
+        notify(`Saved copy: ${saved.source?.path}`);
         return { ...result('success'), source: saved.source, copied: true };
       }
-      owner.markSaved(captured.document, captured.sessionId, saved.source);
+      owner.markSaved(
+        captured.document,
+        captured.sessionId,
+        saved.source ?? undefined,
+      );
       setFailure(null);
       setSavedAt(Date.now());
-      await recovery?.saved(captured.sessionId, captured.revision);
-      onStatus(`Saved: ${saved.source.path.split(/[\\/]/).pop()}`);
+      if (saved.source)
+        await recovery?.saved(captured.sessionId, captured.revision);
+      notify(
+        saved.source
+          ? `Saved: ${saved.source.path.split(/[\\/]/).pop()}`
+          : 'In memory',
+      );
       return { ...result('success'), source: saved.source };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -114,12 +128,10 @@ export default function useDocumentFiles(
               message,
             ),
         });
-      onStatus(
-        `Failed to save document: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      notify(`Failed to save document: ${message}`);
       return {
         ...result('error'),
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       };
     } finally {
       busy(false);
@@ -161,7 +173,9 @@ export default function useDocumentFiles(
         if (kind === 'new' && !reread) {
           document = (await window.desktop.fileSystem.newDocument()).document;
         } else {
-          const candidate: FileResult<FileCandidate> = await (access.read
+          const candidate: FileResult<
+            Omit<FileCandidate, 'source'> & { source: SourceFile | null }
+          > = await (access.read
             ? access.read()
             : project && kind === 'reload'
               ? window.desktop.projects

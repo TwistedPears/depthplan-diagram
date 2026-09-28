@@ -30,7 +30,7 @@ export default function FormDialog({
   onSubmit?: () => void;
   onCancel: () => void;
   submitDisabled?: boolean;
-  cancelLabel?: string;
+  cancelLabel?: string | false;
   cancelDisabled?: boolean;
   destructive?: boolean;
   actions?: ReactNode;
@@ -85,9 +85,11 @@ export default function FormDialog({
         {children && <div className="form-dialog-fields">{children}</div>}
         <footer className="form-dialog-actions">
           {actions}
-          <button type="button" disabled={cancelDisabled} onClick={onCancel}>
-            {cancelLabel}
-          </button>
+          {cancelLabel && (
+            <button type="button" disabled={cancelDisabled} onClick={onCancel}>
+              {cancelLabel}
+            </button>
+          )}
           {onSubmit && (
             <button
               type="submit"

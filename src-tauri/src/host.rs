@@ -16,7 +16,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Mutex,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -32,6 +32,7 @@ struct Closing {
     allowed: bool,
     pending: Option<(String, bool)>,
     prompt: bool,
+    last_alive: Option<Instant>,
 }
 /// Only OS/launch-selected paths enter this list; renderer callers receive opaque IDs.
 #[derive(Default)]
@@ -156,6 +157,10 @@ fn select(app: &AppHandle, kind: &str, name: &str) -> Result<Option<PathBuf>> {
         "project-open" => dialog
             .add_filter("DepthPlan project", &["depthproject"])
             .blocking_pick_file(),
+        "project-save" => dialog
+            .add_filter("DepthPlan project", &["depthproject"])
+            .set_file_name(name)
+            .blocking_save_file(),
         "document-save" => dialog
             .add_filter("DepthPlan document", &["depthplan"])
             .set_file_name(name)
@@ -307,6 +312,15 @@ fn file_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Value
             value["status"] = "success".into();
             Ok(value)
         }
+        "file:rename" => {
+            let source = host
+                .storage
+                .lock()
+                .unwrap()
+                .files
+                .rename(string(arg(args, 0))?, string(arg(args, 1))?)?;
+            Ok(json!({"status":"success","source":source}))
+        }
         "file:save" => save(
             app,
             arg(args, 0),
@@ -325,13 +339,6 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
         "project:recents" => {
             Ok(json!({"status":"success","entries":host.workspaces.lock().unwrap().list()}))
         }
-        "project:forget" => {
-            host.workspaces
-                .lock()
-                .unwrap()
-                .forget(string(arg(args, 0))?)?;
-            Ok(json!({"status":"success"}))
-        }
         "project:workspace" | "project:remember" => {
             let project = host
                 .projects
@@ -339,6 +346,9 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
                 .unwrap()
                 .get(string(arg(args, 0))?)?
                 .workspace_identity();
+            if project.is_null() {
+                return Ok(json!({"status":"success","view":null}));
+            }
             let mut workspaces = host.workspaces.lock().unwrap();
             if method == "project:remember" {
                 workspaces.remember(
@@ -442,6 +452,23 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             };
             Ok(json!({"status":"success", "project":host.projects.lock().unwrap().open(&path)?}))
         }
+        "project:new" => Ok(
+            json!({"status":"success","project":host.projects.lock().unwrap().insert(Project::new())}),
+        ),
+        "project:save" => {
+            let id = string(arg(args, 0))?;
+            let expected = string(arg(args, 1))?;
+            let candidate = crate::projects::manifest(arg(args, 2))?;
+            host.projects.lock().unwrap().get(id)?.check(expected)?;
+            let Some(path) = select(app, "project-save", string(arg(args, 3))?)? else {
+                return Ok(json!({"status":"canceled"}));
+            };
+            let mut projects = host.projects.lock().unwrap();
+            let project = projects.get(id)?;
+            let documents = arg(args, 4).as_array().ok_or("Expected board snapshots")?;
+            project.save(&path, expected, candidate, documents, &|_| Ok(()))?;
+            Ok(json!({"status":"success","project":project.snapshot(id)}))
+        }
         "project:create" => {
             let name = string(arg(args, 0))?;
             let folder = string(arg(args, 1))?;
@@ -493,19 +520,6 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             project.resolve_definition(expected, overwrite)?;
             Ok(json!({"status":"success","project":project.snapshot(id)}))
         }
-        "project:reveal" => {
-            let path = host
-                .projects
-                .lock()
-                .unwrap()
-                .get(string(arg(args, 0))?)?
-                .location()?
-                .to_path_buf();
-            app.opener()
-                .reveal_item_in_dir(path)
-                .map_err(|e| e.to_string())?;
-            Ok(Value::Null)
-        }
         "project:read-board" => {
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(string(arg(args, 0))?)?;
@@ -514,17 +528,24 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let check = || {
                 if !lease.is_null() {
                     project.check(&project.fingerprint)?;
-                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                    host.service.lock().unwrap().check(lease)?;
+                    if !project.is_draft() {
+                        mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                    }
                 }
                 Ok::<(), String>(())
             };
             check()?;
             let mut board = project.read_board(id)?;
             check()?;
-            board["source"] = json!(host.storage.lock().unwrap().files.remember(
-                project.board_path(id)?.to_string_lossy().into_owned(),
-                board["fingerprint"].as_str().map(str::to_string),
-            ));
+            board["source"] = if project.is_draft() {
+                Value::Null
+            } else {
+                json!(host.storage.lock().unwrap().files.remember(
+                    project.board_path(id)?.to_string_lossy().into_owned(),
+                    board["fingerprint"].as_str().map(str::to_string),
+                ))
+            };
             Ok(json!({"status":"success", "board":board}))
         }
         "project:write-board" => {
@@ -555,16 +576,27 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             }
             let id = string(arg(args, 1))?;
             let lease = arg(args, 5);
+            let path = if project.is_draft() {
+                None
+            } else {
+                Some(project.board_path(id)?)
+            };
             let fingerprint = project.write_board(id, &expected, arg(args, 3), &|| {
                 if !lease.is_null() {
-                    mcp_path(&host, &project.board_path(id)?.to_string_lossy(), lease)?;
+                    host.service.lock().unwrap().check(lease)?;
+                    if let Some(path) = &path {
+                        mcp_path(&host, &path.to_string_lossy(), lease)?;
+                    }
                 }
                 Ok(())
             })?;
-            let source = host.storage.lock().unwrap().files.remember(
-                project.board_path(id)?.to_string_lossy().into_owned(),
-                Some(fingerprint),
-            );
+            let source = path.map(|path| {
+                host.storage
+                    .lock()
+                    .unwrap()
+                    .files
+                    .remember(path.to_string_lossy().into_owned(), Some(fingerprint))
+            });
             Ok(json!({"status":"success", "source":source}))
         }
         "project:apply" => {
@@ -945,6 +977,13 @@ async fn desktop(
             host.service.lock().unwrap().check(a)?;
             Ok(Value::Null)
         }
+        "transition:keep-alive" => {
+            let mut closing = host.closing.lock().unwrap();
+            if closing.pending.as_ref().is_some_and(|(id, _)| a == id) {
+                closing.last_alive = Some(Instant::now());
+            }
+            Ok(Value::Null)
+        }
         "transition:reply" => {
             let approved = b.as_bool().ok_or("Invalid close response")?;
             let mut closing = host.closing.lock().unwrap();
@@ -996,8 +1035,7 @@ async fn desktop(
             request_close(&app, false);
             Ok(Value::Null)
         }
-        #[cfg(feature = "automation")]
-        "test:quit" => {
+        "app:quit" => {
             request_close(&app, true);
             Ok(Value::Null)
         }
@@ -1091,6 +1129,7 @@ fn request_close(app: &AppHandle, quit: bool) {
     }
     let id = Uuid::new_v4().to_string();
     closing.pending = Some((id.clone(), quit));
+    closing.last_alive = Some(Instant::now());
     let _ = app.emit_to("main", "transition:request", &id);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -1107,7 +1146,14 @@ fn request_close(app: &AppHandle, quit: bool) {
             if !pending {
                 break;
             }
-            if host.dialogs.load(Ordering::SeqCst) > 0 {
+            if host.dialogs.load(Ordering::SeqCst) > 0
+                || host
+                    .closing
+                    .lock()
+                    .unwrap()
+                    .last_alive
+                    .is_some_and(|alive| alive.elapsed() < Duration::from_secs(30))
+            {
                 continue;
             }
             failure_prompt(&app);
@@ -1191,26 +1237,23 @@ fn menu(app: &AppHandle) -> tauri::Result<()> {
         )?)?;
         menu.append(&native)?;
     }
-    let file = Submenu::new(app, "File", true)?;
+    let file = Submenu::new(app, "Boards", true)?;
     for (id, title, key) in [
         ("menu:new", "New Board", Some("CmdOrCtrl+N")),
         ("menu:open", "Open Board…", Some("CmdOrCtrl+O")),
-        ("menu:new-project", "New Project…", None),
+        ("menu:new-project", "New Project", None),
         ("menu:open-project", "Open Project…", None),
-        ("menu:close-project", "Close Project", None),
-        ("menu:project-settings", "Project Settings…", None),
-        ("menu:project-board", "Open Board in Project…", None),
         ("menu:reload-document", "Reload document", None),
-        ("menu:save", "Save", Some("CmdOrCtrl+S")),
-        ("menu:save-all", "Save All Project Boards", None),
-        ("menu:save-as", "Save As…", Some("CmdOrCtrl+Shift+S")),
+        ("menu:save", "Save All", Some("CmdOrCtrl+S")),
+        ("menu:save-as", "Save Board As…", Some("CmdOrCtrl+Shift+S")),
+        ("menu:save-project-as", "Save Project As…", None),
+        ("menu:close", "Close All", Some("CmdOrCtrl+W")),
         ("menu:export-svg", "Export Image…", Some("CmdOrCtrl+E")),
         (
             "menu:export-json",
             "Export DepthPlan…",
             Some("CmdOrCtrl+Shift+E"),
         ),
-        ("app:close", "Close", Some("CmdOrCtrl+W")),
     ] {
         file.append(&MenuItem::with_id(app, id, title, true, key)?)?;
     }
@@ -1361,13 +1404,6 @@ pub fn run() {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "app:quit" => request_close(app, true),
-            "app:close" => {
-                if app.state::<Host>().projects.lock().unwrap().0.is_empty() {
-                    request_close(app, false);
-                } else {
-                    let _ = app.emit_to("main", "menu:close-tab", ());
-                }
-            }
             "app:devtools" =>
             {
                 #[cfg(debug_assertions)]

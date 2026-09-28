@@ -1,54 +1,64 @@
-import Icon from '../Icon';
+import type { ReactNode } from 'react';
 
 interface FileToolbarProps {
+  children: ReactNode;
   isLoading: boolean;
   hasDocument: boolean;
-  hasSource: boolean;
-  onReload: () => void;
   onNewDocument: () => void;
   onOpenFile: () => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onClose: () => void;
+  onAction?: () => void;
   isProject?: boolean;
 }
 
 export default function FileToolbar({
+  children,
   isLoading,
   hasDocument,
-  hasSource,
-  onReload,
   onNewDocument,
   onOpenFile,
   onSave,
   onSaveAs,
+  onClose,
+  onAction = () => {},
   isProject = false,
 }: FileToolbarProps) {
+  const action = (handler: () => void) => () => {
+    handler();
+    onAction();
+  };
   return (
     <>
-      <div className="dropdown-label">File</div>
-      <button type="button" onClick={onNewDocument} disabled={isLoading}>
-        <Icon name="file" /> {isProject ? 'New Board…' : 'New'}
+      <div className="dropdown-label">Boards</div>
+      <button
+        type="button"
+        onClick={action(onNewDocument)}
+        disabled={isLoading}
+      >
+        New Board
       </button>
-      <button type="button" onClick={onOpenFile} disabled={isLoading}>
-        <Icon name="folder-open" />{' '}
-        {isProject ? 'Open standalone board…' : 'Open'}
+      <button type="button" onClick={action(onOpenFile)} disabled={isLoading}>
+        Open Board…
       </button>
       <button
         type="button"
-        onClick={onReload}
-        disabled={isLoading || !hasSource}
+        onClick={action(onSaveAs)}
+        disabled={isLoading || !hasDocument}
       >
-        Reload
+        Save Board As…
       </button>
-      {hasDocument && (
+      {children}
+      <div className="dropdown-separator" />
+      {(hasDocument || isProject) && (
         <>
-          <button type="button" onClick={onSave} disabled={isLoading}>
-            <Icon name="save" /> Save
+          <button type="button" onClick={action(onSave)} disabled={isLoading}>
+            Save All
           </button>
-          <button type="button" onClick={onSaveAs} disabled={isLoading}>
-            <Icon name="save" /> {isProject ? 'Save Copy…' : 'Save As...'}
+          <button type="button" onClick={action(onClose)} disabled={isLoading}>
+            Close All
           </button>
-          <div className="dropdown-separator" />
         </>
       )}
     </>

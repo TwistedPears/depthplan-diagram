@@ -122,7 +122,7 @@ try {
     driver = await launchNative(undefined, [manifestPath]);
     await driver.until(() =>
       driver.sync(
-        'return document.getElementById("tab-board-0")?.getAttribute("aria-selected") === "true"',
+        'return document.getElementById("board-board-0")?.getAttribute("data-active") === "true"',
       ),
     );
     report.cold.push(performance.now() - start);
@@ -160,7 +160,7 @@ try {
     }, 200);
     assert.equal(
       await driver.sync(
-        'return document.querySelectorAll("[role=tab]").length',
+        'return document.querySelectorAll("[data-board-session]").length',
       ),
       1,
     );
@@ -176,8 +176,8 @@ try {
       await driver.click(`Open ${board.name}, ${board.path}`);
       await driver.until(() =>
         driver.sync(
-          'return document.getElementById(arguments[0])?.getAttribute("aria-selected") === "true"',
-          [`tab-${board.id}`],
+          'return document.getElementById(arguments[0])?.getAttribute("data-active") === "true"',
+          [`board-${board.id}`],
         ),
       );
       await driver.js(
@@ -191,15 +191,14 @@ try {
     );
     assert.equal(
       await driver.sync(
-        'return document.querySelectorAll("[role=tab]").length',
+        'return document.querySelectorAll("[data-board-session]").length',
       ),
       5,
     );
-    await driver.click('Close board drawer');
     for (let i = 0; i < 60; i++) {
       const ms = await driver.js(
-        'new Promise((resolve,reject)=>{const tab=document.getElementById(arguments[0]);const start=performance.now();tab.click();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(tab.getAttribute("aria-selected")!=="true")return reject(new Error("Wrong active board"));resolve(performance.now()-start)}))})',
-        [`tab-${boards[i % 5].id}`],
+        'new Promise((resolve,reject)=>{const board=document.getElementById(arguments[0]);const start=performance.now();board.click();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(board.getAttribute("aria-current")!=="true")return reject(new Error("Wrong active board"));resolve(performance.now()-start)}))})',
+        [`board-link-${boards[i % 5].id}`],
       );
       report.switches.push(ms);
       assert.equal(
@@ -214,18 +213,17 @@ try {
       4,
       'Switches must reuse live owners',
     );
-    await driver.click('Menu');
-    await driver.click('Search Project…');
+    await driver.click('Search boards');
     const searchStart = performance.now();
     await driver.sync(`
-      const input=document.querySelector('dialog input');
+      const input=document.getElementById('object-search-input');
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'object-0000000');
       input.dispatchEvent(new Event('input',{bubbles:true}));
     `);
     await driver.sync(`
       window.searchFrameGap=0;window.searchMeasuring=true;let last=performance.now();
       const frame=now=>{window.searchFrameGap=Math.max(window.searchFrameGap,now-last);last=now;if(window.searchMeasuring)requestAnimationFrame(frame)};
-      requestAnimationFrame(frame);document.querySelector('dialog form').requestSubmit();
+      requestAnimationFrame(frame);document.getElementById('object-search-form').requestSubmit();
     `);
     await driver.until(() =>
       driver.sync(
@@ -244,7 +242,7 @@ try {
     );
     assert.equal(
       await driver.sync(
-        'return document.querySelectorAll("[role=tab]").length',
+        'return document.querySelectorAll("[data-board-session]").length',
       ),
       5,
     );
@@ -280,7 +278,7 @@ try {
     await pending;
     if (memoryError) throw memoryError;
     assert.deepEqual(await driver.sync('return window.nativeErrors'), []);
-    await driver.native('test:quit').catch(() => {});
+    await driver.native('app:quit').catch(() => {});
     await driver.until(() => driver.app.exitCode !== null);
     assert.equal(driver.app.exitCode, 0);
     await driver.close();

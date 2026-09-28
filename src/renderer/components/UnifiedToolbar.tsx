@@ -1,30 +1,31 @@
 import { createPortal } from 'react-dom';
-import AutomationControl from './AutomationControl';
+import SettingsMenu from './SettingsMenu';
 import type useAutomation from '../hooks/useAutomation';
 import Icon from './Icon';
+import InlineEdit from './InlineEdit';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 
 import './UnifiedToolbar.css';
-import ExportToolbar from './toolbars/ExportToolbar';
 import FileToolbar from './toolbars/FileToolbar';
 import useProjectWorkspace from '../hooks/useProjectWorkspace';
 import { ProjectMenu } from './ProjectNavigation';
+import RecentProjects from './RecentProjects';
 interface UnifiedToolbarProps {
   automation: ReturnType<typeof useAutomation>;
   operation: { kind: string; status: string; cancel: () => void } | null;
   blocked: boolean;
   currentDocument: RecursiveDocument | null;
   isLoading: boolean;
-  hasSource: boolean;
-  documentStatus?: string;
-  onReload: () => void;
+  filename?: string;
+  unsaved?: boolean;
+  onRenameDocument?: (name: string) => Promise<boolean>;
+  onRenameFile?: (name: string) => Promise<boolean>;
   onNewDocument: () => void;
   onOpenFile: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportSVG: () => void;
-  onExportJSON: () => void;
 }
 
 function UnifiedToolbar({
@@ -33,19 +34,24 @@ function UnifiedToolbar({
   blocked,
   currentDocument,
   isLoading,
-  hasSource,
-  documentStatus,
-  onReload,
+  filename,
+  unsaved = false,
+  onRenameDocument,
+  onRenameFile,
   onNewDocument,
   onOpenFile,
   onSave,
   onSaveAs,
   onExportSVG,
-  onExportJSON,
 }: UnifiedToolbarProps) {
   const workspace = useProjectWorkspace();
   const project = workspace?.project;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [editing, setEditing] = useState('');
+  const editor = (field: string) => ({
+    editing: editing === field,
+    onEditing: (on: boolean) => setEditing(on ? field : ''),
+  });
   const toolbarRef = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -109,88 +115,71 @@ function UnifiedToolbar({
         </button>
 
         <div className="document-caption">
-          <span
+          <InlineEdit
+            {...editor('name')}
             className="document-name"
-            title={project?.manifest.name ?? currentDocument?.metadata.title}
-          >
-            {project?.manifest.name ??
-              currentDocument?.metadata.title ??
-              'DepthPlan'}
-          </span>
-          <span className="document-state" role="status">
-            {project &&
-              `${currentDocument?.metadata.title ?? 'No open board'} · `}
-            {documentStatus ?? 'Local document'}
-          </span>
+            label="Board name"
+            value={currentDocument?.metadata.title ?? 'Untitled Board'}
+            disabled={isLoading || !onRenameDocument}
+            unsaved={unsaved}
+            onSave={onRenameDocument ?? (async () => false)}
+          />
+          <InlineEdit
+            {...editor('filename')}
+            className="document-state"
+            label="Board filename"
+            value={filename ?? 'Not saved yet'}
+            disabled={isLoading || !onRenameFile}
+            onSave={onRenameFile ?? (async () => false)}
+          />
         </div>
-        {project && workspace && (
-          <button
-            className="project-drawer-toggle"
-            ref={workspace.toggle}
-            data-session-navigation
-            aria-label="Toggle project boards"
-            aria-expanded={workspace.drawer}
-            aria-controls="project-drawer"
-            onClick={() => workspace.setDrawer(!workspace.drawer)}
-          >
-            <Icon name="chevron-right" />
-          </button>
-        )}
         <div
           className="dropdown-menu"
           id="document-menu"
           hidden={openDropdown !== 'hamburger'}
         >
           <div inert={blocked}>
-            <ProjectMenu onAction={closeDropdown} />
-            {/* File */}
+            <RecentProjects
+              active={openDropdown === 'hamburger'}
+              onAction={closeDropdown}
+            />
+            <div className="dropdown-separator" />
             <FileToolbar
               isLoading={isLoading}
-              hasSource={hasSource}
-              onReload={() => {
-                onReload();
-                closeDropdown();
-              }}
               hasDocument={!!currentDocument}
-              onNewDocument={() => {
-                onNewDocument();
-                closeDropdown();
-              }}
-              onOpenFile={() => {
-                onOpenFile();
-                closeDropdown();
-              }}
-              onSave={() => {
-                onSave();
-                closeDropdown();
-              }}
+              onNewDocument={onNewDocument}
+              onOpenFile={onOpenFile}
+              onSave={onSave}
               isProject={!!project}
-              onSaveAs={() => {
-                onSaveAs();
-                closeDropdown();
+              onSaveAs={onSaveAs}
+              onClose={() => {
+                void workspace?.standalone();
               }}
-            />
+              onAction={closeDropdown}
+            >
+              {openDropdown === 'hamburger' && (
+                <ProjectMenu onAction={closeDropdown} />
+              )}
+            </FileToolbar>
+            <div className="dropdown-separator" />
             {currentDocument && (
-              <ExportToolbar
-                isLoading={isLoading}
-                onExportSVG={() => {
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
                   onExportSVG();
                   closeDropdown();
                 }}
-                onExportJSON={() => {
-                  onExportJSON();
-                  closeDropdown();
-                }}
-              />
+              >
+                Export
+              </button>
             )}
           </div>
-          <AutomationControl
+          <SettingsMenu
+            active={openDropdown === 'hamburger'}
             automation={automation}
             operation={operation}
-            onShowDetails={() => {
-              closeDropdown();
-              menuButton.current?.focus();
-            }}
+            onAction={closeDropdown}
           />
         </div>
       </div>

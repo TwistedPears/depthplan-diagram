@@ -9,6 +9,9 @@
   pointer-events: none;
   z-index: 1040;
 }
+.unified-toolbar:has(.dropdown-menu:not([hidden])) {
+  z-index: 1060;
+}
 .unified-toolbar > * {
   pointer-events: auto;
 }
@@ -113,6 +116,8 @@
   color: #8a94a4;
 }
 .dropdown-label {
+  -webkit-user-select: none;
+  user-select: none;
   margin: 8px 10px;
   font-size: 11px;
   color: var(--muted);

@@ -364,12 +364,13 @@ for (const [name, settings] of Object.entries(cases)) {
   };
   const enable = async () => {
     await driver.click('Menu');
+    await driver.click('Settings');
     await driver.sync(
-      'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+      'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
     );
     await until(() =>
       driver.sync(
-        'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
+        'return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
       ),
     );
     const status = await driver.native('automation:status');
@@ -414,7 +415,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', target);
     await driver.click('Menu');
     await measure(metric, async () => {
-      await driver.click('Save As...');
+      await driver.click('Save Board As…');
       await until(
         () =>
           driver.sync(
@@ -504,7 +505,7 @@ for (const [name, settings] of Object.entries(cases)) {
       result.fileBytes = (await fs.stat(source)).size;
       await driver.dialogs('open', source);
       await measure(i ? 'loadWarm' : 'loadCold', async () => {
-        await driver.click('Open');
+        await driver.click('Open Board…');
         await until(
           () =>
             driver.sync(
@@ -691,7 +692,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await driver.dialogs('save', null);
     await driver.click('Menu');
     await measure('saveCancel', async () => {
-      await driver.click('Save As...');
+      await driver.click('Save Board As…');
       await until(() =>
         driver.sync(
           'return document.body.textContent.includes("Save canceled")',
@@ -802,7 +803,7 @@ for (const [name, settings] of Object.entries(cases)) {
     await measure('normalClose', async () => {
       // The same native Quit guard as the menu, not a SIGTERM shortcut.
       await driver.sync(
-        'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"test:quit",args:[]}),100)',
+        'setTimeout(()=>window.__TAURI_INTERNALS__.invoke("desktop",{method:"app:quit",args:[]}),100)',
       );
       await until(() => driver.app.exitCode !== null, 'normal process exit');
       assert.equal(driver.app.exitCode, 0);

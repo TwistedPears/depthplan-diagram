@@ -1,4 +1,5 @@
 import useMcpWorkflows from './hooks/useMcpWorkflows';
+import { projectNameSchema } from '../shared/projectContract';
 import type { RecursiveExportHandle } from './components/RecursiveExport';
 import {
   editorStamp,
@@ -84,17 +85,25 @@ function SessionWorkspace() {
   useEffect(() =>
     window.desktop.transitions.onRequest((id) => {
       void (async () => {
+        // Naming a first save can outlast the native close watchdog.
+        const heartbeat = setInterval(() => {
+          void window.desktop.transitions.keepAlive(id).catch(() => {});
+        }, 10000);
         try {
           if (projectWorkspace.busy || projectWorkspace.dialog) {
             await window.desktop.transitions.reply(id, false);
             return;
           }
           await projectWorkspace.remember();
-          const approved = await registry.closeAll();
+          const approved =
+            (await projectWorkspace.guardProject()) &&
+            (await registry.closeAll());
           await window.desktop.transitions.reply(id, approved);
         } catch {
           registry.release();
           await window.desktop.transitions.reply(id, false);
+        } finally {
+          clearInterval(heartbeat);
         }
       })();
     }),
@@ -137,7 +146,10 @@ function BoardWorkspace({
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
   });
-  const recovery = useRecovery(owner, session.project);
+  const recovery = useRecovery(
+    owner,
+    projectWorkspace.project?.location ? session.project : undefined,
+  );
   const hasDrafts = useHasDrafts();
   const { report } = registry;
   const {
@@ -198,9 +210,12 @@ function BoardWorkspace({
     input: unknown,
   ) => guardedMcp(() => owner.editorCommand(kind, input));
   const files = useDocumentFiles(owner, showStatus, recovery, session.project);
-  const autosave =
-    !!session.project && !!projectWorkspace.project?.manifest.autosave;
-  useProjectAutosave(owner, files, autosave);
+  useProjectAutosave(
+    owner,
+    files,
+    projectWorkspace.autosave &&
+      (session.project ? !!projectWorkspace.project?.location : !!owner.source),
+  );
   const { scheduleRemember } = projectWorkspace;
   useEffect(() => {
     if (session.project) scheduleRemember();
@@ -217,15 +232,17 @@ function BoardWorkspace({
       ? files.failure.conflict
         ? 'Conflict'
         : 'Save failed'
-      : files.loading
-        ? 'Saving'
-        : dirty
-          ? session.project
-            ? 'Unsaved'
-            : 'Unsaved changes'
-          : hasDrafts
-            ? ''
-            : 'Saved',
+      : session.project && !projectWorkspace.project?.location
+        ? 'In memory'
+        : files.loading
+          ? 'Saving'
+          : dirty
+            ? session.project
+              ? 'Saving'
+              : 'Unsaved changes'
+            : hasDrafts
+              ? ''
+              : 'Saved',
     hasDrafts ? 'Draft not saved' : '',
   ]
     .filter(Boolean)
@@ -269,28 +286,21 @@ function BoardWorkspace({
     !!mcpWorkflows.activeOperation;
   const handleNewDocument = () => {
     if (!isLoading) {
-      if (projectWorkspace.project)
-        projectWorkspace.setDialog({ kind: 'createBoard' });
+      if (projectWorkspace.project) projectWorkspace.newBoard();
       else return transitions.request('new');
     }
   };
   const handleOpenFile = () => {
     if (!isLoading)
       return projectWorkspace.project
-        ? projectWorkspace.standalone(() =>
-            window.desktop.fileSystem.openDocument(),
-          )
+        ? projectWorkspace.setDialog({ kind: 'openBoard' })
         : transitions.request('open');
   };
   const handleReloadFile = () => {
     if (!isLoading) return transitions.request('reload');
   };
-  const handleSave = async (saveAs = false) => {
-    if (!isLoading) {
-      const captured = owner.snapshot().sessionId;
-      await files.wait();
-      if (owner.snapshot().sessionId === captured) return files.save(saveAs);
-    }
+  const handleSave = () => {
+    if (!isLoading) return projectWorkspace.saveAll();
   };
 
   const handleExportSVG = () => {
@@ -315,7 +325,12 @@ function BoardWorkspace({
     }
   };
 
-  const handleSaveAs = () => handleSave(true);
+  const handleSaveAs = async () => {
+    if (isLoading) return;
+    const captured = owner.snapshot().sessionId;
+    await files.wait();
+    if (owner.snapshot().sessionId === captured) return files.save(true);
+  };
 
   // Only the visible board subscribes to window/menu events.
   useEffect(() => {
@@ -404,7 +419,6 @@ function BoardWorkspace({
       transitions,
       leave: recovery.leave,
       hasDrafts,
-      autosave,
       handlers,
       work: mcpWorkflows,
     });
@@ -421,20 +435,68 @@ function BoardWorkspace({
       }
       blocked={transitions.active || !!mcpWorkflows.activeOperation}
       currentDocument={currentDocument}
-      hasSource={!!currentFilePath}
-      documentStatus={
-        boardStatus === 'Saved' && !currentFilePath
-          ? 'New document'
-          : boardStatus
+      filename={
+        session.project
+          ? projectWorkspace.project?.manifest.boards
+              .find((board) => board.id === session.project!.boardId)
+              ?.path.split('/')
+              .at(-1)
+          : currentFilePath?.split(/[\\/]/).at(-1)
       }
-      onReload={handleReloadFile}
+      unsaved={!owner.source || dirty || hasDrafts}
+      onRenameDocument={
+        session.project
+          ? (name) =>
+              projectWorkspace.renameBoard(session.project!.boardId, name)
+          : (name) =>
+              projectWorkspace.run(async () => {
+                if (!projectNameSchema.safeParse(name).success)
+                  throw new Error('Enter a valid board name.');
+                return (
+                  owner.transact((draft) => {
+                    draft.metadata.title = name;
+                  })?.status !== 'rejected'
+                );
+              })
+      }
+      onRenameFile={
+        session.project
+          ? (name) =>
+              projectWorkspace.renameFilename(session.project!.boardId, name)
+          : owner.source
+            ? (name) =>
+                projectWorkspace.run(async () => {
+                  if (!(await registry.prepare([session.key], true)))
+                    return false;
+                  if (
+                    owner.snapshot().dirty &&
+                    (await files.save()).status !== 'success'
+                  )
+                    return false;
+                  const current = owner.snapshot();
+                  const filename =
+                    name.replace(/\.depthplan(?:\.json)?$/i, '') + '.depthplan';
+                  if (!name) throw new Error('Enter a filename.');
+                  const result = await window.desktop.fileSystem.renameDocument(
+                    current.source!.id,
+                    filename,
+                  );
+                  if (result.status === 'error') throw new Error(result.error);
+                  if (result.status !== 'success') return false;
+                  owner.relocate(
+                    current.document!.metadata.title,
+                    result.source,
+                  );
+                  return true;
+                })
+            : undefined
+      }
       isLoading={isLoading}
       onNewDocument={handleNewDocument}
       onOpenFile={handleOpenFile}
       onSave={() => handleSave()}
       onSaveAs={handleSaveAs}
       onExportSVG={handleExportSVG}
-      onExportJSON={handleExportJSON}
     />
   );
   return (
@@ -442,11 +504,13 @@ function BoardWorkspace({
       <div
         className="workspace"
         data-board-session={session.key}
+        data-active={active}
         id={session.project ? `board-${session.project.boardId}` : undefined}
-        role={session.project ? 'tabpanel' : undefined}
-        aria-labelledby={
-          session.project ? `tab-${session.project.boardId}` : undefined
+        role={session.project ? 'region' : undefined}
+        aria-label={
+          session.project ? currentDocument?.metadata.title : undefined
         }
+        tabIndex={session.project ? -1 : undefined}
       >
         <div
           inert={

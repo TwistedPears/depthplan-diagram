@@ -12,7 +12,7 @@
   box-shadow: var(--floating-shadow);
   z-index: 1050;
 }
-.shape-toolbar .tool-button {
+:is(.shape-toolbar, .project-empty-identity) .tool-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -26,17 +26,18 @@
   color: var(--ink);
   font-size: 17px;
 }
-.shape-toolbar .tool-button:hover:not(:disabled) {
+:is(.shape-toolbar, .project-empty-identity) .tool-button:hover:not(:disabled) {
   background: var(--surface-hover);
 }
-.shape-toolbar .tool-button.active {
+:is(.shape-toolbar, .project-empty-identity) .tool-button.active {
   color: white;
   background: var(--accent);
 }
-.shape-toolbar .tool-button.active:hover:not(:disabled) {
+:is(.shape-toolbar, .project-empty-identity)
+  .tool-button.active:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-.shape-toolbar .tool-button:disabled {
+:is(.shape-toolbar, .project-empty-identity) .tool-button:disabled {
   color: #9aa4b3;
 }
 .shape-toolbar .divider {
@@ -109,7 +110,7 @@
     gap: 2px;
     padding: 5px;
   }
-  .shape-toolbar .tool-button {
+  :is(.shape-toolbar, .project-empty-identity) .tool-button {
     width: clamp(25px, 7.4vw, 32px);
     height: 34px;
     font-size: 16px;

@@ -79,12 +79,15 @@ test('project bridge uses opaque sessions, validates responses and preserves can
   };
   const result = { status: 'success', project };
   jest.mocked(invoke).mockResolvedValue(result);
-  expect(await window.desktop.projects.create(' Project ', 'project')).toEqual(
-    result,
-  );
+  expect(await window.desktop.projects.new()).toEqual(result);
   expect(invoke).toHaveBeenLastCalledWith('desktop', {
-    method: 'project:create',
-    args: ['Project', 'project', undefined],
+    method: 'project:new',
+    args: [],
+  });
+  await window.desktop.projects.save('session', 'hash', manifest);
+  expect(invoke).toHaveBeenLastCalledWith('desktop', {
+    method: 'project:save',
+    args: ['session', 'hash', manifest, 'project.depthproject', []],
   });
   await window.desktop.projects.apply('session', 'hash', {
     kind: 'removeBoard',

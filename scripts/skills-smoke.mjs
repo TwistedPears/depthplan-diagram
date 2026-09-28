@@ -34,12 +34,13 @@ const driver = await launchNative();
 let probe;
 try {
   await driver.click('Menu');
+  await driver.click('Settings');
   await driver.sync(
-    'document.querySelector(`[role=switch][aria-label="MCP Server"]`).click()',
+    'document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).click()',
   );
   await driver.until(() =>
     driver.sync(
-      'return document.querySelector(`[role=switch][aria-label="MCP Server"]`).getAttribute("aria-checked") === "true"',
+      'return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked") === "true"',
     ),
   );
   const status = await driver.native('automation:status');

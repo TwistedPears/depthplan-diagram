@@ -48,19 +48,24 @@ test('startup waits for the application document before executing page scripts',
   }
 });
 
-test('timed clicks pass labels as data and retain timing and errors', async () => {
+test('timed clicks ignore hidden and inert controls, pass labels as data and retain timing and errors', async () => {
   const label =
     '\'"\\\n</script><script>throw new Error("injected")</script>\u2028\u2029 end';
   let frames = 0;
   let clicks = 0;
   let buttons = [];
+  let modalButtons;
   const driver = {
     js(expression, args) {
       assert.deepEqual(args, [label]);
       assert(!expression.includes(label));
       return runInNewContext(expression, {
         arguments: args,
-        document: { querySelectorAll: () => buttons },
+        document: {
+          querySelector: () =>
+            modalButtons ? { querySelectorAll: () => modalButtons } : null,
+          querySelectorAll: () => buttons,
+        },
         performance: { now: () => frames * 16 },
         requestAnimationFrame: (callback) => {
           frames++;
@@ -72,24 +77,46 @@ test('timed clicks pass labels as data and retain timing and errors', async () =
   for (const match of ['aria-label', 'text', 'title']) {
     buttons = [
       {
+        getClientRects: () => [1],
+        closest: () => null,
         getAttribute: () => (match === 'aria-label' ? label : null),
         textContent: match === 'text' ? ` ${label} ` : '',
         title: match === 'title' ? label : '',
         click: () => clicks++,
       },
     ];
+    buttons.unshift({
+      ...buttons[0],
+      getClientRects: () => [],
+      click: () => assert.fail('Hidden button clicked'),
+    });
     assert.equal(await clickToPaint(driver, label), 32);
-    buttons[0].disabled = true;
+    buttons[1].disabled = true;
     await assert.rejects(clickToPaint(driver, label), {
       message: `Missing/disabled button ${label}`,
     });
+    buttons[1].disabled = false;
+    buttons[1].closest = (selector) => (selector === '[inert]' ? {} : null);
+    await assert.rejects(clickToPaint(driver, label), {
+      message: `Missing/disabled button ${label}`,
+    });
+    buttons[1].closest = () => null;
   }
+  modalButtons = [{ ...buttons[1], disabled: false }];
+  buttons = [
+    {
+      ...modalButtons[0],
+      click: () => assert.fail('Background button clicked through a modal'),
+    },
+  ];
+  assert.equal(await clickToPaint(driver, label), 32);
+  modalButtons = undefined;
   buttons = [];
   await assert.rejects(clickToPaint(driver, label), {
     message: `Missing/disabled button ${label}`,
   });
-  assert.equal(clicks, 3);
-  assert.equal(frames, 6);
+  assert.equal(clicks, 4);
+  assert.equal(frames, 8);
 });
 
 function failure(binary, args = []) {

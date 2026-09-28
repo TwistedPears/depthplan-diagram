@@ -100,12 +100,12 @@ describe('App', () => {
   it('starts with a clean untitled document and saves without selecting New', async () => {
     render(<App />);
     expect(screen.getByText('Untitled Document')).toBeInTheDocument();
-    expect(screen.getByText('New document')).toBeInTheDocument();
+    expect(screen.getByText('Not saved yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
     expect(window.desktop.fileSystem.newDocument).not.toHaveBeenCalled();
     expect(window.desktop.fileSystem.saveDocument).not.toHaveBeenCalled();
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await waitFor(() =>
       expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -120,7 +120,7 @@ describe('App', () => {
         false,
       ),
     );
-    expect(await screen.findByText('Saved')).toBeInTheDocument();
+    expect(await screen.findByText('test.depthplan.json')).toBeInTheDocument();
   });
 
   it('queues OS opens until startup recovery discovery and the explicit skip finish', async () => {
@@ -195,7 +195,7 @@ describe('App', () => {
     );
     expect(window.desktop.fileSystem.readOpenRequest).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Startup edit')).toBeInTheDocument();
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     (window.desktop.transitions.confirm as jest.Mock).mockResolvedValue(
       'discard',
     );
@@ -283,13 +283,13 @@ describe('App', () => {
       'data-document-id',
       id,
     );
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await screen.findByText('Save canceled');
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
-    chooseFileCommand('Save');
-    await screen.findByText('Saved');
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
+    chooseFileCommand('Save All');
+    await screen.findByText('test.depthplan.json');
     expect(window.desktop.fileSystem.saveDocument).toHaveBeenLastCalledWith(
       expect.objectContaining({
         id,
@@ -300,7 +300,7 @@ describe('App', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByText('Untitled Document')).toBeInTheDocument();
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
   });
 
   it.each([false, true])(
@@ -334,7 +334,7 @@ describe('App', () => {
   it('preserves the current document when opening is canceled', async () => {
     render(<App />);
     const id = screen.getByTestId('recursive-canvas').dataset.documentId;
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     await waitFor(() =>
       expect(window.desktop.fileSystem.openDocument).toHaveBeenCalled(),
     );
@@ -365,7 +365,7 @@ describe('App', () => {
     render(<App />);
     fireEvent.click(await screen.findByRole('button', { name: 'Restore' }));
     await screen.findByText('Fixture');
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     expect(window.desktop.transitions.confirm).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
   });
@@ -425,7 +425,7 @@ describe('App', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit document' }));
     const id = screen.getByTestId('recursive-canvas').dataset.documentId;
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     expect(
       await screen.findByText(
         /Failed to open document:.*unsupported document format/,
@@ -452,9 +452,9 @@ describe('App', () => {
       },
     });
     render(<App />);
-    chooseFileCommand('Open');
+    chooseFileCommand('Open Board…');
     await screen.findByText('Fixture');
-    chooseFileCommand('Save');
+    chooseFileCommand('Save All');
     await waitFor(() =>
       expect(window.desktop.fileSystem.saveDocument).toHaveBeenCalledWith(
         document,
@@ -462,7 +462,7 @@ describe('App', () => {
         false,
       ),
     );
-    chooseFileCommand('New');
+    chooseFileCommand('New Board');
     await screen.findByText('Test diagram');
   });
 });

@@ -21,29 +21,25 @@ export async function projectMcp(driver) {
       path: 'Board-B.depthplan',
     })
   ).project;
-  project = (
-    await native('project:apply', project.sessionId, project.fingerprint, {
-      kind: 'settings',
-      name: 'MCP Project',
-      description: '',
-      homeBoardId: project.manifest.boards[0].id,
-      autosave: false,
-    })
-  ).project;
   const [a, b] = project.manifest.boards;
   const root = path.dirname(project.location);
   const read = async (board) =>
     JSON.parse(await readFile(path.join(root, board.path), 'utf8'));
   const originalB = await readFile(path.join(root, b.path));
   await native('project:close', project.sessionId);
+  // This journey exercises explicit MCP saves, controlled by the app setting.
+  await click('Menu');
+  await click('Settings');
+  const autosave = await sync(
+    `const button=document.querySelector('[aria-label="Autosave"]'), enabled=button.getAttribute('aria-checked')==='true'; if(enabled) button.click(); return enabled;`,
+  );
   if (!(await native('automation:status')).enabled) {
-    await click('Menu');
     await sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await until(async () => (await native('automation:status')).enabled);
-    await click('Menu');
   }
+  await click('Menu');
   const probe = client(
     driver.adapter,
     (await native('automation:status')).descriptor,
@@ -80,6 +76,17 @@ export async function projectMcp(driver) {
         requestId: `project-mcp-${sequence++}`,
       };
     };
+    const activate = async (boardId) => {
+      await sync('document.getElementById(arguments[0]).click()', [
+        `board-link-${boardId}`,
+      ]);
+      await until(() =>
+        sync(
+          'return document.querySelector("[data-board-session][data-active=true]:not(:has(> [inert]))")?.id === arguments[0]',
+          [`board-${boardId}`],
+        ),
+      );
+    };
     const openB = {
       handle: discovery.handle,
       boardId: b.id,
@@ -111,9 +118,9 @@ export async function projectMcp(driver) {
     const external = await read(a);
     external.objects.api.name = 'External A';
     await writeFile(path.join(root, a.path), JSON.stringify(external));
-    await sync('document.getElementById(arguments[0]).click()', [
-      `tab-${a.id}`,
-    ]);
+    if (!(await sync('return !!document.querySelector("#project-drawer")')))
+      await click('Toggle project boards');
+    await activate(a.id);
     const saveInput = { ...(await args()), action: { type: 'save' } };
     const started = await probe.call('depthplan_files', saveInput);
     assert.equal(started.ok, true, JSON.stringify(started));
@@ -127,15 +134,7 @@ export async function projectMcp(driver) {
       return result.data;
     };
     await until(async () => (await receipt()).status === 'needs-decision');
-    await sync('document.getElementById(arguments[0]).click()', [
-      `tab-${b.id}`,
-    ]);
-    await until(() =>
-      sync(
-        'return document.querySelector("[role=tab][aria-selected=true]")?.id === arguments[0]',
-        [`tab-${b.id}`],
-      ),
-    );
+    await activate(b.id);
     const pending = await receipt();
     assert.equal(pending.target.sessionId, handleA.sessionId);
     assert.equal(
@@ -186,11 +185,8 @@ export async function projectMcp(driver) {
       format: 'svg',
     });
     assert.equal(image.error.code, 'BUSY');
-    await sync(
-      `document.getElementById(arguments[0]).parentElement.querySelector('[aria-label^="Close " ]').click()`,
-      [`tab-${b.id}`],
-    );
-    // Close the active B tab, then reopen to invalidate only B's handle.
+    await driver.closeBoard(b.id);
+    // Closing and reopening invalidates only B's handle.
     await until(
       async () =>
         (await probe.call('depthplan_get_state', { handle: handleB })).error
@@ -258,13 +254,19 @@ export async function projectMcp(driver) {
         (await receipt(finalSave.data.operationId)).status === 'completed',
     );
     await click('Menu');
-    await click('Close Project');
+    await click('Close All');
     await until(
       async () =>
         (await probe.call('depthplan_get_project')).data?.project === null,
     );
     assert.equal((await probe.call('depthplan_get_state')).ok, true);
     assert.equal((await receipt()).status, 'completed');
+    if (autosave) {
+      await click('Menu');
+      await click('Settings');
+      await click('Autosave');
+      await click('Menu');
+    }
     console.log(
       `PASS project MCP: explicit same-name targets, grants, delayed overwrite after tab switch, export, stale handles, receipts and retries. Evidence: ${profile}`,
     );

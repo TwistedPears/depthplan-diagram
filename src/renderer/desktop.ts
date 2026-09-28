@@ -6,7 +6,10 @@ import {
 } from '../shared/recursiveDocument';
 import type { RecursiveDocument } from '../shared/recursiveDocument';
 import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
-import { validateProjectManifest } from '../shared/projectContract';
+import {
+  validateProjectManifest,
+  projectFilename,
+} from '../shared/projectContract';
 import type {
   ProjectAction,
   ProjectBoard,
@@ -68,14 +71,11 @@ const menuChannels = [
   'menu:open',
   'menu:new-project',
   'menu:open-project',
-  'menu:close-project',
-  'menu:project-settings',
-  'menu:project-board',
-  'menu:close-tab',
+  'menu:close',
   'menu:reload-document',
   'menu:save',
-  'menu:save-all',
   'menu:save-as',
+  'menu:save-project-as',
   'menu:export-svg',
   'menu:export-json',
 ] as const;
@@ -96,10 +96,23 @@ async function projectCall(
 
 const desktopHandler = {
   projects: {
+    new: () => projectCall('project:new'),
+    save: (
+      sessionId: string,
+      expected: string,
+      manifest: ProjectManifest,
+      documents: RecursiveDocument[] = [],
+    ) =>
+      projectCall(
+        'project:save',
+        sessionId,
+        expected,
+        manifest,
+        projectFilename(manifest.name, [], '.depthproject'),
+        documents,
+      ),
     recents: () =>
       native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
-    forget: (key: string) =>
-      native<FileResult<Record<string, never>>>('project:forget', key),
     openRecent: (key: string, locate = false) =>
       projectCall('project:recent-open', key, locate),
     workspace: (sessionId: string) =>
@@ -113,10 +126,7 @@ const desktopHandler = {
         sessionId,
         view,
       ),
-    create: (name: string, folder: string, document?: RecursiveDocument) =>
-      projectCall('project:create', name.trim(), folder, document),
     open: () => projectCall('project:open'),
-    reveal: (sessionId: string) => native('project:reveal', sessionId),
     importBoards: async (
       sessionId: string,
       expected: string,
@@ -163,7 +173,7 @@ const desktopHandler = {
       document: RecursiveDocument,
       overwrite = false,
       lease?: FileLease,
-    ): Promise<FileResult<{ source: SourceFile }>> =>
+    ): Promise<FileResult<{ source: SourceFile | null }>> =>
       native(
         'project:write-board',
         sessionId,
@@ -322,6 +332,7 @@ const desktopHandler = {
   },
   openLink: (url: string): Promise<void> => native('link:open', url),
   getAppInstanceId: (): Promise<string> => native('app:instance-id'),
+  quit: (): Promise<void> => native('app:quit'),
   editHistory: (direction: 'undo' | 'redo'): Promise<void> => {
     if (direction !== 'undo' && direction !== 'redo')
       throw new Error('Invalid edit action');
@@ -336,6 +347,8 @@ const desktopHandler = {
     },
   },
   transitions: {
+    keepAlive: (id: string): Promise<void> =>
+      native('transition:keep-alive', id),
     confirm: (
       kind: 'draft' | 'document',
       label: string,
@@ -349,6 +362,12 @@ const desktopHandler = {
       native('transition:reply', id, approved),
   },
   fileSystem: {
+    renameDocument: (sourceId: string, filename: string) =>
+      native<FileResult<{ source: SourceFile }>>(
+        'file:rename',
+        sourceId,
+        filename,
+      ),
     onOpenRequested: (callback: (id: string) => void) => {
       let active = true;
       const delivered = new Set<string>();

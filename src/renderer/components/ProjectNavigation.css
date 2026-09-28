@@ -16,7 +16,7 @@
 .project-drawer {
   position: absolute;
   top: 78px;
-  left: 18px;
+  right: 18px;
   width: 280px;
   max-width: calc(100vw - 36px);
   max-height: calc(100vh - 170px);
@@ -41,21 +41,11 @@
   margin-left: 6px;
   font-weight: 400;
 }
-.project-drawer header button,
-.project-tab > button + button {
+.project-drawer header button {
   padding: 6px;
   border: 0;
   display: inline-flex;
   align-items: center;
-}
-.project-filter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.project-filter input {
-  width: 100%;
-  min-width: 0;
 }
 .project-board-list {
   list-style: none;
@@ -64,70 +54,20 @@
 }
 .project-board-list li {
   border-radius: 6px;
+  padding: 8px 6px;
 }
 .project-board-list li[data-active='true'] {
   background: var(--accent-soft);
 }
-.project-board-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-}
 .project-board-open {
   display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: 1;
-  min-width: 0;
-  padding: 9px 6px;
-  text-align: left;
-  border: 0;
-  background: transparent;
-}
-.project-board-open span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: baseline;
+  width: 100%;
+  font-size: 13px;
   white-space: nowrap;
 }
-.project-board-open small {
-  display: block;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 4px;
-  font-size: 11px;
-  font-weight: 400;
-}
-.project-board-row details {
-  flex-shrink: 0;
-}
-.project-board-row summary,
-.project-empty-identity summary {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  min-height: 34px;
-  border-radius: 6px;
-}
-.project-board-row details[open] {
-  display: contents;
-}
-.project-board-actions {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 4px;
-}
-.project-board-actions button:last-child {
-  grid-column: 1 / -1;
-}
-.project-board-actions button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
+.project-board-open sup {
+  align-self: start;
 }
 .project-drawer footer {
   border-top: 1px solid var(--line);
@@ -141,46 +81,6 @@
   gap: 10px;
   border: 0;
   text-align: left;
-}
-.project-tabs {
-  position: absolute;
-  top: 78px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(100vw - 660px);
-  display: flex;
-  overflow-x: auto;
-  background: var(--surface);
-  border-radius: 8px;
-  box-shadow: var(--floating-shadow);
-  padding: 4px;
-}
-.project-tab {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  border-radius: 4px;
-}
-.project-tab[data-active='true'] {
-  background: var(--accent-soft);
-}
-.project-tab button[role='tab'] {
-  border: 0;
-  background: transparent;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.project-tab button[aria-selected='true'] {
-  color: var(--accent);
-  font-weight: 600;
-}
-.project-tab-state {
-  font-size: 11px;
-}
-.project-overflow {
-  display: none;
 }
 .project-error {
   color: var(--danger);
@@ -217,11 +117,12 @@
   display: flex;
   align-items: center;
 }
-.project-empty-identity > button {
-  border: 0;
+.project-empty-identity summary {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  padding: 8px;
+}
+.project-empty-identity > span {
+  padding: 0 12px;
 }
 .project-empty-menu {
   position: absolute;
@@ -242,7 +143,7 @@
   text-align: center;
 }
 .project-drawer ~ .project-empty {
-  left: 320px;
+  right: 350px;
 }
 .project-empty h1 {
   font-size: 25px;
@@ -251,37 +152,21 @@
   margin: 4px;
 }
 .project-drawer-toggle {
-  border: 0;
-  padding: 6px;
-  display: flex;
-  background: transparent;
+  position: absolute;
+  top: 150px;
+  right: 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 14px 9px;
+  border-radius: 8px 0 0 8px;
+  background: var(--surface);
+  box-shadow: var(--floating-shadow);
+  font-size: 12px;
 }
 @media (max-width: 1100px) {
-  .project-tabs {
-    top: 134px;
-    left: 18px;
-    transform: none;
-    max-width: calc(100vw - 185px);
-  }
-  .project-tab:not([data-active='true']) {
-    display: none;
-  }
-  body:has(.project-navigation) .select-visible-control {
-    top: 184px;
-  }
-  .project-overflow {
-    display: block;
-    position: absolute;
-    top: 138px;
-    right: 18px;
-  }
   .project-drawer {
-    top: 184px;
-    max-height: calc(100vh - 270px);
-  }
-  .project-empty {
-    left: 30px;
-    right: 30px;
+    top: 144px;
+    max-height: calc(100vh - 230px);
   }
 }
 
@@ -301,4 +186,85 @@
 }
 .project-search-results small {
   color: var(--muted);
+}
+
+.inline-edit {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+}
+.inline-edit:disabled {
+  background: transparent;
+}
+.inline-edit span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inline-edit sup {
+  color: var(--accent);
+  margin-left: 2px;
+}
+.inline-edit-input {
+  width: 100%;
+  min-width: 0;
+}
+.project-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.project-drawer header .project-title {
+  padding: 0;
+}
+.project-drawer > h2 {
+  margin: 16px 0 10px;
+}
+.project-board-filename {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-flyout > button {
+  justify-content: space-between;
+}
+.menu-flyout-panel {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(246px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.recent-projects .menu-flyout-panel {
+  width: min(360px, calc(100vw - 36px));
+}
+.recent-projects .menu-flyout-panel button {
+  flex-direction: column;
+  align-items: start;
+  gap: 2px;
+}
+.recent-projects .menu-flyout-panel small {
+  display: block;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-flyout-panel p {
+  padding: 6px 10px;
+  font-size: 12px;
 }

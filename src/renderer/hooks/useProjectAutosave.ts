@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type useDocumentState from './useDocumentState';
 import type useDocumentFiles from './useDocumentFiles';
 
-/** Each mounted board owner schedules its own accepted content, including hidden tabs. */
+/** Each mounted board owner schedules its own accepted content, including inactive boards. */
 export default function useProjectAutosave(
   owner: ReturnType<typeof useDocumentState>,
   files: ReturnType<typeof useDocumentFiles>,

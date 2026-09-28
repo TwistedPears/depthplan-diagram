@@ -151,6 +151,56 @@ impl FileStore {
             Some(fingerprint(&bytes)),
         ))
     }
+    pub fn rename(&mut self, id: &str, filename: &str) -> Result<Source> {
+        export_name(filename, "depthplan")?;
+        if filename
+            .chars()
+            .any(|c| c.is_control() || "*?\"<>|".contains(c))
+        {
+            return Err("Invalid filename".into());
+        }
+        let source = self.record(id)?;
+        let old = Path::new(&source.path);
+        crate::projects::regular(old)?;
+        let old = old.canonicalize().map_err(|e| e.to_string())?;
+        let parent = old.parent().ok_or("Missing board directory")?;
+        let target = parent.join(filename);
+        let _writer = crate::projects::lock_for_file(&old)?;
+        writable(&old)?;
+        if hash(&old)? != source.fingerprint {
+            return Err(SOURCE_CHANGED.into());
+        }
+        if old == target {
+            return Ok(source);
+        }
+        crate::projects::vacant(&target)?;
+        let bytes = fs::read(&old).map_err(|e| e.to_string())?;
+        let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+        temporary.write_all(&bytes).map_err(|e| e.to_string())?;
+        temporary.as_file().sync_all().map_err(|e| e.to_string())?;
+        crate::projects::regular(&old)?;
+        if hash(&old)? != source.fingerprint {
+            return Err(SOURCE_CHANGED.into());
+        }
+        crate::projects::vacant(&target)?;
+        temporary
+            .persist_noclobber(&target)
+            .map_err(|e| e.to_string())?;
+        crate::projects::regular(&old)?;
+        if hash(&old)? != source.fingerprint {
+            return Err(format!(
+                "{}. Both filenames are retained for recovery.",
+                SOURCE_CHANGED
+            ));
+        }
+        fs::remove_file(&old)
+            .map_err(|e| format!("New filename saved, but old-file cleanup failed: {e}"))?;
+        #[cfg(unix)]
+        fs::File::open(parent)
+            .and_then(|f| f.sync_all())
+            .map_err(|e| e.to_string())?;
+        Ok(self.remember(target.to_string_lossy().into_owned(), source.fingerprint))
+    }
     pub fn recover(&mut self, value: &Value) -> Result<Option<Source>> {
         if value.is_null() {
             return Ok(None);
@@ -216,6 +266,28 @@ pub fn fixture() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inline_rename_preserves_bytes_and_rejects_collisions_and_stale_sources() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("before.depthplan");
+        let mut store = FileStore::default();
+        let source = store.save(&old, &fixture(), None, &|| Ok(())).unwrap();
+        let bytes = fs::read(&old).unwrap();
+        let renamed = store.rename(&source.id, "Exact Name.depthplan").unwrap();
+        assert!(!old.exists());
+        assert_eq!(fs::read(&renamed.path).unwrap(), bytes);
+        fs::write(dir.path().join("occupied.depthplan"), b"preserve").unwrap();
+        assert!(store.rename(&renamed.id, "occupied.depthplan").is_err());
+        assert!(store.rename(&renamed.id, "../escape.depthplan").is_err());
+        assert_eq!(fs::read(&renamed.path).unwrap(), bytes);
+        fs::write(&renamed.path, b"external change").unwrap();
+        assert!(store.rename(&renamed.id, "another.depthplan").is_err());
+        assert_eq!(fs::read(&renamed.path).unwrap(), b"external change");
+        assert_eq!(
+            fs::read(dir.path().join("occupied.depthplan")).unwrap(),
+            b"preserve"
+        );
+    }
     #[test]
     fn desktop_open_accepts_paths_and_file_urls_but_not_remote_urls() {
         let dir = tempfile::tempdir().unwrap();

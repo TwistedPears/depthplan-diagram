@@ -1,4 +1,5 @@
 import Icon from './Icon';
+import BoardSearch from './BoardSearch';
 import { useEffect, useRef, useState } from 'react';
 import {
   AlignmentOperation,
@@ -34,14 +35,7 @@ function ShapeToolbar({
   onSearch,
 }: ShapeToolbarProps) {
   const [openAlign, setOpenAlign] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchInput = useRef<HTMLInputElement>(null);
-  const searchButton = useRef<HTMLButtonElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchOpen) searchInput.current?.focus();
-  }, [searchOpen]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -107,49 +101,7 @@ function ShapeToolbar({
       </button>
 
       {onSearch && (
-        <>
-          <button
-            ref={searchButton}
-            id="object-search-toggle"
-            type="button"
-            className={`tool-button ${searchOpen ? 'active' : ''}`}
-            title="Search objects"
-            aria-label="Search objects"
-            aria-expanded={searchOpen}
-            aria-controls="object-search-form"
-            onClick={() => {
-              setOpenAlign(false);
-              setSearchOpen(!searchOpen);
-            }}
-          >
-            <Icon name="magnifying-glass" />
-          </button>
-          <form
-            id="object-search-form"
-            className="object-search-form"
-            role="search"
-            hidden={!searchOpen}
-            onSubmit={(event) => {
-              event.preventDefault();
-              onSearch(searchInput.current?.value.trim() ?? '');
-            }}
-          >
-            <input
-              ref={searchInput}
-              id="object-search-input"
-              type="search"
-              aria-label="Search object text"
-              placeholder="Search object text… Press Enter"
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.stopPropagation();
-                  setSearchOpen(false);
-                  searchButton.current?.focus();
-                }
-              }}
-            />
-          </form>
-        </>
+        <BoardSearch onSearch={onSearch} onOpen={() => setOpenAlign(false)} />
       )}
 
       {openAlign && selectedCount > 0 && (

@@ -19,6 +19,10 @@ export async function rotation(driver, probe) {
       ...args,
     });
     assert.equal(reply.ok, true, JSON.stringify(reply));
+    // MCP acknowledges model state before React paints selection/camera changes.
+    await js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
   };
   const edit = (...actions) => command('depthplan_edit', { actions });
   const select = (id) =>
@@ -40,13 +44,16 @@ export async function rotation(driver, probe) {
     await writeFile(file, JSON.stringify(document));
     await dialogs('open', file);
     await click('Menu');
-    await click('Open');
+    await click('Open Board…');
     await until(async () => (await state()).source?.path === file);
     await click('Reset view');
   };
   const save = async () => {
     await click('Save document');
-    await until(async () => !(await state()).dirty);
+    await until(async () => {
+      const current = await state();
+      return !current.dirty && !current.busyReasons.length;
+    });
     return JSON.parse(await readFile(file, 'utf8'));
   };
   const pointer = async (type, point, buttons = type === 'mouseup' ? 0 : 1) => {
@@ -364,7 +371,7 @@ export async function rotation(driver, probe) {
   await save();
   await dialogs('open', file);
   await click('Menu');
-  await click('Open');
+  await click('Open Board…');
   await until(async () => !(await state()).canUndo);
   assert.equal(Math.round((await pose('rectangle')).rotation), 57);
   assert.equal(Math.round((await pose('ellipse')).rotation), 62);

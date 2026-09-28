@@ -36,8 +36,9 @@ export async function projectPersistence(driver) {
   await native('project:close', project.sessionId);
   if (!(await driver.native('automation:status')).enabled) {
     await driver.click('Menu');
+    await driver.click('Settings');
     await driver.sync(
-      `document.querySelector('[role=switch][aria-label="MCP Server"]').click()`,
+      `document.querySelector('[role=menuitemcheckbox][aria-label="MCP Server"]').click()`,
     );
     await driver.until(
       async () => (await driver.native('automation:status')).enabled,
@@ -59,8 +60,8 @@ export async function projectPersistence(driver) {
       await click(`Open ${board.name}, ${board.path}`);
       await until(() =>
         sync(
-          'return document.querySelector("[role=tab][aria-selected=true]")?.textContent.includes(arguments[0])',
-          [board.name],
+          'return document.querySelector("[data-board-session][data-active=true]:not(:has(> [inert]))")?.id === arguments[0]',
+          [`board-${board.id}`],
         ),
       );
     };
@@ -143,14 +144,20 @@ export async function projectPersistence(driver) {
     await edit('Healthy B');
     await until(async () => (await read(b)).objects.api.name === 'Healthy B');
     await click('Menu');
-    await click('Close Project');
+    await click('Close All');
     await until(() =>
       sync(
-        'return !!document.querySelector(`dialog[aria-label="Review open boards"][open]`)',
+        'return !!document.querySelector(".project-board-open:not(:disabled)")',
       ),
     );
-    await capture('project-close-review');
-    await click('Keep open');
+    assert.equal(
+      await sync(
+        'return !!document.querySelector(".project-navigation") && !document.querySelector("dialog[open]")',
+      ),
+      true,
+    );
+    assert.equal((await read(a)).objects.api.name, 'External A');
+    await capture('project-save-blocked-close');
     await click('Resolve conflict for Board A…');
     await dialogs('message', 'Keep editing');
     await click('Overwrite source…');
@@ -167,27 +174,45 @@ export async function projectPersistence(driver) {
     const manifest = JSON.parse(await readFile(project.location, 'utf8'));
     manifest.description = 'External manifest change';
     await writeFile(project.location, JSON.stringify(manifest));
-    await click('Menu');
-    await click('Project Settings…');
-    await sync('document.querySelector("dialog input[type=checkbox]").click()');
-    await click('Apply');
+    await sync(
+      `document.querySelector('.project-title').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));`,
+    );
+    await until(() =>
+      sync('return !!document.querySelector("[data-inline-edit]")'),
+    );
+    await sync(
+      `const input=document.querySelector('[data-inline-edit]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Updated Project'); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+    );
     await until(() =>
       sync(
-        'return document.querySelector("dialog [role=alert]")?.textContent.includes("manifest changed")',
+        'return document.querySelector(".project-notice")?.textContent.includes("manifest changed")',
       ),
     );
     await click('Reload project definition…');
     await until(() =>
       sync(
-        'return !Array.from(document.querySelectorAll("dialog button")).find(b=>b.textContent==="Apply")?.disabled',
+        'return !document.querySelector(".project-notice") && !!document.querySelector(".project-board-open:not(:disabled)")',
       ),
     );
-    await click('Apply');
-    await until(() => sync('return !document.querySelector("dialog[open]")'));
+    await sync(
+      `document.querySelector('[data-inline-edit]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));`,
+    );
+    await until(() =>
+      sync('return !document.querySelector("[data-inline-edit]")'),
+    );
+    assert.equal(
+      JSON.parse(await readFile(project.location, 'utf8')).name,
+      'Updated Project',
+    );
     assert.equal(
       JSON.parse(await readFile(project.location, 'utf8')).autosave,
-      false,
+      true,
     );
+    // Recovery protects accepted work when an external writer prevents autosave.
+    for (const board of [a, b]) {
+      const file = path.join(root, board.path);
+      await writeFile(file, (await readFile(file, 'utf8')) + '\n');
+    }
     await open(a);
     const crashA = await edit('Recover A');
     await open(b);
@@ -232,7 +257,7 @@ export async function projectPersistence(driver) {
     );
     assert.equal(
       await restored.sync(
-        'return document.querySelector("dialog").textContent.includes("Persistence Project")',
+        'return document.querySelector("dialog").textContent.includes("Updated Project")',
       ),
       true,
     );
