@@ -260,6 +260,12 @@ export async function selectionMenu() {
         `return !!document.querySelector('dialog[aria-label="Save template"]')`,
       ),
     );
+    await driver.click('Cancel');
+    await driver.until(() =>
+      driver.sync('return !document.querySelector("dialog[open]")'),
+    );
+    await menu('a');
+    await driver.click('Save Template');
     await driver.sync(
       'const e=document.querySelector("dialog input");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,"Context selection");e.dispatchEvent(new Event("input",{bubbles:true}))',
     );
@@ -276,7 +282,9 @@ export async function selectionMenu() {
       'Context selection',
     );
     assert.equal((await readdir(path.join(profile, 'templates'))).length, 1);
-    await driver.click('Close templates');
+    await driver.until(() =>
+      driver.sync('return !document.querySelector("dialog[open]")'),
+    );
     // Keyboard invocation, Escape and Delete use the same selection.
     await driver.sync(
       'const e=document.querySelector(".canvas-container");e.focus();e.dispatchEvent(new KeyboardEvent("keydown",{key:"F10",shiftKey:true,bubbles:true,cancelable:true}))',

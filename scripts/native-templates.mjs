@@ -89,7 +89,7 @@ export async function templates() {
     await until(() => sync('return !document.querySelector("dialog[open]")'));
     assert.equal(
       await sync('return document.querySelector(".document-name").textContent'),
-      originalName,
+      `${originalName.replace(/\*$/, '')}*`,
     );
     await dialogs('save', boardFile);
     await click('Save document');
@@ -135,7 +135,7 @@ export async function templates() {
     await field('Template name', 'My diagram sample');
     await field('Description', 'An editable example');
     await click('Review template');
-    await click('Cancel');
+    await click('Back to template');
     assert.equal(
       await sync('return document.querySelector("dialog input").value'),
       'My diagram sample',
@@ -147,6 +147,8 @@ export async function templates() {
     );
     const entry = (await native('template:list')).entries[0];
     assert.deepEqual(entry.document.extensions.template.components, []);
+    await until(() => sync('return !document.querySelector("dialog[open]")'));
+    await open();
     await click('Preview My diagram sample');
     const shared = path.join(profile, 'shared.depthtemplate');
     await click('Export template');
@@ -166,8 +168,16 @@ export async function templates() {
       async () => (await native('template:list')).entries.length === 1,
     );
     await click('Save selection');
+    await field('Save as', 'update');
+    assert.equal(
+      await sync('return document.querySelectorAll(".template-card").length'),
+      1,
+    );
+    await capture('template-update-picker');
+    await click('Preview My diagram sample');
+    await click('Choose template');
     await field('Template name', 'My revised example');
-    await field('Save as', entry.document.extensions.template.id);
+    await capture('template-update-form');
     await click('Review replacement');
     await click('Save to library');
     await until(
@@ -175,7 +185,25 @@ export async function templates() {
         (await native('template:list')).entries[0].document.extensions.template
           .version === 2,
     );
-    await click('Close templates');
+    await until(() => sync('return !document.querySelector("dialog[open]")'));
+    const updated = (await native('template:list')).entries[0];
+    assert.equal(
+      updated.document.extensions.template.id,
+      entry.document.extensions.template.id,
+    );
+    assert.equal(
+      updated.document.extensions.template.name,
+      'My revised example',
+    );
+    assert.equal(
+      updated.document.extensions.template.description,
+      'An editable example',
+    );
+    await open();
+    await click('Save selection');
+    await field('Save as', 'update');
+    await click('Cancel');
+    await until(() => sync('return !document.querySelector("dialog[open]")'));
     await click('Undo');
     await click('Save document');
     await readBoard(9);

@@ -946,7 +946,7 @@ dialog label {
   flex: 1;
   overflow: hidden;
 }
-.template-library > form > .form-dialog-actions {
+.template-library > form > .form-dialog-actions:empty {
   display: none;
 }
 .template-gallery-layout {

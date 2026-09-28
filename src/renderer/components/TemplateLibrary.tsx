@@ -98,14 +98,24 @@ export default function TemplateLibrary({
   const [authoring, setAuthoring] = useState<'board' | 'selection' | null>(
     initialAuthoring,
   );
-  const [authorDraft, setAuthorDraft] = useState<TemplateManifest>();
+  const selection = owner.canvas.selected;
+  const selectionName =
+    selection.length === 1 && selection[0].startsWith('object-')
+      ? current.objects[selection[0].slice(7)].name
+      : current.metadata.title;
+  const [draft, setDraft] = useState({
+    name: initialAuthoring ? selectionName : current.metadata.title,
+    description: '',
+    tags: '',
+  });
+  const [replacement, setReplacement] = useState<TemplateEntry | null>(null);
+  const [picking, setPicking] = useState(false);
   const [review, setReview] = useState<{
     document: Template;
     action: 'import' | 'export' | 'save';
     expected?: string;
   } | null>(null);
   const [removing, setRemoving] = useState<TemplateEntry | null>(null);
-  const selection = owner.canvas.selected;
   const run = async (action: () => Promise<void>) => {
     if (locked.current) return;
     locked.current = true;
@@ -164,6 +174,22 @@ export default function TemplateLibrary({
         .includes(query.trim().toLowerCase())
     );
   });
+  const pickTemplate = () => {
+    setPicking(true);
+    setCategory('My templates');
+    setQuery('');
+  };
+  const chooseTemplate = (entry: TemplateEntry) => {
+    const manifest = entry.document.extensions.template;
+    setReplacement(entry);
+    setDraft({
+      name: manifest.name,
+      description: manifest.description,
+      tags: manifest.tags.join(', '),
+    });
+    setPicking(false);
+    setSelected('');
+  };
 
   const insert = (template: Template) => {
     if (locked.current) return;
@@ -220,9 +246,24 @@ export default function TemplateLibrary({
               : 'Save to library'
         }
         onCancel={() => {
+          if (review.action === 'save') return onClose();
           setReview(null);
           setError('');
         }}
+        actions={
+          review.action === 'save' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setReview(null);
+                setError('');
+              }}
+            >
+              Back to template
+            </button>
+          )
+        }
         onSubmit={() =>
           void run(async () => {
             if (review.action === 'export') {
@@ -239,13 +280,21 @@ export default function TemplateLibrary({
                     })
                   : review.document;
               await window.desktop.templates.save(document, review.expected);
+              if (review.action === 'save') {
+                onClose();
+                onStatus(
+                  replacement
+                    ? 'Template updated.'
+                    : 'Template saved to your library.',
+                );
+                return;
+              }
               await refresh();
               setSelected('');
               setCategory('My templates');
               setQuery('');
             }
             setReview(null);
-            setAuthoring(null);
             setNotice(
               review.action === 'export'
                 ? 'Template exported.'
@@ -260,6 +309,12 @@ export default function TemplateLibrary({
           {Object.keys(review.document.connections).length} connections
         </p>
         <p>{manifest.description}</p>
+        {review.action === 'save' && replacement && (
+          <p>
+            Replaces {replacement.document.extensions.template.name} in My
+            templates.
+          </p>
+        )}
         {!!manifest.excludedConnections.length && (
           <p>
             Connections outside the selection are excluded:{' '}
@@ -277,21 +332,100 @@ export default function TemplateLibrary({
       </FormDialog>
     );
   }
-  if (authoring)
+  if (authoring && !picking)
     return (
-      <TemplateAuthor
-        document={current}
-        selection={authoring === 'selection' ? selection : undefined}
-        personal={personal}
-        busy={busy}
-        libraryError={error}
-        initial={authorDraft}
-        onCancel={() => setAuthoring(null)}
-        onSave={(document, expected) => {
-          setAuthorDraft(document.extensions.template);
-          setReview({ document, expected, action: 'save' });
+      <FormDialog
+        title="Save template"
+        description="Save an editable example to your personal gallery."
+        submitDisabled={busy}
+        onCancel={onClose}
+        submitLabel={replacement ? 'Review replacement' : 'Review template'}
+        onSubmit={() => {
+          setError('');
+          try {
+            const existing = replacement?.document.extensions.template;
+            const manifest: TemplateManifest = {
+              formatVersion: 1,
+              id: existing?.id ?? crypto.randomUUID(),
+              version: existing ? existing.version + 1 : 1,
+              name: draft.name.trim(),
+              description: draft.description,
+              tags: draft.tags
+                .split(',')
+                .map((tag) => tag.trim())
+                .filter(Boolean),
+              guidance: '',
+              components: [],
+              excludedConnections: [],
+            };
+            setReview({
+              document: createTemplate(
+                current,
+                manifest,
+                authoring === 'selection' ? selection : undefined,
+              ),
+              expected: replacement?.fingerprint,
+              action: 'save',
+            });
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
         }}
-      />
+      >
+        <label className="form-dialog-field">
+          Save as
+          <select
+            value={replacement ? 'update' : 'new'}
+            disabled={busy}
+            onChange={(e) => {
+              if (e.target.value === 'new') setReplacement(null);
+              else pickTemplate();
+            }}
+          >
+            <option value="new">New template</option>
+            <option value="update">Update existing template</option>
+          </select>
+        </label>
+        {replacement && (
+          <div>
+            <p>
+              Updating {replacement.document.extensions.template.name}. Objects
+              on your boards will stay unchanged.
+            </p>
+            <button type="button" onClick={pickTemplate}>
+              Choose another template
+            </button>
+          </div>
+        )}
+        <label className="form-dialog-field">
+          Template name
+          <input
+            required
+            maxLength={120}
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+        </label>
+        <label className="form-dialog-field">
+          Description
+          <textarea
+            maxLength={4000}
+            value={draft.description}
+            onChange={(e) =>
+              setDraft({ ...draft, description: e.target.value })
+            }
+          />
+        </label>
+        <label className="form-dialog-field">
+          Tags (comma separated)
+          <input
+            value={draft.tags}
+            onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
+          />
+        </label>
+        {busy && <p role="status">Loading personal templates…</p>}
+        {error && <p role="alert">{error}</p>}
+      </FormDialog>
     );
   if (removing)
     return (
@@ -328,41 +462,51 @@ export default function TemplateLibrary({
         description={active.document.extensions.template.description}
         className="template-details"
         onCancel={() => {
+          if (picking) return onClose();
           setSelected('');
           setError('');
         }}
-        cancelLabel="Back to gallery"
+        cancelLabel={picking ? 'Cancel' : 'Back to gallery'}
         cancelDisabled={busy}
         submitDisabled={busy}
-        submitLabel="Insert template"
-        onSubmit={() => insert(active.document)}
+        submitLabel={picking ? 'Choose template' : 'Insert template'}
+        onSubmit={() =>
+          picking ? chooseTemplate(active) : insert(active.document)
+        }
         actions={
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                setReview({ document: active.document, action: 'export' })
-              }
-            >
-              Export template
+          picking ? (
+            <button type="button" onClick={() => setSelected('')}>
+              Back to gallery
             </button>
-            {active.label === 'My templates' && (
+          ) : (
+            <>
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => setRemoving(active)}
+                onClick={() =>
+                  setReview({ document: active.document, action: 'export' })
+                }
               >
-                Remove
+                Export template
               </button>
-            )}
-          </>
+              {active.label === 'My templates' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setRemoving(active)}
+                >
+                  Remove
+                </button>
+              )}
+            </>
+          )
         }
       >
         <Preview document={active.document} height={360} />
         <p>
-          Added to open space on this board. Every shape and connection is yours
-          to edit.
+          {picking
+            ? 'Choose this template to replace its saved content with your current example.'
+            : 'Added to open space on this board. Every shape and connection is yours to edit.'}
         </p>
         {error && <p role="alert">{error}</p>}
         {notice && <p role="status">{notice}</p>}
@@ -371,17 +515,31 @@ export default function TemplateLibrary({
   return (
     <FormDialog
       title="Templates"
-      description="A starting point for your next diagram. Insert an example, then make it your own."
+      description={
+        picking
+          ? 'Choose a personal template to update with your current example.'
+          : 'A starting point for your next diagram. Insert an example, then make it your own.'
+      }
       className="template-library"
       onCancel={onClose}
-      cancelLabel={false}
+      cancelLabel={picking ? 'Cancel' : false}
       cancelDisabled={busy}
       initialFocus={search}
+      actions={
+        picking && (
+          <button type="button" onClick={() => setPicking(false)}>
+            Back to template
+          </button>
+        )
+      }
     >
       <div className="template-gallery-layout">
         <aside className="template-sidebar">
           <nav aria-label="Template categories">
-            {['All templates', 'My templates'].map((label) => (
+            {(picking
+              ? ['My templates']
+              : ['All templates', 'My templates']
+            ).map((label) => (
               <button
                 type="button"
                 key={label}
@@ -391,58 +549,58 @@ export default function TemplateLibrary({
                 {label}
               </button>
             ))}
-            <h3>Use cases</h3>
-            {categories.map(({ label }) => (
-              <button
-                type="button"
-                key={label}
-                aria-pressed={category === label}
-                onClick={() => setCategory(label)}
-              >
-                {label}
-              </button>
-            ))}
+            {!picking && <h3>Use cases</h3>}
+            {!picking &&
+              categories.map(({ label }) => (
+                <button
+                  type="button"
+                  key={label}
+                  aria-pressed={category === label}
+                  onClick={() => setCategory(label)}
+                >
+                  {label}
+                </button>
+              ))}
           </nav>
-          <div className="template-library-actions">
-            <h3>Your templates</h3>
-            <button
-              type="button"
-              disabled={
-                busy ||
-                (!Object.keys(current.objects).length &&
-                  !Object.keys(current.connections).length)
-              }
-              onClick={() => {
-                setAuthorDraft(undefined);
-                setAuthoring('board');
-              }}
-            >
-              Save board as template
-            </button>
-            <button
-              type="button"
-              disabled={busy || !selection.length}
-              onClick={() => {
-                setAuthorDraft(undefined);
-                setAuthoring('selection');
-              }}
-            >
-              Save selection
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  const entry = await window.desktop.templates.import();
-                  if (entry)
-                    setReview({ document: entry.document, action: 'import' });
-                })
-              }
-            >
-              Import template
-            </button>
-          </div>
+          {!picking && (
+            <div className="template-library-actions">
+              <h3>Your templates</h3>
+              <button
+                type="button"
+                disabled={
+                  busy ||
+                  (!Object.keys(current.objects).length &&
+                    !Object.keys(current.connections).length)
+                }
+                onClick={() => setAuthoring('board')}
+              >
+                Save board as template
+              </button>
+              <button
+                type="button"
+                disabled={busy || !selection.length}
+                onClick={() => {
+                  setDraft({ ...draft, name: selectionName });
+                  setAuthoring('selection');
+                }}
+              >
+                Save selection
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    const entry = await window.desktop.templates.import();
+                    if (entry)
+                      setReview({ document: entry.document, action: 'import' });
+                  })
+                }
+              >
+                Import template
+              </button>
+            </div>
+          )}
         </aside>
         <section
           className="template-gallery"
@@ -474,7 +632,9 @@ export default function TemplateLibrary({
               <p>
                 {query
                   ? 'Try a different search or category.'
-                  : 'Save a board or import a template to add it here.'}
+                  : picking
+                    ? 'Go back and choose New template to save your first example.'
+                    : 'Save a board or import a template to add it here.'}
               </p>
             </div>
           )}
@@ -500,141 +660,19 @@ export default function TemplateLibrary({
                 <button
                   type="button"
                   className="primary-button"
-                  aria-label={`Insert ${entry.document.extensions.template.name}`}
+                  aria-label={`${picking ? 'Choose' : 'Insert'} ${entry.document.extensions.template.name}`}
                   disabled={busy}
-                  onClick={() => insert(entry.document)}
+                  onClick={() =>
+                    picking ? chooseTemplate(entry) : insert(entry.document)
+                  }
                 >
-                  Insert template
+                  {picking ? 'Choose template' : 'Insert template'}
                 </button>
               </article>
             ))}
           </div>
         </section>
       </div>
-    </FormDialog>
-  );
-}
-
-function TemplateAuthor({
-  document,
-  selection,
-  personal,
-  busy,
-  libraryError,
-  initial,
-  onCancel,
-  onSave,
-}: {
-  document: RecursiveDocument;
-  selection?: string[];
-  personal: TemplateEntry[];
-  busy: boolean;
-  libraryError: string;
-  initial?: TemplateManifest;
-  onCancel: () => void;
-  onSave: (document: Template, expected?: string) => void;
-}) {
-  const [name, setName] = useState(
-    initial?.name ??
-      (selection?.length === 1 && selection[0].startsWith('object-')
-        ? document.objects[selection[0].slice(7)].name
-        : document.metadata.title),
-  );
-  const [description, setDescription] = useState(initial?.description ?? '');
-  const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
-  const [replacement, setReplacement] = useState(
-    initial &&
-      personal.some((e) => e.document.extensions.template.id === initial.id)
-      ? initial.id
-      : '',
-  );
-  const [error, setError] = useState('');
-  return (
-    <FormDialog
-      title="Save template"
-      description="Save an editable example to your personal gallery."
-      submitDisabled={busy || !!libraryError}
-      onCancel={onCancel}
-      submitLabel={replacement ? 'Review replacement' : 'Review template'}
-      onSubmit={() => {
-        try {
-          const existing = personal.find(
-            (e) => e.document.extensions.template.id === replacement,
-          );
-          const manifest: TemplateManifest = {
-            formatVersion: 1,
-            id:
-              existing?.document.extensions.template.id ?? crypto.randomUUID(),
-            version: existing
-              ? existing.document.extensions.template.version + 1
-              : 1,
-            name: name.trim(),
-            description,
-            tags: tags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean),
-            guidance: '',
-            components: [],
-            excludedConnections: [],
-          };
-          onSave(
-            createTemplate(document, manifest, selection),
-            existing?.fingerprint,
-          );
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      }}
-    >
-      <label className="form-dialog-field">
-        Template name
-        <input
-          required
-          maxLength={120}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
-      <label className="form-dialog-field">
-        Description
-        <textarea
-          maxLength={4000}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </label>
-      <label className="form-dialog-field">
-        Tags (comma separated)
-        <input value={tags} onChange={(e) => setTags(e.target.value)} />
-      </label>
-      {!!personal.length && (
-        <label className="form-dialog-field">
-          Save as
-          <select
-            value={replacement}
-            onChange={(e) => setReplacement(e.target.value)}
-          >
-            <option value="">New template</option>
-            {personal.map((entry) => (
-              <option
-                key={entry.document.extensions.template.id}
-                value={entry.document.extensions.template.id}
-              >
-                Replace {entry.document.extensions.template.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {replacement && (
-        <p>
-          The saved template will be replaced. Objects on your boards will stay
-          unchanged.
-        </p>
-      )}
-      {busy && <p role="status">Loading personal templates…</p>}
-      {(error || libraryError) && <p role="alert">{error || libraryError}</p>}
     </FormDialog>
   );
 }

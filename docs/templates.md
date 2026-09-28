@@ -32,9 +32,12 @@ selected connections to uncopied objects use free endpoints, as in normal Copy.
 You can also right-click selected objects or connections and choose **Save
 Template** to go directly to the personal-template form.
 
-Give the example a name, description and optional tags. Save a new personal entry,
-or explicitly choose an entry to replace. Review before saving. To customize an
-existing template, insert it, edit the objects normally, then save the selection.
+Choose **New template**, or **Update existing template** to pick an entry from
+the **My templates** gallery. Update pre-fills that entry's name, description and
+tags; edit them as needed, then review before saving. **Back to template** keeps
+your edits. **Cancel** and a successful save or update return to the board.
+To customize an existing template, insert it, edit the objects normally, then save
+the selection.
 Replacing or removing a gallery entry never changes content on boards.
 
 Open a card's preview to **Export template** as a `.depthtemplate` file, or remove
