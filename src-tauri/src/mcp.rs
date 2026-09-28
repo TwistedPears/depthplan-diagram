@@ -34,33 +34,38 @@ fn unavailable() -> Value {
     failure("APP_UNAVAILABLE", "The app is unavailable. Query current state before retrying an interrupted command with the same request ID.")
 }
 impl Adapter {
-    async fn execute(&self, name: &str, input: Value) -> Result<Value, ()> {
+    async fn execute(
+        &self,
+        name: &str,
+        input: Value,
+    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
         let Some((input_schema, output_schema)) = self.schemas.get(name) else {
             return Ok(failure("INVALID_REQUEST", "Unknown tool."));
         };
         if !input_schema.is_valid(&input) {
             return Ok(failure("INVALID_REQUEST", "Invalid tool input."));
         }
-        let parent = self.descriptor.parent().ok_or(())?;
-        crate::private::path(parent, false, true).map_err(|_| ())?;
-        crate::private::path(&self.descriptor, false, false).map_err(|_| ())?;
-        let file = tokio::fs::File::open(&self.descriptor)
-            .await
-            .map_err(|_| ())?;
+        let parent = self
+            .descriptor
+            .parent()
+            .ok_or("Missing descriptor directory")?;
+        crate::private::path(parent, false, true)?;
+        crate::private::path(&self.descriptor, false, false)?;
+        let file = tokio::fs::File::open(&self.descriptor).await?;
         let mut bytes = Vec::new();
-        file.take(8193)
-            .read_to_end(&mut bytes)
-            .await
-            .map_err(|_| ())?;
+        file.take(8193).read_to_end(&mut bytes).await?;
         if bytes.len() > 8192 {
-            return Err(());
+            return Err("Invalid local descriptor".into());
         }
-        let d: Descriptor = serde_json::from_slice(&bytes).map_err(|_| ())?;
+        let d: Descriptor = serde_json::from_slice(&bytes)?;
         if d.version != 1 {
-            return Err(());
+            return Err("Invalid local descriptor".into());
         }
         {
-            let mut pinned = self.pinned.lock().map_err(|_| ())?;
+            let mut pinned = self
+                .pinned
+                .lock()
+                .map_err(|_| "App identity lock poisoned")?;
             if pinned.is_some_and(|id| id != d.app_instance_id) {
                 return Ok(failure(
                     "STALE_APP",
@@ -72,21 +77,20 @@ impl Adapter {
         if !d.enabled || d.token.is_none() {
             return Ok(failure("DISABLED", "Automation is disabled."));
         }
-        let token = d.token.ok_or(())?;
+        let token = d.token.ok_or("Missing local authorization")?;
         if token.len() != 64
             || !token
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
             || Path::new(&d.endpoint) != expected_endpoint(parent, &d.app_instance_id)
         {
-            return Err(());
+            return Err("Invalid local descriptor".into());
         }
         #[cfg(unix)]
-        crate::private::path(Path::new(&d.endpoint), false, false).map_err(|_| ())?;
+        crate::private::path(Path::new(&d.endpoint), false, false)?;
         let mut wire = serde_json::to_vec(
             &json!({"tool":name,"input":input,"token":token,"appInstanceId":d.app_instance_id}),
-        )
-        .map_err(|_| ())?;
+        )?;
         wire.push(b'\n');
         if wire.len() > 64 * 1024 {
             return Ok(failure(
@@ -95,29 +99,24 @@ impl Adapter {
             ));
         }
         #[cfg(unix)]
-        let mut socket = tokio::net::UnixStream::connect(&d.endpoint)
-            .await
-            .map_err(|_| ())?;
+        let mut socket = tokio::net::UnixStream::connect(&d.endpoint).await?;
         #[cfg(windows)]
-        let mut socket = tokio::net::windows::named_pipe::ClientOptions::new()
-            .open(&d.endpoint)
-            .map_err(|_| ())?;
-        socket.write_all(&wire).await.map_err(|_| ())?;
+        let mut socket = tokio::net::windows::named_pipe::ClientOptions::new().open(&d.endpoint)?;
+        socket.write_all(&wire).await?;
         #[cfg(unix)]
-        socket.shutdown().await.map_err(|_| ())?;
+        socket.shutdown().await?;
         let mut response = Vec::new();
         socket
             .take(1024 * 1024 + 1)
             .read_to_end(&mut response)
-            .await
-            .map_err(|_| ())?;
+            .await?;
         if response.len() > 1024 * 1024 {
             return Ok(failure(
                 "RESPONSE_TOO_LARGE",
                 "Response exceeds the size limit.",
             ));
         }
-        let result: Value = serde_json::from_slice(&response).map_err(|_| ())?;
+        let result: Value = serde_json::from_slice(&response)?;
         if !output_schema.is_valid(&result) {
             return Ok(failure("INTERNAL_ERROR", "Invalid application response."));
         }
@@ -149,9 +148,13 @@ impl ServerHandler for Adapter {
             ),
         )
         .await
+        .unwrap_or_else(|error| Err(error.into()))
         {
-            Ok(Ok(value)) => value,
-            _ => unavailable(),
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("MCP {} transport error: {error}", request.name);
+                unavailable()
+            }
         };
         Ok(if result["ok"] == true {
             CallToolResult::structured(result)

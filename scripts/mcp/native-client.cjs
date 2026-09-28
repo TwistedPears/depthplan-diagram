@@ -16,7 +16,10 @@ function client(executable, descriptor) {
   let next = 0;
   const pending = new Map();
   let diagnostic = '';
-  child.stderr.on('data', (chunk) => (diagnostic += chunk));
+  child.stderr.on('data', (chunk) => {
+    diagnostic += chunk;
+    process.stderr.write(chunk);
+  });
   createInterface({ input: child.stdout }).on('line', (line) => {
     const response = JSON.parse(line);
     const waiting = pending.get(response.id);
