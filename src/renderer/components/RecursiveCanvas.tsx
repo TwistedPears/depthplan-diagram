@@ -686,7 +686,11 @@ export default memo(function RecursiveCanvas({
     setTool(kind === 'line' ? ToolMode.LINE : ToolMode.ARROW);
   };
   const freeWorkspace = useCallback(() => {
-    const top = size.width <= 1100 ? 150 : 84;
+    const top =
+      (stageRef.current
+        ?.container()
+        .parentElement?.querySelector('.shape-toolbar')
+        ?.getBoundingClientRect().bottom ?? 68) + 16;
     const bottom = size.width <= 760 ? 146 : 90;
     let workspaceBottom = size.height - bottom;
     const area = {
@@ -1889,17 +1893,23 @@ export default memo(function RecursiveCanvas({
         <button
           type="button"
           aria-label="Zoom out"
+          className="zoom-control"
           onClick={() => zoom(1 / 1.2)}
         >
           <Icon name="minus" />
         </button>
-        <output aria-label="Canvas zoom">
+        <output aria-label="Canvas zoom" className="zoom-control">
           {(camera.scale * 100).toLocaleString(undefined, {
             maximumFractionDigits: 2,
           })}
           %
         </output>
-        <button type="button" aria-label="Zoom in" onClick={() => zoom(1.2)}>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          className="zoom-control"
+          onClick={() => zoom(1.2)}
+        >
           <Icon name="plus" />
         </button>
         <button
@@ -1919,17 +1929,15 @@ export default memo(function RecursiveCanvas({
         >
           <Icon name="map" />
         </button>
-      </div>
-      {minimap && (
-        <div className="canvas-minimap">
+        {minimap && (
           <Minimap
             blocks={bounds.objects}
             containerSize={size}
             viewBox={camera}
             onViewBoxChange={(p) => setCamera((c) => ({ ...c, ...p }))}
           />
-        </div>
-      )}
+        )}
+      </div>
       <RecursiveExport
         stamp={stamp}
         ref={exportRef}

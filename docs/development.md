@@ -76,6 +76,7 @@ npm run test:native
 npm run build:automation
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
 npm run smoke:ci
+node scripts/native-responsive-chrome.mjs
 npm run build
 node scripts/check-licenses.cjs
 ```

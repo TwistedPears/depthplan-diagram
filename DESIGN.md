@@ -101,12 +101,12 @@ components:
   drawing-toolbar:
     backgroundColor: '{colors.surface}'
     rounded: '{rounded.panel}'
-    padding: '6px'
+    padding: '5px'
   drawing-tool:
     textColor: '{colors.ink}'
     rounded: '{rounded.drawing-tool}'
-    width: '38px'
-    height: '38px'
+    width: '36px'
+    height: '36px'
     padding: '8px'
   drawing-tool-selected:
     backgroundColor: '{colors.accent}'
@@ -194,7 +194,7 @@ The workspace and canvas occupy the full viewport and suppress page scrolling. T
 
 Floating chrome uses the workspace-edge spacing token. At wide widths, document identity and file actions occupy opposite top corners, with drawing tools centered between them. History and bookmarks occupy the lower left, depth the lower center, and camera controls the lower right. Selection controls appear at the left (top: 92px) with bounded height and internal scrolling.
 
-At (1100px) and below, drawing tools move to a second row (top: 80px), and selection controls move below it (top: 150px). At (760px) and below, depth moves above the lower-left controls, navigation buttons compress, and gesture hints disappear. At (600px) and below, selection controls dock above the bottom instruments (bottom: 146px), use the viewport width minus (36px), and scroll within a maximum height (32vh), leaving room to edit the object above. At (480px) and below, history and depth share the row above camera controls, document captions shorten, and drawing tools shrink to (32px × 34px). These are viewport adaptations, not a separate mobile product.
+Drawing tools stay centered in the space between the document identity and file actions. At (940px) and below, quick Save and Export hide; both remain in the main menu. Quick Save also hides whenever Autosave is on. The document identity and drawing toolbar share a (46px) height, (36px) buttons, and the standard button icon size. At (780px) and below, both fill the window width with no outer margins or rounded corners: identity starts at the top and drawing tools meet it at (top: 46px). Selection controls and the project drawer sit below at (top: 110px). At (502px) and below, horizontal spacing compresses and drawing buttons shrink only as needed; their height and icon size stay unchanged. At (760px) and below, depth moves above the lower-left controls, navigation buttons compress, and gesture hints disappear. At (600px) and below, selection controls dock above the bottom instruments (bottom: 146px), use the viewport width minus (36px), and scroll within a maximum height (32vh), leaving room to edit the object above. At (520px) and below, Bookmarks keeps its labeled icon and hides its visible wording. At (400px) and below, the zoom decrement, readout, and increment hide. History and camera controls stay on one bottom row; Fit, Reset view, and Minimap remain available. These are viewport adaptations, not a separate mobile product.
 
 Panels constrain their width to the viewport and scroll internally. The depth panel uses `min(340px, calc(100vw - 36px))`. The bookmark panel uses `min(280px, calc(100vw - 46px))` with 8px padding, grows upward, and scrolls its list above a persistent name field and add button. Bookmark names apply their saved view on click. Right-click or Shift+F10 reveals Reset View, Rename, Duplicate, a separator, and Delete in a native popover; the selection panel uses its compact token width and expands to the selection-panel-expanded width for detailed Properties. Use the existing compact spacing rhythm between related controls and larger panel padding around groups. Fit and text-edit reveal account for the visible selection panel and surrounding instruments; these camera commands preserve unrestricted canvas pan and zoom.
 

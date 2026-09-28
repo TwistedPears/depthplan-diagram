@@ -14,6 +14,11 @@
   --accent-soft: #eaf0ff;
   --danger: #ac323b;
   --floating-shadow: 0 3px 16px #24314412, 0 1px 3px #2431440d;
+  --document-switcher-width: 241px;
+  --document-actions-width: 96px;
+}
+:root:has(.quick-save) {
+  --document-actions-width: 142px;
 }
 
 * {
@@ -305,15 +310,13 @@ summary {
 .canvas-navigation > button:first-child {
   margin-right: 5px;
 }
-.canvas-navigation > button:last-child {
+.canvas-navigation > button:last-of-type {
   margin-left: 5px;
 }
 .canvas-minimap {
   position: absolute;
-  bottom: 114px;
-  right: 18px;
-  width: 220px;
-  height: 190px;
+  bottom: calc(100% + 18px);
+  right: 0;
   z-index: 900;
 }
 .canvas-gesture-hint {
@@ -760,21 +763,19 @@ dialog label {
   margin-left: 6px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 780px) {
   .recursive-selection-toolbar,
   .object-search-results,
-  .selection-reopen {
-    top: 150px;
-  }
+  .selection-reopen,
   .drawing-hint {
-    top: 138px;
+    top: 110px;
   }
   .canvas-container:has(.object-search-form:not([hidden]))
     .object-search-results,
   .canvas-container:has(.object-search-form:not([hidden]))
     .recursive-selection-toolbar {
-    top: 202px;
-    max-height: calc(100vh - 332px);
+    top: 164px;
+    max-height: calc(100vh - 294px);
   }
 }
 @media (max-width: 760px) {
@@ -817,14 +818,11 @@ dialog label {
     min-width: 52px;
   }
   .canvas-navigation > button:first-child,
-  .canvas-navigation > button:last-child {
+  .canvas-navigation > button:last-of-type {
     margin: 0;
   }
   .recovery-control {
     bottom: 86px;
-  }
-  .canvas-minimap {
-    bottom: 138px;
   }
   .canvas-welcome h1 {
     font-size: 25px;
@@ -834,11 +832,17 @@ dialog label {
     max-height: calc(100vh - 290px);
   }
 }
-@media (max-width: 480px) {
-  .document-history {
-    bottom: 74px;
-    left: 18px;
+@media (max-width: 520px) {
+  .bookmark-label {
+    display: none;
   }
+}
+@media (max-width: 400px) {
+  .canvas-navigation .zoom-control {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
   .depth-navigator {
     left: auto;
     right: 18px;
@@ -847,13 +851,6 @@ dialog label {
   .depth-panel {
     left: auto;
     right: 0;
-  }
-  .canvas-navigation {
-    left: 18px;
-    right: auto;
-  }
-  .recovery-control {
-    bottom: 26px;
   }
   .canvas-welcome {
     top: 45%;
@@ -864,9 +861,6 @@ dialog label {
   .canvas-welcome p {
     font-size: 13px;
     max-width: 270px;
-  }
-  .canvas-minimap {
-    bottom: 168px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1495,11 +1495,13 @@ test('New Project stays in memory; first Save uses inline names, survives cancel
   jest
     .mocked(window.desktop.projects.save)
     .mockResolvedValueOnce({ status: 'canceled' });
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(mockWorkspace.project?.location).toBeNull();
   expect(controller('a').owner.document?.objects.api.name).toBe('Memory edit');
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(project.manifest.name).toBe('My Project');
   expect(project.manifest.boards.slice(0, 2).map((b) => b.path)).toEqual([
@@ -1574,7 +1576,8 @@ test('a failed board read after first-save publication retains the saved project
   jest
     .mocked(window.desktop.projects.readBoard)
     .mockResolvedValueOnce({ status: 'error', error: 'Board unavailable' });
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(mockWorkspace.project?.location).toBe('/project/saved.depthproject');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByRole('alert')).toHaveTextContent(
@@ -1833,6 +1836,7 @@ test.each(['Open Recent', 'Settings'])(
 test('Settings restores a saved Autosave preference', async () => {
   localStorage.setItem('depthplan.autosave', 'off');
   await setup();
+  expect(screen.getByRole('button', { name: 'Save document' })).toBeVisible();
   await click('Menu');
   await click('Settings');
   expect(
@@ -1851,8 +1855,10 @@ test('Settings Autosave defaults on, pauses every project board, permits manual 
     const toggle = () =>
       screen.getByRole('menuitemcheckbox', { name: 'Autosave' });
     expect(toggle()).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Save document' })).toBeNull();
     fireEvent.click(toggle());
     expect(toggle()).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Save document' })).toBeVisible();
     expect(localStorage.getItem('depthplan.autosave')).toBe('off');
     act(() => {
       controller('a').owner.transact(editObject('api', { name: 'Manual A' }));
@@ -1870,6 +1876,7 @@ test('Settings Autosave defaults on, pauses every project board, permits manual 
     await click('Settings');
     fireEvent.click(toggle());
     expect(localStorage.getItem('depthplan.autosave')).toBe('on');
+    expect(screen.queryByRole('button', { name: 'Save document' })).toBeNull();
     act(() =>
       controller('a').owner.transact(
         editObject('api', { name: 'Automatic A' }),

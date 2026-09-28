@@ -185,16 +185,18 @@ function UnifiedToolbar({
       </div>
 
       <div className="document-actions" inert={blocked}>
-        <button
-          type="button"
-          className="quick-save"
-          aria-label="Save document"
-          title="Save document"
-          disabled={isLoading || !currentDocument}
-          onClick={onSave}
-        >
-          <Icon name="save" />
-        </button>
+        {!workspace?.autosave && (
+          <button
+            type="button"
+            className="quick-save"
+            aria-label="Save document"
+            title="Save document"
+            disabled={isLoading || !currentDocument}
+            onClick={onSave}
+          >
+            <Icon name="save" />
+          </button>
+        )}
         <button
           type="button"
           className="primary-button"

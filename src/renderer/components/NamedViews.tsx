@@ -117,8 +117,9 @@ export default function NamedViews({
           }
         }}
       >
-        <summary>
-          <Icon name="bookmark" /> Bookmarks
+        <summary aria-label="Bookmarks" title="Bookmarks">
+          <Icon name="bookmark" />
+          <span className="bookmark-label">Bookmarks</span>
         </summary>
         <div className="bookmark-panel">
           {Object.keys(views).length > 0 && (

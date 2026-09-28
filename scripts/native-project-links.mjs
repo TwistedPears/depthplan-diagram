@@ -251,11 +251,12 @@ export async function projectLinks(driver) {
       );
     });
     await select();
-    assert.equal(
-      await sync(
-        `return document.querySelector('button[aria-label="Open project link"]').disabled`,
-      ),
-      true,
+    await until(
+      () =>
+        sync(
+          `return document.querySelector('button[aria-label="Open project link"]')?.disabled === true`,
+        ),
+      'Standalone project link should appear disabled',
     );
     await click('Change project link');
     assert.equal(

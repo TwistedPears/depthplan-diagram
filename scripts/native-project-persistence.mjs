@@ -273,7 +273,8 @@ export async function projectPersistence(driver) {
       { kind: 'message', value: 'Save As' },
       { kind: 'save', value: restoredPath },
     ]);
-    await restored.click('Save document');
+    await restored.click('Menu');
+    await restored.click('Save All');
     await restored.until(async () => {
       try {
         return (
