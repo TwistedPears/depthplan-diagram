@@ -160,9 +160,24 @@ export async function menuSettings(driver) {
   await click('Menu');
   await click('Menu');
   await click('New Board');
+  await until(() =>
+    sync(
+      'return document.querySelector(".document-state").textContent === "Not saved yet"',
+    ),
+  );
+  assert(
+    await sync(
+      'return !document.querySelector(".document-name sup") && document.querySelector("button[aria-label=Undo]").disabled && document.querySelector("button[aria-label=Redo]").disabled',
+    ),
+  );
   const before = await native('test:last-file-dialog');
   await dialogs('save', null);
   await rename('Unsaved memory board');
+  assert(await sync('return !!document.querySelector(".document-name sup")'));
+  await click('Undo');
+  assert(await sync('return !document.querySelector(".document-name sup")'));
+  await click('Redo');
+  assert(await sync('return !!document.querySelector(".document-name sup")'));
   await pause();
   assert.deepEqual(
     await native('test:last-file-dialog'),

@@ -101,6 +101,7 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByText('Untitled Document')).toBeInTheDocument();
     expect(screen.getByText('Not saved yet')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Unsaved')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
     expect(window.desktop.fileSystem.newDocument).not.toHaveBeenCalled();
@@ -464,5 +465,14 @@ describe('App', () => {
     );
     chooseFileCommand('New Board');
     await screen.findByText('Test diagram');
+    expect(screen.queryByLabelText('Unsaved')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit document' }));
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.queryByLabelText('Unsaved')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
   });
 });

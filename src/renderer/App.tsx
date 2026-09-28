@@ -458,7 +458,7 @@ function BoardWorkspace({
               .at(-1)
           : currentFilePath?.split(/[\\/]/).at(-1)
       }
-      unsaved={!owner.source || dirty || hasDrafts}
+      unsaved={dirty || hasDrafts || (!!session.project && !owner.source)}
       onRenameDocument={
         session.project
           ? (name) =>
