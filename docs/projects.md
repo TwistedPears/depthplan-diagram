@@ -7,9 +7,11 @@ Existing `.depthplan.json` diagrams remain supported.
 
 ## Start and navigate
 
-Use **Menu → New Project** to start immediately with an **Untitled Project** and
-**Untitled Board** in memory. New boards also start in memory without a naming
-prompt. No project folder or board file is created yet.
+Use **Menu → New Project** to wrap the current board in an **Untitled Project**
+in memory. Its content, selection, view and Undo history stay intact, with no
+board save prompt. If no board is open, the project starts with an **Untitled
+Board**. New boards also start in memory without a naming prompt. No project
+folder or board file is created yet.
 
 Double-click the project title above the Boards list or a board name to edit it
 inline. Enter or Tab commits; Escape cancels. Keyboard users can press F2 on the

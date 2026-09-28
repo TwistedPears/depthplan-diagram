@@ -127,7 +127,14 @@ function useProject() {
     live.current = next;
     setProject(next);
   };
-  const key = (boardId: string) => `${live.current!.sessionId}:${boardId}`;
+  const key = (boardId: string) =>
+    registry
+      .snapshot()
+      .sessions.find(
+        (session) =>
+          session.project?.sessionId === live.current?.sessionId &&
+          session.project?.boardId === boardId,
+      )?.key ?? `${live.current!.sessionId}:${boardId}`;
   const run = async (action: () => Promise<boolean | void>) => {
     if (locked.current || !registry.canSwitch()) return false;
     const previous = registry.activeKey;
@@ -440,10 +447,56 @@ function useProject() {
     });
   const createProject = () =>
     run(async () => {
-      if (!(await guardProject()) || !(await registry.prepare())) return false;
-      const created = success(await window.desktop.projects.new());
+      const { sessions, activeKey } = registry.snapshot();
+      const active = sessions.find((session) => session.key === activeKey);
+      const controller = registry.controllers.get(activeKey);
+      const others = sessions
+        .filter((session) => session !== active)
+        .map((session) => session.key);
+      // Only work left behind needs a save decision. The active board travels with its history.
+      if (
+        live.current?.manifest.boards.some(
+          (board) => board.id !== active?.project?.boardId,
+        ) &&
+        !(await guardProject())
+      )
+        return false;
+      if (!(await registry.prepare(others))) return false;
+      registry.release();
+      if (!(await registry.prepare(active ? [activeKey] : [], true)))
+        return false;
+      const document = controller?.owner.snapshot().document ?? undefined;
+      const created = success(await window.desktop.projects.new(document));
       if (!created) return false;
-      await install(created.project);
+      let installed = false;
+      try {
+        await registry.retire(others);
+        if (live.current)
+          success(await window.desktop.projects.close(live.current.sessionId));
+        update(created.project);
+        if (active && controller && document) {
+          controller.owner.relocate(document.metadata.title, null);
+          controller.files.clearFailure();
+          registry.install([
+            {
+              ...active,
+              document,
+              source: null,
+              project: {
+                sessionId: created.project.sessionId,
+                boardId: document.id,
+              },
+            },
+          ]);
+        } else {
+          registry.install([]);
+          await openHome(created.project);
+        }
+        installed = true;
+      } finally {
+        if (!installed)
+          await window.desktop.projects.close(created.project.sessionId);
+      }
     });
   const acceptStandalone = async (candidate: FileCandidate | null) => {
     if (!(await guardProject()) || !(await registry.prepare())) return false;

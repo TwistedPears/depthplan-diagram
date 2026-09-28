@@ -907,7 +907,7 @@ fn same_path_rename_preserves_external_edits_before_board_and_manifest_publicati
 #[test]
 fn renaming_without_changing_the_path_updates_memory_and_saved_boards() {
     let dir = tempfile::tempdir().unwrap();
-    let mut project = Project::new();
+    let mut project = Project::new(None, "Untitled Board", "untitled_board.depthplan").unwrap();
     let board = project.manifest.boards[0].clone();
     let path = dir.path().join("project.depthproject");
     for name in ["Untitled board", "UNTITLED BOARD"] {
@@ -950,8 +950,19 @@ fn renaming_without_changing_the_path_updates_memory_and_saved_boards() {
 #[test]
 fn memory_project_retains_boards_until_first_save_and_then_reopens() {
     let dir = tempfile::tempdir().unwrap();
-    let mut project = Project::new();
+    let original = files::fixture();
+    let mut project = Project::new(
+        Some(original.clone()),
+        "Current Board",
+        "current_board.depthplan",
+    )
+    .unwrap();
     let first = project.manifest.boards[0].id.clone();
+    assert_eq!(first, original["id"].as_str().unwrap());
+    assert_eq!(project.manifest.home_board_id.as_ref(), Some(&first));
+    assert_eq!(project.read_board(&first).unwrap()["document"], original);
+    assert!(Project::new(Some(json!({})), "Invalid", "invalid.depthplan").is_err());
+    assert!(Project::new(Some(original), "Valid", "../escape.depthplan").is_err());
     assert!(project.snapshot("session")["location"].is_null());
     assert!(project.board_path(&first).is_err());
     let mut document = project.read_board(&first).unwrap()["document"].clone();
@@ -1139,7 +1150,7 @@ fn first_save_errors_keep_memory_and_never_replace_existing_files() {
         "manifest-published",
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let mut project = Project::new();
+        let mut project = Project::new(None, "Untitled Board", "untitled_board.depthplan").unwrap();
         let before = project.snapshot("session");
         let document = project.read_board(&project.manifest.boards[0].id).unwrap();
         let path = dir.path().join("project.depthproject");
@@ -1165,7 +1176,7 @@ fn first_save_errors_keep_memory_and_never_replace_existing_files() {
         );
     }
     let dir = tempfile::tempdir().unwrap();
-    let mut project = Project::new();
+    let mut project = Project::new(None, "Untitled Board", "untitled_board.depthplan").unwrap();
     let path = dir.path().join("project.depthproject");
     let occupied = dir.path().join("UNTITLED_BOARD.depthplan");
     fs::write(&occupied, b"unrelated content").unwrap();

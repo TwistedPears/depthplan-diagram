@@ -14,6 +14,7 @@ import type { FileLease, FolderGrant } from '../shared/mcpFileContract';
 import {
   validateProjectManifest,
   projectFilename,
+  projectNameSchema,
 } from '../shared/projectContract';
 import type {
   ProjectAction,
@@ -132,7 +133,19 @@ const desktopHandler = {
     },
   },
   projects: {
-    new: () => projectCall('project:new'),
+    new: (document?: RecursiveDocument) => {
+      if (!document) return projectCall('project:new');
+      validateRecursiveDocument(document);
+      const name = projectNameSchema.safeParse(document.metadata.title).success
+        ? document.metadata.title
+        : 'Untitled Board';
+      return projectCall(
+        'project:new',
+        document,
+        name,
+        projectFilename(name, []),
+      );
+    },
     save: (
       sessionId: string,
       expected: string,

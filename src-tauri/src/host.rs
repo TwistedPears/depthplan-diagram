@@ -460,9 +460,15 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             };
             Ok(json!({"status":"success", "project":host.projects.lock().unwrap().open(&path)?}))
         }
-        "project:new" => Ok(
-            json!({"status":"success","project":host.projects.lock().unwrap().insert(Project::new())}),
-        ),
+        "project:new" => {
+            let document = arg(args, 0);
+            let project = Project::new(
+                (!document.is_null()).then(|| document.clone()),
+                arg(args, 1).as_str().unwrap_or("Untitled Board"),
+                arg(args, 2).as_str().unwrap_or("untitled_board.depthplan"),
+            )?;
+            Ok(json!({"status":"success","project":host.projects.lock().unwrap().insert(project)}))
+        }
         "project:save" => {
             let id = string(arg(args, 0))?;
             let expected = string(arg(args, 1))?;
