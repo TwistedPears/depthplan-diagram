@@ -686,7 +686,9 @@ export default memo(function RecursiveCanvas({
     setTool(kind === 'line' ? ToolMode.LINE : ToolMode.ARROW);
   };
   const freeWorkspace = useCallback(() => {
-    const top = size.width <= 1100 ? 150 : 84;
+    const top =
+      (window.document.querySelector('.shape-toolbar')?.getBoundingClientRect()
+        .bottom ?? 68) + 16;
     const bottom = size.width <= 760 ? 146 : 90;
     let workspaceBottom = size.height - bottom;
     const area = {

@@ -14,6 +14,11 @@
   --accent-soft: #eaf0ff;
   --danger: #ac323b;
   --floating-shadow: 0 3px 16px #24314412, 0 1px 3px #2431440d;
+  --document-switcher-width: 241px;
+  --document-actions-width: 96px;
+}
+:root:has(.quick-save) {
+  --document-actions-width: 142px;
 }
 
 * {
@@ -760,7 +765,7 @@ dialog label {
   margin-left: 6px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 780px) {
   .recursive-selection-toolbar,
   .object-search-results,
   .selection-reopen {
