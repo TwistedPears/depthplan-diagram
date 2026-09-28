@@ -97,6 +97,10 @@ export async function menuSettings(driver) {
       ),
     );
   }
+  await request(`/session/${session}/window/rect`, {
+    width: 1280,
+    height: 900,
+  });
   await sync(
     `document.querySelector('[role=menu][aria-label=Settings]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))`,
   );

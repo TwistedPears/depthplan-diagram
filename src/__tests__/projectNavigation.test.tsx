@@ -1495,11 +1495,13 @@ test('New Project stays in memory; first Save uses inline names, survives cancel
   jest
     .mocked(window.desktop.projects.save)
     .mockResolvedValueOnce({ status: 'canceled' });
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(mockWorkspace.project?.location).toBeNull();
   expect(controller('a').owner.document?.objects.api.name).toBe('Memory edit');
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(project.manifest.name).toBe('My Project');
   expect(project.manifest.boards.slice(0, 2).map((b) => b.path)).toEqual([
@@ -1574,7 +1576,8 @@ test('a failed board read after first-save publication retains the saved project
   jest
     .mocked(window.desktop.projects.readBoard)
     .mockResolvedValueOnce({ status: 'error', error: 'Board unavailable' });
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   expect(mockWorkspace.project?.location).toBe('/project/saved.depthproject');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByRole('alert')).toHaveTextContent(

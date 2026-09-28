@@ -70,9 +70,9 @@ export async function projectNavigation(driver) {
       );
       assert(
         await sync(
-          `const drawer=document.querySelector('#project-drawer');const button=document.querySelector('[aria-label="Export current diagram"]');return !drawer || !button || Math.abs(drawer.getBoundingClientRect().right-button.getBoundingClientRect().right)<1`,
+          `const drawer=document.querySelector('#project-drawer');return !drawer || Math.abs(drawer.getBoundingClientRect().right-(innerWidth-18))<1`,
         ),
-        'The project drawer aligns with the Export button',
+        'The project drawer keeps the workspace edge spacing',
       );
     }
   };
@@ -136,7 +136,9 @@ export async function projectNavigation(driver) {
     name: 'navigation_project.depthproject',
   });
   await until(() =>
-    sync('return !document.querySelector(".quick-save").disabled'),
+    sync(
+      'return !document.querySelector(".document-actions .primary-button").disabled',
+    ),
   );
   assert.equal(
     await sync('return !!document.querySelector("dialog[open]")'),
@@ -147,7 +149,8 @@ export async function projectNavigation(driver) {
   await mkdir(projectRoot);
   const actualPath = path.join(projectRoot, 'navigation_project.depthproject');
   await dialogs('project-save', actualPath);
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   const current = async () => JSON.parse(await readFile(actualPath, 'utf8'));
   await until(async () => {
     try {
@@ -285,7 +288,9 @@ export async function projectNavigation(driver) {
   await click('Menu');
   await click('Save Project As…');
   await until(() =>
-    sync('return !document.querySelector(".quick-save").disabled'),
+    sync(
+      'return !document.querySelector(".document-actions .primary-button").disabled',
+    ),
   );
   assert.equal((await native('test:last-file-dialog')).kind, 'project-save');
   await native('test:dialogs', []);
@@ -328,7 +333,7 @@ export async function projectNavigation(driver) {
   };
   const saveState = () =>
     sync(
-      `const toolbar=[...document.querySelectorAll('.unified-toolbar')].find(n=>n.getClientRects().length);return {filename:toolbar.querySelector('.document-state').textContent,dirty:!!toolbar.querySelector('.document-name sup'),busy:toolbar.querySelector('.quick-save').disabled}`,
+      `const toolbar=[...document.querySelectorAll('.unified-toolbar')].find(n=>n.getClientRects().length);return {filename:toolbar.querySelector('.document-state').textContent,dirty:!!toolbar.querySelector('.document-name sup'),busy:toolbar.querySelector('.document-actions .primary-button').disabled}`,
     );
   const containsBookmark = (document, name) =>
     Object.values(document.namedViews ?? {}).some((view) => view.name === name);
@@ -522,7 +527,8 @@ export async function projectNavigation(driver) {
     await sync('return !!document.querySelector(".project-notice")'),
     false,
   );
-  await click('Save document');
+  await click('Menu');
+  await click('Save All');
   await until(() =>
     sync(
       'return document.querySelector(".workspace-notice")?.textContent.startsWith("Saved:")',

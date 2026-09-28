@@ -839,11 +839,17 @@ dialog label {
     max-height: calc(100vh - 290px);
   }
 }
-@media (max-width: 480px) {
-  .document-history {
-    bottom: 74px;
-    left: 18px;
+@media (max-width: 520px) {
+  .bookmark-label {
+    display: none;
   }
+}
+@media (max-width: 400px) {
+  .canvas-navigation .zoom-control {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
   .depth-navigator {
     left: auto;
     right: 18px;
@@ -852,13 +858,6 @@ dialog label {
   .depth-panel {
     left: auto;
     right: 0;
-  }
-  .canvas-navigation {
-    left: 18px;
-    right: auto;
-  }
-  .recovery-control {
-    bottom: 26px;
   }
   .canvas-welcome {
     top: 45%;
@@ -869,9 +868,6 @@ dialog label {
   .canvas-welcome p {
     font-size: 13px;
     max-width: 270px;
-  }
-  .canvas-minimap {
-    bottom: 168px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

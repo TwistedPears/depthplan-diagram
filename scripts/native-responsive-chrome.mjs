@@ -14,7 +14,8 @@ try {
       await click('Menu');
     }
     for (const width of [
-      1440, 1100, 1024, 941, 940, 781, 780, 520, 503, 502, 480, 400, 320,
+      1440, 1100, 1024, 941, 940, 781, 780, 521, 520, 503, 502, 480, 401, 400,
+      360, 320,
     ]) {
       await request(`/session/${session}/window/rect`, { width, height: 800 });
       await js(
@@ -31,17 +32,28 @@ try {
           menu:rect('.document-switcher'),
           actions:rect('.document-actions'),
           tools:rect('.shape-toolbar'),
+          history:rect('.document-history'),
+          navigation:rect('.canvas-navigation'),
+          bookmark:rect('.recursive-bookmarks > summary'),
+          bookmarkLabel:rect('.bookmark-label'),
+          zoom:[...document.querySelectorAll('.zoom-control')].map(el=>!!el.getClientRects().length),
           buttons:[...document.querySelectorAll('.shape-toolbar > button')].map(el=>el.getBoundingClientRect().toJSON()),
           save:!!document.querySelector('.quick-save'),
         };
       `);
-      const { menu, actions, tools, buttons } = layout;
+      const { menu, actions, tools, buttons, history, navigation } = layout;
       const context = JSON.stringify({ autosave, ...layout });
       assert.equal(layout.width, width, context);
       assert.equal(layout.save, !autosave, context);
       assert.equal(actions.visible, width > 940, context);
       assert(tools.left >= 0 && tools.right <= width, context);
       assert(menu.left >= 0 && menu.right <= width, context);
+      assert.equal(layout.bookmarkLabel.visible, width > 520, context);
+      assert(layout.bookmark.visible, context);
+      assert.deepEqual(layout.zoom, Array(3).fill(width > 400), context);
+      assert.equal(history.bottom, navigation.bottom, context);
+      assert(history.right + 18 <= navigation.left, context);
+      assert(history.left >= 0 && navigation.right <= width, context);
       for (const button of buttons) {
         assert(
           button.left >= tools.left && button.right <= tools.right,
@@ -76,7 +88,7 @@ try {
           assert.equal(row.radius, '0px', context);
         }
       }
-      if (autosave && [1100, 780, 320].includes(width)) {
+      if (autosave && [1100, 780, 520, 400, 320].includes(width)) {
         await writeFile(
           path.join(profile, `chrome-${width}.png`),
           Buffer.from(
@@ -86,6 +98,17 @@ try {
         );
       }
     }
+    await sync(
+      `document.querySelector('.recursive-bookmarks > summary').click()`,
+    );
+    assert(
+      await sync(
+        `return document.querySelector('.recursive-bookmarks > summary').getAttribute('aria-label')==='Bookmarks' && !!document.querySelector('[aria-label="New bookmark name"]').getClientRects().length`,
+      ),
+    );
+    await sync(
+      `document.querySelector('.recursive-bookmarks > summary').click()`,
+    );
     await click('Menu');
     assert(
       await sync(
@@ -96,7 +119,7 @@ try {
   }
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
-    `PASS responsive chrome: centered tools, progressive file actions, flush narrow rows, Autosave and menu access. Evidence: ${profile}`,
+    `PASS responsive chrome: centered tools, progressive file/bookmark/zoom controls, flush narrow rows, Autosave and menu access. Evidence: ${profile}`,
   );
 } finally {
   await driver.close();

@@ -687,8 +687,10 @@ export default memo(function RecursiveCanvas({
   };
   const freeWorkspace = useCallback(() => {
     const top =
-      (window.document.querySelector('.shape-toolbar')?.getBoundingClientRect()
-        .bottom ?? 68) + 16;
+      (stageRef.current
+        ?.container()
+        .parentElement?.querySelector('.shape-toolbar')
+        ?.getBoundingClientRect().bottom ?? 68) + 16;
     const bottom = size.width <= 760 ? 146 : 90;
     let workspaceBottom = size.height - bottom;
     const area = {
@@ -1891,17 +1893,23 @@ export default memo(function RecursiveCanvas({
         <button
           type="button"
           aria-label="Zoom out"
+          className="zoom-control"
           onClick={() => zoom(1 / 1.2)}
         >
           <Icon name="minus" />
         </button>
-        <output aria-label="Canvas zoom">
+        <output aria-label="Canvas zoom" className="zoom-control">
           {(camera.scale * 100).toLocaleString(undefined, {
             maximumFractionDigits: 2,
           })}
           %
         </output>
-        <button type="button" aria-label="Zoom in" onClick={() => zoom(1.2)}>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          className="zoom-control"
+          onClick={() => zoom(1.2)}
+        >
           <Icon name="plus" />
         </button>
         <button
