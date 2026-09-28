@@ -1,3 +1,8 @@
+import {
+  validateTemplate,
+  type Template,
+  type TemplateEntry,
+} from '../shared/templates';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import {
@@ -95,6 +100,37 @@ async function projectCall(
 }
 
 const desktopHandler = {
+  templates: {
+    list: async () => {
+      const result = await native<{
+        entries: TemplateEntry[];
+        warnings: string[];
+      }>('template:list');
+      result.entries.forEach((entry) => validateTemplate(entry.document));
+      return result;
+    },
+    save: async (document: Template, expected?: string) => {
+      validateTemplate(document);
+      const entry = await native<TemplateEntry>(
+        'template:save',
+        document,
+        expected,
+      );
+      validateTemplate(entry.document);
+      return entry;
+    },
+    remove: (id: string, expected: string): Promise<void> =>
+      native('template:remove', id, expected),
+    import: async () => {
+      const entry = await native<TemplateEntry | null>('template:import');
+      if (entry) validateTemplate(entry.document);
+      return entry;
+    },
+    export: (document: Template): Promise<string | null> => {
+      validateTemplate(document);
+      return native('template:export', document);
+    },
+  },
   projects: {
     new: () => projectCall('project:new'),
     save: (

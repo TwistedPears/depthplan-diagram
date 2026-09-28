@@ -21,6 +21,7 @@ import type { AutomationHandlers } from './useAutomation';
 import type useMcpWorkflows from './useMcpWorkflows';
 
 export type BoardSession = {
+  dirty?: boolean;
   key: string;
   document: RecursiveDocument;
   source: SourceFile | null;

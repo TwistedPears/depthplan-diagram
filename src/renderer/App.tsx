@@ -13,6 +13,8 @@ import useRecovery from './hooks/useRecovery';
 import {
   Activity,
   useCallback,
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -34,6 +36,7 @@ import type useAutomation from './hooks/useAutomation';
 import useWorkspaceAutomation from './hooks/useWorkspaceAutomation';
 import './App.css';
 import UnifiedToolbar from './components/UnifiedToolbar';
+import { createTemplate, newFromTemplate } from '../shared/templates';
 import exportAsJSON from './utils/jsonExport';
 import useProjectWorkspace, {
   ProjectWorkspace,
@@ -55,6 +58,8 @@ export function Workspace() {
     </ProjectWorkspace>
   );
 }
+const TemplateLibrary = lazy(() => import('./components/TemplateLibrary'));
+
 function SessionWorkspace() {
   const projectWorkspace = useProjectWorkspace()!;
   const [appInstanceId, setAppInstanceId] = useState<string | null>(null);
@@ -145,6 +150,7 @@ function BoardWorkspace({
   useLayoutEffect(() => setVisible(active), [active]);
   const owner = useDocumentState(session.document, appInstanceId, {
     source: session.source,
+    dirty: session.dirty,
   });
   const recovery = useRecovery(
     owner,
@@ -174,6 +180,7 @@ function BoardWorkspace({
     result: transactionResult,
   } = owner;
   const currentFilePath = owner.source?.path;
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [exportLoading, setLoading] = useState(false);
   const setIsLoading = useCallback(
     (loading: boolean) => {
@@ -270,10 +277,20 @@ function BoardWorkspace({
   useDocumentHistoryActions(
     !!currentDocument,
     () => {
-      if (!transitions.isPending() && !mcpWorkflows.activeOperation) undo();
+      if (
+        !templatesOpen &&
+        !transitions.isPending() &&
+        !mcpWorkflows.activeOperation
+      )
+        undo();
     },
     () => {
-      if (!transitions.isPending() && !mcpWorkflows.activeOperation) redo();
+      if (
+        !templatesOpen &&
+        !transitions.isPending() &&
+        !mcpWorkflows.activeOperation
+      )
+        redo();
     },
     active,
   );
@@ -492,6 +509,10 @@ function BoardWorkspace({
             : undefined
       }
       isLoading={isLoading}
+      onTemplates={() => {
+        if (!isLoading && !isBusy() && !hasDrafts) setTemplatesOpen(true);
+        else showStatus('Finish the current edit before opening Templates.');
+      }}
       onNewDocument={handleNewDocument}
       onOpenFile={handleOpenFile}
       onSave={() => handleSave()}
@@ -501,6 +522,32 @@ function BoardWorkspace({
   );
   return (
     <Activity mode={visible ? 'visible' : 'hidden'}>
+      {templatesOpen && currentDocument && (
+        <Suspense fallback={null}>
+          <TemplateLibrary
+            owner={owner}
+            onClose={() => setTemplatesOpen(false)}
+            onStatus={showStatus}
+            onOpen={(template, editing) => {
+              const document = editing
+                ? createTemplate(template, template.extensions.template)
+                : newFromTemplate(template);
+              if (editing) {
+                document.id = crypto.randomUUID();
+                document.metadata.title = template.extensions.template.name;
+              }
+              owner.setBusy('templates', false);
+              setTemplatesOpen(false);
+              void projectWorkspace.standalone(async () => ({
+                status: 'success',
+                document,
+                source: null,
+                dirty: true,
+              }));
+            }}
+          />
+        </Suspense>
+      )}
       <div
         className="workspace"
         data-board-session={session.key}

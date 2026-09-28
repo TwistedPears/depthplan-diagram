@@ -75,6 +75,7 @@ pub struct Host {
     png: Mutex<Option<PngExport>>,
     projects: Mutex<Projects>,
     workspaces: Mutex<Workspaces>,
+    templates: Mutex<PathBuf>,
 }
 fn string(value: &Value) -> Result<&str> {
     value.as_str().ok_or("Expected text".into())
@@ -154,6 +155,13 @@ fn select(app: &AppHandle, kind: &str, name: &str) -> Result<Option<PathBuf>> {
         "open" => dialog
             .add_filter("DepthPlan documents", &["depthplan", "json"])
             .blocking_pick_file(),
+        "template-open" => dialog
+            .add_filter("DepthPlan template", &["depthtemplate"])
+            .blocking_pick_file(),
+        "template-save" => dialog
+            .add_filter("DepthPlan template", &["depthtemplate"])
+            .set_file_name(name)
+            .blocking_save_file(),
         "project-open" => dialog
             .add_filter("DepthPlan project", &["depthproject"])
             .blocking_pick_file(),
@@ -791,6 +799,44 @@ fn io_command(
             files::write_atomic(&path, &bytes, None, &|| Ok(()))?;
             Ok(json!(path))
         }
+        "template:list" => crate::templates::list(&host.templates.lock().unwrap()),
+        "template:save" => crate::templates::save(&host.templates.lock().unwrap(), a, b.as_str()),
+        "template:remove" => {
+            crate::templates::remove(&host.templates.lock().unwrap(), a, string(b)?)?;
+            Ok(Value::Null)
+        }
+        "template:import" => {
+            let Some(path) = select(app, "template-open", "")? else {
+                return Ok(Value::Null);
+            };
+            crate::templates::read(&path)
+        }
+        "template:export" => {
+            crate::templates::validate(a)?;
+            let Some(mut path) = select(app, "template-save", "template.depthtemplate")? else {
+                return Ok(Value::Null);
+            };
+            if path
+                .extension()
+                .is_none_or(|s| !s.eq_ignore_ascii_case("depthtemplate"))
+            {
+                path = PathBuf::from(format!("{}.depthtemplate", path.display()));
+                if path.exists() {
+                    return Err(
+                        "Choose the existing .depthtemplate filename explicitly to replace it"
+                            .into(),
+                    );
+                }
+            }
+            let hash = files::hash(&path)?;
+            files::write_atomic(
+                &path,
+                &serde_json::to_vec_pretty(a).map_err(|e| e.to_string())?,
+                Some(hash.as_deref()),
+                &|| Ok(()),
+            )?;
+            Ok(json!(path))
+        }
         "export:json" => {
             validation::document(a)?;
             let name = b.as_str().unwrap_or("diagram_export.depthplan");
@@ -1377,6 +1423,7 @@ pub fn run() {
                         .join("recovery")
                 });
             app.manage(Host {
+                templates: Mutex::new(root.parent().unwrap().join("templates")),
                 dialogs: AtomicUsize::new(0),
                 storage: Mutex::new(Storage {
                     files: FileStore::default(),

@@ -93,6 +93,8 @@ audit review and read-only placement workflows. See the
 
 ## Documentation
 
+- [Templates](docs/templates.md): reusable starters, components, and portable sharing.
+
 | Guide                                                | Contents                                                    |
 | ---------------------------------------------------- | ----------------------------------------------------------- |
 | [Try DepthPlan](docs/preview.md)                     | Preview availability, first steps, limitations and feedback |

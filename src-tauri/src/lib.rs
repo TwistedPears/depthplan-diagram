@@ -4,6 +4,7 @@ pub mod mcp;
 mod png_export;
 mod projects;
 mod recovery;
+mod templates;
 mod validation;
 mod workspace;
 pub fn run() {

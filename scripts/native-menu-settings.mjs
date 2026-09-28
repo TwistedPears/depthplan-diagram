@@ -38,6 +38,7 @@ export async function menuSettings(driver) {
       'Save Project As…',
       'Save All',
       'Close All',
+      'Templates',
       'Export',
       'Settings',
       'Quit DepthPlan',

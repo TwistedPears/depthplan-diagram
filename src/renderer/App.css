@@ -931,3 +931,27 @@ dialog label {
     grid-template-columns: 1fr;
   }
 }
+
+.template-library {
+  width: 760px;
+  max-width: calc(100vw - 24px);
+}
+.template-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.template-preview {
+  min-height: 300px;
+  height: 300px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+@media (max-width: 520px) {
+  .template-controls {
+    grid-template-columns: 1fr;
+  }
+}
