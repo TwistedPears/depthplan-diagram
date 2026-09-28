@@ -1321,4 +1321,49 @@ export async function expansion(driver, probe) {
   console.log(
     'PASS rotated toggles: all shapes stay upright in the visual upper-right, with interior clearance, nested rotations, icon/dot zoom and pointer clicks.',
   );
+
+  const fractional = structuredClone(document);
+  fractional.layouts.b[0].b.x = 1800;
+  for (const depth of [1, 2])
+    for (const id of ['a1', 'a2'])
+      Object.assign(fractional.layouts.a[depth][id], {
+        width: 120.1,
+        rotation: 1,
+      });
+  const fractionalFile = path.join(profile, 'expansion-fractional.depthplan');
+  await writeFile(fractionalFile, JSON.stringify(fractional));
+  await dialogs('open', fractionalFile);
+  await click('Menu');
+  await click('Open Board…');
+  await until(async () => (await state()).source?.path === fractionalFile);
+  await click('Reset view');
+  for (const action of [
+    'Reveal children of a',
+    'Undo',
+    'Redo',
+    'Hide children of a',
+    'Reveal children of a',
+  ]) {
+    await click(action);
+    await until(() => sync('return window.Konva.stages[0].listening()'));
+    const expanded = action !== 'Undo' && action !== 'Hide children of a';
+    assert.deepEqual(
+      await sync(`const stage=window.Konva.stages[0];
+      return ['a1','a2'].map(id=>!!stage.findOne('#object-'+id));`),
+      [expanded, expanded],
+    );
+    assert.equal(
+      await sync(
+        `return document.body.innerText.includes('Unable to arrange children');`,
+      ),
+      false,
+    );
+  }
+  await screenshot('expansion-fractional.png');
+  await click('Save document');
+  await until(async () => !(await state()).dirty);
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS fractional child arrangement: reveal, Undo/Redo and collapse/reopen show both rotated children without an arrangement error.',
+  );
 }

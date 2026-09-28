@@ -120,6 +120,36 @@ it('grows physical parents, separates children and nearby roots, and restores wi
   ).toHaveLength(2);
 });
 
+it('reveals fractional, rotated children without repeatedly colliding at the calculated gap', () => {
+  for (const [width, height, x, y] of [
+    [120.1, 80, 0, 0],
+    [120.1, 80, 0, 0.1],
+    [80, 120.1, 0, 0],
+    [80, 120.1, 0.1, 0],
+  ]) {
+    const original = fixture();
+    for (const id of ['a1', 'a2'])
+      Object.assign(original.layouts.a[1][id], { width, height, rotation: 1 });
+    Object.assign(original.layouts.a[1].a2, { x, y });
+    const opened = edit(original, setChildrenExpanded('a', true));
+    const a = geometryBounds(activeGeometry(opened, 'a1'));
+    const b = geometryBounds(activeGeometry(opened, 'a2'));
+    expect(
+      Math.max(
+        a.x - b.x - b.width,
+        b.x - a.x - a.width,
+        a.y - b.y - b.height,
+        b.y - a.y - a.height,
+      ),
+    ).toBeCloseTo(24);
+    const closed = edit(opened, setChildrenExpanded('a', false));
+    expect(positions(closed)).toEqual(positions(original));
+    expect(positions(edit(closed, setChildrenExpanded('a', true)))).toEqual(
+      positions(opened),
+    );
+  }
+});
+
 it('saves manual edits in each state across reopening, while content, Z and rotation stay live', () => {
   let document = edit(fixture(), setChildrenExpanded('a', true));
   document = edit(document, (draft) => {
