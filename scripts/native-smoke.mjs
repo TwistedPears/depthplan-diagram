@@ -64,6 +64,7 @@ try {
     request,
     session,
     js,
+    drag,
   });
   // The file-conflict and recovery journeys below explicitly exercise manual saving.
   await click('Menu');

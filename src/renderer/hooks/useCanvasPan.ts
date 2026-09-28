@@ -17,13 +17,10 @@ export default function useCanvasPan(
       moved: boolean;
       released: boolean;
     } | null = null;
-    const isRight = (event: MouseEvent) =>
-      event.button === 2 ||
-      (event.button === 0 && event.ctrlKey && /Mac/i.test(navigator.platform));
     const down = (event: MouseEvent) => {
       if (
         (tool !== ToolMode.POINTER && tool !== ToolMode.HAND) ||
-        (!isRight(event) && !(tool === ToolMode.HAND && event.button === 0))
+        (event.button !== 2 && !(tool === ToolMode.HAND && event.button === 0))
       )
         return;
       stage.setPointersPositions(event);
@@ -36,7 +33,8 @@ export default function useCanvasPan(
       // Capture before shapes and resize handles can claim the gesture.
       event.preventDefault();
       event.stopPropagation();
-      right = isRight(event) ? { event, moved: false, released: false } : null;
+      right =
+        event.button === 2 ? { event, moved: false, released: false } : null;
       if (event.buttons !== (event.button === 0 ? 1 : 2)) return;
       if (!right) stage.startDrag({ evt: event });
     };
@@ -60,7 +58,7 @@ export default function useCanvasPan(
       }
     };
     const up = (event: MouseEvent) => {
-      if (!isRight(event) || !right || right.released) return;
+      if (event.button !== 2 || !right || right.released) return;
       right.released = true;
       stage.stopDrag();
       if (!right.moved && tool === ToolMode.POINTER) show(event);
