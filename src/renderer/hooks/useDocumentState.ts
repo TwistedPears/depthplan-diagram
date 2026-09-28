@@ -124,7 +124,15 @@ function initialState(
     camera: { x: 0, y: 0, scale: 1 },
     canvas: initialCanvasState(),
     viewRevision: 0,
-    saved: options.dirty ? null : contentKey(document),
+    // A new blank board stays clean until work begins, but has no saved baseline.
+    saved:
+      options.dirty ||
+      (!options.source &&
+        document &&
+        !Object.keys(document.objects).length &&
+        !Object.keys(document.connections).length)
+        ? null
+        : contentKey(document),
     source: options.source ?? null,
     dirty: !!options.dirty,
   };
@@ -272,10 +280,13 @@ export default function useDocumentState(
     next = {
       ...next,
       dirty:
-        next.document === live.current.document &&
-        next.saved === live.current.saved
-          ? live.current.dirty
-          : !matchesSaved(next.document, next.saved),
+        action.type === 'replace'
+          ? next.dirty
+          : (!next.saved && (next.past.length > 0 || next.future.length > 0)) ||
+            (next.document === live.current.document &&
+            next.saved === live.current.saved
+              ? live.current.dirty
+              : !matchesSaved(next.document, next.saved)),
     };
     if (next.sessionId !== live.current.sessionId) busySources.current.clear();
     live.current = next;

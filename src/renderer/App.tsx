@@ -593,6 +593,7 @@ function BoardWorkspace({
                 key={sessionId}
                 active={active}
                 document={currentDocument}
+                hasHistory={canUndo || canRedo}
                 stamp={editorStamp(owner)}
                 fitRef={owner.fitCanvas}
                 focusRef={owner.focusCanvas}

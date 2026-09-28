@@ -1,9 +1,62 @@
 import { act, fireEvent, renderHook } from '@testing-library/react';
-import { recursiveFixture } from './recursiveFixtures';
+import { recursiveFixture, geometry } from './recursiveFixtures';
+import { createRecursiveDocument } from '../shared/recursiveDocument';
+import { createShape } from '../shared/recursiveCreation';
+import { deleteSelection } from '../shared/recursiveDeletion';
 import useDocumentState from '../renderer/hooks/useDocumentState';
 import useDocumentHistoryActions from '../renderer/hooks/useDocumentHistoryActions';
 import { editObject, editActiveGeometry } from '../shared/documentTransactions';
 import { selectRootDepth } from '../shared/recursiveLayouts';
+
+it('keeps an emptied new board dirty through Undo/Redo until saved or replaced', () => {
+  const blank = createRecursiveDocument('new', 'Untitled');
+  const { result } = renderHook(() => useDocumentState(blank));
+  act(() => result.current.setCamera({ x: 100, y: 120, scale: 2 }));
+  act(() => result.current.transact(() => {}));
+  expect(result.current.dirty).toBe(false);
+  expect(result.current.canUndo).toBe(false);
+  act(() =>
+    result.current.transact(createShape('shape', 'rectangle', geometry, null)),
+  );
+  act(() => result.current.transact(deleteSelection(['shape'])));
+  expect(result.current.document!.objects).toEqual({});
+  expect(result.current.canUndo).toBe(true);
+  expect(result.current.dirty).toBe(true);
+  act(() => {
+    result.current.undo();
+    result.current.undo();
+  });
+  expect(result.current.document).toEqual(blank);
+  expect(result.current.canUndo).toBe(false);
+  expect(result.current.canRedo).toBe(true);
+  expect(result.current.dirty).toBe(true);
+  act(() => {
+    result.current.redo();
+    result.current.redo();
+  });
+  expect(result.current.document!.objects).toEqual({});
+  expect(result.current.dirty).toBe(true);
+  const saved = result.current.document!;
+  act(() =>
+    result.current.markSaved(saved, result.current.sessionId, {
+      id: 'file',
+      path: '/empty.depthplan',
+      fingerprint: 'saved',
+    }),
+  );
+  expect(result.current.dirty).toBe(false);
+  expect(result.current.canUndo).toBe(true);
+  act(() => result.current.undo());
+  expect(result.current.dirty).toBe(true);
+  act(() => result.current.redo());
+  expect(result.current.dirty).toBe(false);
+  act(() =>
+    result.current.replace(createRecursiveDocument('another', 'Untitled')),
+  );
+  expect(result.current.dirty).toBe(false);
+  expect(result.current.canUndo).toBe(false);
+  expect(result.current.canRedo).toBe(false);
+});
 
 it('restores whole compound snapshots, including hidden layouts/references, through undo and redo', () => {
   const original = recursiveFixture();

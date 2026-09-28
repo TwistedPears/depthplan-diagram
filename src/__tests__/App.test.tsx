@@ -471,7 +471,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit document' }));
     expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(screen.queryByLabelText('Unsaved')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Redo' }));
     expect(screen.getByLabelText('Unsaved')).toBeInTheDocument();
   });

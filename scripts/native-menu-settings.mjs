@@ -167,7 +167,38 @@ export async function menuSettings(driver) {
   );
   assert(
     await sync(
-      'return !document.querySelector(".document-name sup") && document.querySelector("button[aria-label=Undo]").disabled && document.querySelector("button[aria-label=Redo]").disabled',
+      'return !!document.querySelector(".canvas-welcome") && !document.querySelector(".document-name sup") && document.querySelector("button[aria-label=Undo]").disabled && document.querySelector("button[aria-label=Redo]").disabled',
+    ),
+  );
+  for (const x of [300, 600]) {
+    await click('Square');
+    await driver.drag(x, 300, 120, 90, 0);
+  }
+  await driver.drag(250, 240, 510, 230, 0);
+  await click('Delete selected');
+  await until(() =>
+    sync(
+      'return window.Konva.stages[0].find(".recursive-object").length === 0',
+    ),
+  );
+  assert(
+    await sync(
+      'return !!document.querySelector(".document-name sup") && !document.querySelector(".canvas-welcome")',
+    ),
+  );
+  for (let n = 0; n < 3; n++) await click('Undo');
+  assert(
+    await sync(
+      'return !!document.querySelector(".document-name sup") && !document.querySelector(".canvas-welcome") && document.querySelector("button[aria-label=Undo]").disabled && !document.querySelector("button[aria-label=Redo]").disabled',
+    ),
+  );
+  for (let n = 0; n < 3; n++) await click('Redo');
+  await dialogs('message', 'Cancel');
+  await click('Menu');
+  await click('New Board');
+  assert(
+    await sync(
+      'return !!document.querySelector(".document-name sup") && !document.querySelector(".canvas-welcome")',
     ),
   );
   const before = await native('test:last-file-dialog');
@@ -175,7 +206,7 @@ export async function menuSettings(driver) {
   await rename('Unsaved memory board');
   assert(await sync('return !!document.querySelector(".document-name sup")'));
   await click('Undo');
-  assert(await sync('return !document.querySelector(".document-name sup")'));
+  assert(await sync('return !!document.querySelector(".document-name sup")'));
   await click('Redo');
   assert(await sync('return !!document.querySelector(".document-name sup")'));
   await pause();
@@ -194,6 +225,11 @@ export async function menuSettings(driver) {
   await until(() =>
     sync(
       'return document.querySelector(".document-name").textContent.includes("Untitled")',
+    ),
+  );
+  assert(
+    await sync(
+      'return !!document.querySelector(".canvas-welcome") && !document.querySelector(".document-name sup")',
     ),
   );
   await native('test:dialogs', []);

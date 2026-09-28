@@ -119,6 +119,7 @@ const transformHandles = [-1, 0, 1].flatMap((x) =>
 
 export default memo(function RecursiveCanvas({
   document,
+  hasHistory,
   camera,
   setCamera,
   onEdit,
@@ -146,6 +147,7 @@ export default memo(function RecursiveCanvas({
   isBusy: () => boolean;
   onStatus: (message: string) => void;
   document: RecursiveDocument;
+  hasHistory: boolean;
   camera: Camera;
   setCamera: Dispatch<SetStateAction<Camera>>;
   onEdit: (edit: DocumentEdit) => TransactionResult | null;
@@ -1966,6 +1968,7 @@ export default memo(function RecursiveCanvas({
       />
       {Object.keys(document.objects).length === 0 &&
         Object.keys(document.connections).length === 0 &&
+        !hasHistory &&
         !drawing && (
           <div className="canvas-welcome">
             <Icon name="square" className="welcome-shape" />
