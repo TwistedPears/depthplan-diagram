@@ -340,77 +340,77 @@
       "name": "Text Align Justify",
       "summary": "Category: TextFormatting | Target SVG: align-justify.svg | Justify text.",
       "prompt": "Create the Text Align Justify icon for DepthPlan. Its interface role is: Justify text.\n\nFour evenly spaced horizontal text strokes with equal full widths, sharing precise left and right endpoints. Use thin rounded strokes, not solid menu bars. Keep the same footprint and optical weight as Text Align Left, Center and Right; the four flush lines distinguish this from the three-bar Application Menu.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "Strikethrough",
       "name": "Strikethrough Text",
       "summary": "Category: TextFormatting | Target SVG: strikethrough.svg | Toggle strikethrough on selected text.",
       "prompt": "Create the Strikethrough Text icon for DepthPlan. Its interface role is: Toggle strikethrough on selected text.\n\nA single upright capital S crossed through its vertical midpoint by one straight horizontal stroke extending a little beyond both sides. Preserve the curves and open counters so the S remains readable at 16 pixels. Only the S is lettering; do not draw a word, underline or diagonal cancellation slash.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "TextSize",
       "name": "Set Text Size",
       "summary": "Category: TextFormatting | Target SVG: text-size.svg | Apply the entered font size to selected text.",
       "prompt": "Create the Set Text Size icon for DepthPlan. Its interface role is: Apply the entered font size to selected text.\n\nTwo upright capital A glyphs on a shared baseline: one small A on the left and one taller A on the right. Give both open counters and matching stroke weight, with a clear gap between them. Only these two As are lettering. Do not add a number, arrow, ruler, size label or enclosing button.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "TextColor",
       "name": "Set Text Color",
       "summary": "Category: TextFormatting | Target SVG: text-color.svg | Apply the entered text color.",
       "prompt": "Create the Set Text Color icon for DepthPlan. Its interface role is: Apply the entered text color.\n\nOne upright capital A with a short thick horizontal swatch directly below it, separated by a clear gap. Keep the A open and legible; the swatch is solid black in this neutral master. Only the A is lettering. Do not draw a colored palette, eyedropper, paint bucket or extra underline through the letter.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "ListBullet",
       "name": "Bullet List",
       "summary": "Category: TextFormatting | Target SVG: list-bullet.svg | Wrap selected text in an unordered list.",
       "prompt": "Create the Bullet List icon for DepthPlan. Its interface role is: Wrap selected text in an unordered list.\n\nThree small filled circular bullets in a left column, each paired with a horizontal text stroke to its right. Align the three bullets vertically and align all text-stroke starts; vary the stroke lengths slightly. Keep generous bullet-to-text gaps. No digits, checklist boxes, check marks or page outline.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "ListNumbered",
       "name": "Numbered List",
       "summary": "Category: TextFormatting | Target SVG: list-numbered.svg | Wrap selected text in an ordered list.",
       "prompt": "Create the Numbered List icon for DepthPlan. Its interface role is: Wrap selected text in an ordered list.\n\nThe small upright digits 1, 2 and 3 in a left column, one per row, each paired with a horizontal text stroke to its right. Align the text-stroke starts and use three evenly spaced rows. Only these three digits are allowed; omit punctuation, words and page outlines. Keep the numerals distinct and readable at 16 pixels.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "Indent",
       "name": "Indent List Item",
       "summary": "Category: TextFormatting | Target SVG: indent.svg | Move the current list item one level deeper.",
       "prompt": "Create the Indent List Item icon for DepthPlan. Its interface role is: Move the current list item one level deeper.\n\nThree horizontal text strokes shifted toward the right, leaving a clear lane on the left. In that lane place one short right-pointing arrow aimed toward the middle text stroke. Keep a gap between the arrowhead and text. The rightward arrow means increase indentation; do not draw object rectangles, a standalone connector or a page border.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "Outdent",
       "name": "Outdent List Item",
       "summary": "Category: TextFormatting | Target SVG: outdent.svg | Move the current list item one level outward.",
       "prompt": "Create the Outdent List Item icon for DepthPlan. Its interface role is: Move the current list item one level outward.\n\nThree horizontal text strokes on the right, leaving a clear lane on the left. In that lane place one short left-pointing arrow aimed away from the text strokes. Match the text positions, spacing and optical weight of Indent; reverse only the arrow direction. Do not mirror the entire glyph or draw object rectangles or a page border.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "Blockquote",
       "name": "Blockquote",
       "summary": "Category: TextFormatting | Target SVG: blockquote.svg | Wrap selected blocks as a quotation.",
       "prompt": "Create the Blockquote icon for DepthPlan. Its interface role is: Wrap selected blocks as a quotation.\n\nA pair of clearly recognizable opening quotation marks above two short horizontal text strokes. Use two compact comma-like quotation forms with simple contours and visible separation. The text strokes sit below the marks with a clear gap. No letters, speech bubble, page outline or decorative container.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "UnwrapBlock",
       "name": "Unwrap Block",
       "summary": "Category: TextFormatting | Target SVG: unwrap-block.svg | Lift selected content out of its current quote or list wrapper.",
       "prompt": "Create the Unwrap Block icon for DepthPlan. Its interface role is: Lift selected content out of its current quote or list wrapper.\n\nTwo short horizontal text strokes between separate left and right bracket-like boundary strokes. Interrupt the right boundary at its midpoint and draw a short right-pointing arrow from beside the text through that opening, ending outside the boundary. Keep the wrapper, text and arrow distinguishable. This removes one structural wrapper while retaining the text: no eraser, trash bin, strikethrough or word-wrap return arrow.",
-      "completed": false
+      "completed": true
     },
     {
       "id": "LinkRemove",
       "name": "Remove Link",
       "summary": "Category: TextFormatting | Target SVG: link-remove.svg | Remove a hyperlink while retaining its text.",
       "prompt": "Create the Remove Link icon for DepthPlan. Its interface role is: Remove a hyperlink while retaining its text.\n\nTwo diagonal rounded chain-link outlines pulled slightly apart across one clear central break. Place two tiny outward-facing break ticks near the separated ends, with ample negative space. Match the established Link icon in angle, stroke weight and proportions. No arrow, letter, trash bin, enclosing circle or extra chain segment; the break must remain obvious at 16 pixels.",
-      "completed": false
+      "completed": true
     }
   ]
 }

@@ -306,7 +306,7 @@ function BoardWorkspace({
     hasDrafts: mcpDrafts.hasActive,
     onStatus: showStatus,
   });
-  useDocumentHistoryActions(
+  const history = useDocumentHistoryActions(
     !!currentDocument,
     () => {
       if (
@@ -678,8 +678,10 @@ function BoardWorkspace({
                   type="button"
                   aria-label="Undo"
                   title="Undo"
-                  onClick={undo}
-                  disabled={!canUndo}
+                  data-text-history
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => history('undo')}
+                  disabled={!canUndo && !hasDrafts}
                 >
                   <Icon name="rotate-left" />
                 </button>
@@ -687,8 +689,10 @@ function BoardWorkspace({
                   type="button"
                   aria-label="Redo"
                   title="Redo"
-                  onClick={redo}
-                  disabled={!canRedo}
+                  data-text-history
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => history('redo')}
+                  disabled={!canRedo && !hasDrafts}
                 >
                   <Icon name="rotate-right" />
                 </button>

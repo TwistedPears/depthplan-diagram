@@ -16,16 +16,17 @@ files together. No image service or runtime download is used.
 ## Interface icons
 
 The [interface asset directory](../../src/renderer/assets/icons/) currently contains
-81 SVGs, including Style controls and the two/three-square child indicators.
+92 SVGs, including Style controls, text formatting, and the two/three-square child indicators.
 The shipped files are the inventory; the prompt collections describe overlapping
 generation sets, not a count of all integrated icons:
 
 - [Base icon prompt bible](DepthPlan%20Icon%20Prompt%20Bible.json).
 - [Style popup icon prompt bible](DepthPlan%20Style%20Popup%20Icon%20Prompt%20Bible.json).
 
-The six stroke width/pattern assets are integrated. The base bible marks existing
-masters with `completed: true` and the 11 pending text-formatting icons with
-`completed: false`. Keep the Style bible's path and `assets[].summary`
+The six stroke width/pattern assets and all 11 text-formatting assets are integrated.
+The base bible marks their completed masters with `completed: true`. The text size
+and color assets are available, while the editor uses size presets and color swatches.
+Keep the Style bible's path and `assets[].summary`
 `Target SVG:` entries stable: [native-expansion.mjs](../../scripts/native-expansion.mjs)
 uses them to validate its 40-icon set plus `square-stack-2`, `square-stack-3`, and
 `stroke-width-none`. Stroke widths use solid 2/3/4px previews; No stroke adds a

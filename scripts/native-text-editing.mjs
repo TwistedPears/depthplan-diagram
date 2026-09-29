@@ -121,14 +121,48 @@ export async function textEditing(driver) {
     'Underline',
     'Set link',
     'Insert code',
-    'Undo text',
-    'Redo text',
+    'Strikethrough',
+    'Align text justify',
+    'Bullet list',
+    'Numbered list',
+    'Indent',
+    'Outdent',
+    'Blockquote',
+    'Unwrap block',
+    'Remove link',
   ]) {
     assert(
       await sync(
-        `return !!document.querySelector('[aria-label="'+arguments[0]+'"]').querySelector('use');`,
+        `const use=document.querySelector('[aria-label="'+arguments[0]+'"]').querySelector('use'); return !!use && !!document.querySelector(use.getAttribute('href'));`,
         [label],
       ),
+    );
+  }
+  assert(
+    await sync(
+      `return !['Text block','Text size','Text color','List start','Undo text','Redo text'].some(label=>document.querySelector('[aria-label="'+label+'"]'));`,
+    ),
+  );
+  await click('Strikethrough');
+  assert(await sync('return !!document.querySelector(".ProseMirror s")'));
+  for (const [label, struck] of [
+    ['Undo', false],
+    ['Redo', true],
+    ['Undo', false],
+  ]) {
+    await sync(
+      `const button=[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')===arguments[0] && b.getClientRects().length);
+       button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true}));
+       if(button.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))) button.focus();`,
+      [label],
+    );
+    await click(label);
+    assert(
+      await sync('return !!document.querySelector(".inline-object-text")'),
+    );
+    assert.equal(
+      await sync('return !!document.querySelector(".ProseMirror s")'),
+      struck,
     );
   }
   await writeFile(

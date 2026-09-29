@@ -20,75 +20,106 @@ beforeEach(() => {
   Range.prototype.getBoundingClientRect = () => new DOMRect();
 });
 
-it('lists installed fonts, preserves missing names, applies selection marks, and uses existing icons', async () => {
-  const change = jest.fn();
-  const toolbar = document.createElement('div');
-  document.body.append(toolbar);
-  const editor = render(
-    <RichTextEditor
-      content={[
-        {
-          type: 'paragraph',
-          runs: [{ text: 'Hello', marks: { font: 'RandomFontName' } }],
-        },
-      ]}
-      onChange={change}
-      compact
-      toolbarTarget={toolbar}
-    />,
-  );
-  expect(
-    await screen.findByRole('option', { name: 'Test Font' }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole('combobox', { name: 'Text font' })).toHaveValue(
-    'RandomFontName',
-  );
-  expect(
-    screen.getByRole('option', { name: 'RandomFontName (fallback)' }),
-  ).toBeInTheDocument();
-  const middle = screen.getByRole('button', { name: 'Align text middle' });
-  expect(middle).toHaveAttribute('aria-pressed', 'true');
-  expect(middle.closest('details')).toBeNull();
-  expect(
-    screen.getByRole('button', { name: 'Align text center' }),
-  ).toHaveAttribute('aria-pressed', 'true');
-  const prose = screen.getByRole('textbox', { name: 'Text' });
-  expect(prose.querySelector('p')).toHaveStyle({ textAlign: 'center' });
-  await act(async () => {
-    prose.focus();
-    window.getSelection()!.selectAllChildren(prose);
-    document.dispatchEvent(new Event('selectionchange'));
-    await new Promise((resolve) => setTimeout(resolve, 30));
-  });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Text font' }), {
-    target: { value: 'Test Font' },
-  });
-  expect(change).toHaveBeenLastCalledWith([
-    {
-      type: 'paragraph',
-      runs: [{ text: 'Hello', marks: { font: 'Test Font' } }],
-    },
-  ]);
-  toolbar.querySelector('details')!.open = true;
-  for (const [name, icon] of [
-    ['Bold', 'bold'],
-    ['Italic', 'italic'],
-    ['Underline', 'underline'],
-    ['Set link', 'link'],
-    ['Insert code', 'file-code'],
-    ['Undo text', 'rotate-left'],
-    ['Redo text', 'rotate-right'],
-  ]) {
+it.each([true, false])(
+  'uses system fonts and one set of icon controls (compact: %s)',
+  async (compact) => {
+    const change = jest.fn();
+    const toolbar = document.createElement('div');
+    document.body.append(toolbar);
+    const editor = render(
+      <RichTextEditor
+        content={[
+          {
+            type: 'paragraph',
+            runs: [{ text: 'Hello', marks: { font: 'RandomFontName' } }],
+          },
+        ]}
+        onChange={change}
+        compact={compact}
+        toolbarTarget={toolbar}
+      />,
+    );
     expect(
-      screen.getByRole('button', { name }).querySelector('use'),
-    ).toHaveAttribute('href', `#icon-${icon}`);
-  }
-  expect(
-    screen.getByRole('button', { name: 'Strikethrough' }),
-  ).toHaveTextContent('Strikethrough');
-  editor.unmount();
-  toolbar.remove();
-});
+      await screen.findByRole('option', { name: 'Test Font' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Text font' })).toHaveValue(
+      'RandomFontName',
+    );
+    expect(
+      screen.getByRole('option', { name: 'RandomFontName (fallback)' }),
+    ).toBeInTheDocument();
+    const middle = screen.getByRole('button', { name: 'Align text middle' });
+    expect(middle).toHaveAttribute('aria-pressed', 'true');
+    expect(middle.closest('details')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Align text center' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    const prose = screen.getByRole('textbox', { name: 'Text' });
+    expect(prose.querySelector('p')).toHaveStyle({ textAlign: 'center' });
+    await act(async () => {
+      prose.focus();
+      window.getSelection()!.selectAllChildren(prose);
+      document.dispatchEvent(new Event('selectionchange'));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Text font' }), {
+      target: { value: 'Test Font' },
+    });
+    expect(change).toHaveBeenLastCalledWith([
+      {
+        type: 'paragraph',
+        runs: [{ text: 'Hello', marks: { font: 'Test Font' } }],
+      },
+    ]);
+    const details = toolbar.querySelector('details');
+    if (details) details.open = true;
+    for (const [name, icon] of [
+      ['Bold', 'bold'],
+      ['Italic', 'italic'],
+      ['Underline', 'underline'],
+      ['Strikethrough', 'strikethrough'],
+      ['Align text justify', 'align-justify'],
+      ['Bullet list', 'list-bullet'],
+      ['Numbered list', 'list-numbered'],
+      ['Indent', 'indent'],
+      ['Outdent', 'outdent'],
+      ['Blockquote', 'blockquote'],
+      ['Unwrap block', 'unwrap-block'],
+      ['Set link', 'link'],
+      ['Remove link', 'link-remove'],
+      ['Insert code', 'file-code'],
+    ]) {
+      expect(
+        screen.getByRole('button', { name }).querySelector('use'),
+      ).toHaveAttribute('href', `#icon-${icon}`);
+    }
+    for (const name of ['Text block', 'Text size', 'Text color', 'List start'])
+      expect(screen.queryByLabelText(name)).not.toBeInTheDocument();
+    for (const name of ['Set size', 'Set color', 'Undo text', 'Redo text'])
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Font size L' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Text color: Red' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Strikethrough' }));
+    expect(change).toHaveBeenLastCalledWith([
+      {
+        type: 'paragraph',
+        runs: [
+          {
+            text: 'Hello',
+            marks: {
+              font: 'Test Font',
+              size: 20,
+              color: '#e03131',
+              strike: true,
+            },
+          },
+        ],
+      },
+    ]);
+    editor.unmount();
+    toolbar.remove();
+  },
+);
 
 it('retains standard font choices when enumeration fails', async () => {
   window.desktop.fonts = jest.fn().mockRejectedValue(new Error('unavailable'));

@@ -197,9 +197,6 @@
   align-items: center;
   justify-content: space-between;
 }
-.inline-text-controls .rich-toolbar select {
-  width: 110px;
-}
 .text-editing-hint {
   margin: 6px 0 0;
   font-size: 11px;
@@ -299,9 +296,6 @@
   font-size: 11px;
 }
 .properties-panel .rich-toolbar > label {
-  width: auto;
-}
-.properties-panel .rich-toolbar select {
   width: auto;
 }
 @media (max-width: 600px) {

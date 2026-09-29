@@ -285,7 +285,8 @@ it('preserves unapplied form and rich-text drafts, focus, and text undo through 
   expect(board().getByRole('textbox', { name: 'Text' })).toHaveTextContent(
     'retained draft text',
   );
-  fireEvent.click(board().getByRole('button', { name: 'Undo text' }));
+  board().getByRole('textbox', { name: 'Text' }).focus();
+  fireEvent.click(board().getByRole('button', { name: 'Undo' }));
   expect(board().getByRole('textbox', { name: 'Text' })).not.toHaveTextContent(
     'retained draft text',
   );
@@ -295,6 +296,26 @@ it('preserves unapplied form and rich-text drafts, focus, and text undo through 
   await switchTo('B');
   expect(board().getByLabelText('Name')).toHaveValue('Unapplied B');
   expect(controller('B').owner.dirty).toBe(false);
+});
+
+it('keeps inline text open while global buttons undo and redo its draft', async () => {
+  await setup();
+  fireEvent.click(board().getByText('Inline draft'));
+  fireEvent.paste(board().getByRole('textbox', { name: 'Text' }), {
+    clipboardData: { getData: () => 'inline history sample' },
+  });
+  const undo = board().getByRole('button', { name: 'Undo' });
+  fireEvent.pointerDown(undo);
+  fireEvent.click(undo);
+  expect(board().getByRole('textbox', { name: 'Text' })).not.toHaveTextContent(
+    'inline history sample',
+  );
+  const redo = board().getByRole('button', { name: 'Redo' });
+  fireEvent.pointerDown(redo);
+  fireEvent.click(redo);
+  expect(board().getByRole('textbox', { name: 'Text' })).toHaveTextContent(
+    'inline history sample',
+  );
 });
 
 it('navigation does not accept inline text, and close resolves only the selected board draft', async () => {

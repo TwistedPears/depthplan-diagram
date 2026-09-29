@@ -9,7 +9,7 @@ import type { VerticalAlignment } from '../../shared/objectContentBounds';
 import { EditorView } from 'prosemirror-view';
 import { DOMParser as EditorParser, Slice, Fragment } from 'prosemirror-model';
 import { type Command } from 'prosemirror-state';
-import { toggleMark, setBlockType, wrapIn, lift } from 'prosemirror-commands';
+import { toggleMark, wrapIn, lift } from 'prosemirror-commands';
 import {
   wrapInList,
   sinkListItem,
@@ -99,8 +99,6 @@ export default function RichTextEditor({
       active = false;
     };
   }, []);
-  const [size, setSize] = useState('12');
-  const [color, setColor] = useState('#334155');
   const [link, setLink] = useState('');
   const [format, setFormat] = useState({
     ...defaultTextStyle,
@@ -261,10 +259,10 @@ export default function RichTextEditor({
       </div>
     </fieldset>
   );
-  const fullToolbar = (
+  const advancedToolbar = (
     <div
       role="toolbar"
-      aria-label={compact ? 'Advanced text formatting' : 'Text formatting'}
+      aria-label="Advanced text formatting"
       className="rich-toolbar"
     >
       {(['bold', 'italic', 'underline', 'strike'] as const).map((name) => (
@@ -284,152 +282,38 @@ export default function RichTextEditor({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => run(toggleMark(richSchema.marks[name]))}
         >
-          {name === 'strike' ? 'Strikethrough' : <Icon name={name} />}
+          <Icon name={name === 'strike' ? 'strikethrough' : name} />
         </button>
       ))}
-      <label>
-        Block{' '}
-        <select
-          aria-label="Text block"
-          defaultValue="paragraph"
-          onChange={(e) =>
-            run(
-              setBlockType(
-                e.target.value === 'paragraph'
-                  ? richSchema.nodes.paragraph
-                  : richSchema.nodes.heading,
-                e.target.value === 'paragraph'
-                  ? {}
-                  : { level: Number(e.target.value) },
-              ),
-            )
-          }
+      {(
+        [
+          [
+            'Bullet list',
+            'list-bullet',
+            wrapInList(richSchema.nodes.bullet_list),
+          ],
+          [
+            'Numbered list',
+            'list-numbered',
+            wrapInList(richSchema.nodes.ordered_list),
+          ],
+          ['Indent', 'indent', sinkListItem(richSchema.nodes.list_item)],
+          ['Outdent', 'outdent', liftListItem(richSchema.nodes.list_item)],
+          ['Blockquote', 'blockquote', wrapIn(richSchema.nodes.quote)],
+          ['Unwrap block', 'unwrap-block', lift],
+        ] as const
+      ).map(([label, icon, command]) => (
+        <button
+          key={icon}
+          type="button"
+          aria-label={label}
+          title={label}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => run(command)}
         >
-          <option value="paragraph">Paragraph</option>
-          {[1, 2, 3, 4, 5, 6].map((level) => (
-            <option key={level} value={level}>
-              Heading {level}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!compact && (
-        <>
-          <div className="text-alignment-controls">
-            <label>
-              Text alignment{' '}
-              <select
-                aria-label="Text alignment"
-                value={format.align}
-                onChange={(event) => run(setAlignment(event.target.value))}
-              >
-                {['left', 'center', 'right', 'justify'].map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-            {verticalControl}
-          </div>
-          {fontControl}
-        </>
-      )}
-      <label>
-        Size{' '}
-        <input
-          aria-label="Text size"
-          type="number"
-          min="0.1"
-          step="any"
-          value={size}
-          onChange={(e) => setSize(e.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() => {
-          if (Number.isFinite(Number(size)) && Number(size) > 0)
-            mark('size', Number(size));
-        }}
-      >
-        Set size
-      </button>
-      <label>
-        Color{' '}
-        <input
-          aria-label="Text color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() => {
-          if (CSS.supports('color', color)) {
-            mark('color', color);
-            setError('');
-          } else setError('Enter a valid text color.');
-        }}
-      >
-        Set color
-      </button>
-      <button
-        type="button"
-        onClick={() => run(wrapInList(richSchema.nodes.bullet_list))}
-      >
-        Bullet list
-      </button>
-      <button
-        type="button"
-        onClick={() => run(wrapInList(richSchema.nodes.ordered_list))}
-      >
-        Numbered list
-      </button>
-      <button
-        type="button"
-        onClick={() => run(sinkListItem(richSchema.nodes.list_item))}
-      >
-        Indent
-      </button>
-      <button
-        type="button"
-        onClick={() => run(liftListItem(richSchema.nodes.list_item))}
-      >
-        Outdent
-      </button>
-      <button type="button" onClick={() => run(wrapIn(richSchema.nodes.quote))}>
-        Blockquote
-      </button>
-      <button type="button" onClick={() => run(lift)}>
-        Unwrap block
-      </button>
-      <label>
-        List start{' '}
-        <input
-          aria-label="List start"
-          type="number"
-          min="1"
-          defaultValue="1"
-          onChange={(e) => {
-            const start = Number(e.target.value);
-            if (!Number.isSafeInteger(start) || start < 1) return;
-            run((state, dispatch) => {
-              const { $from } = state.selection;
-              for (let depth = $from.depth; depth > 0; depth--) {
-                const node = $from.node(depth);
-                if (node.type === richSchema.nodes.ordered_list) {
-                  dispatch?.(
-                    state.tr.setNodeMarkup($from.before(depth), undefined, {
-                      start,
-                    }),
-                  );
-                  return true;
-                }
-              }
-              return false;
-            });
-          }}
-        />
-      </label>
+          <Icon name={icon} />
+        </button>
+      ))}
       <label>
         Link{' '}
         <input
@@ -454,8 +338,14 @@ export default function RichTextEditor({
       >
         <Icon name="link" />
       </button>
-      <button type="button" onClick={() => mark('link', null)}>
-        Remove link
+      <button
+        type="button"
+        aria-label="Remove link"
+        title="Remove link"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => mark('link', null)}
+      >
+        <Icon name="link-remove" />
       </button>
       <button
         type="button"
@@ -481,25 +371,9 @@ export default function RichTextEditor({
       >
         <Icon name="file-code" />
       </button>
-      <button
-        type="button"
-        aria-label="Undo text"
-        title="Undo text"
-        onClick={() => run(undo)}
-      >
-        <Icon name="rotate-left" />
-      </button>
-      <button
-        type="button"
-        aria-label="Redo text"
-        title="Redo text"
-        onClick={() => run(redo)}
-      >
-        <Icon name="rotate-right" />
-      </button>
     </div>
   );
-  const toolbar = compact ? (
+  const toolbar = (
     <div
       className="inline-text-controls"
       data-inline-text-controls
@@ -550,25 +424,23 @@ export default function RichTextEditor({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => run(setAlignment(value))}
               >
-                {value === 'justify' ? (
-                  'Justify'
-                ) : (
-                  <Icon name={`align-${value}`} className="property-icon" />
-                )}
+                <Icon name={`align-${value}`} className="property-icon" />
               </button>
             ))}
           </div>
         </fieldset>
         {verticalControl}
       </div>
-      <details className="advanced-text-options">
-        <summary>More text options</summary>
-        {fullToolbar}
-      </details>
+      {compact ? (
+        <details className="advanced-text-options">
+          <summary>More text options</summary>
+          {advancedToolbar}
+        </details>
+      ) : (
+        advancedToolbar
+      )}
       {error && <p role="alert">{error}</p>}
     </div>
-  ) : (
-    fullToolbar
   );
   return (
     <section
@@ -578,7 +450,6 @@ export default function RichTextEditor({
       {compact
         ? toolbarTarget && createPortal(toolbar, toolbarTarget)
         : toolbar}
-      {!compact && error && <p role="alert">{error}</p>}
       <div ref={host} data-rich-editor />
       {!compact && (
         <small>
