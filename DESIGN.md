@@ -252,6 +252,8 @@ The Alignment popup gives every action a mouse-over tooltip. Distribution occupi
 
 With Pointer active, left-drag on empty canvas selects and right-drag pans, including over shapes and resize handles. Left-drag on a shape still moves it. Holding Ctrl at any point during a shape drag preserves its parent and immediately clears any adoption or detachment preview, allowing overlap. Releasing Ctrl resumes parent checks at the current position, with a fresh dwell before adoption. Selection replaces the previous selection unless Shift, Ctrl, or Cmd is held. With Hand active, either mouse button pans. Scrolling pans; Ctrl/Cmd + scrolling zooms.
 
+Starting a shape drag with Shift pulls out a dotted, unfilled copy preview while the original stays in place. Dropping creates the copy, including its children and internal connections, in one Undo step; Escape cancels it. Shift-click still adds or removes selection. Holding Shift while resizing mirrors the movement across the object's center along its rotated axes, for edges and corners; releasing Shift returns to resizing from the opposite handle.
+
 ### Depth Navigator
 
 A compact disclosure reads **Depth** followed by the root count, such as **2 roots**. The count describes roots, not the current depth. Opening it reveals **Levels of detail** and the controls for each root. The summary uses Blue Wash while open. It is an instrument for document detail, separate from camera zoom. Global depth commands clear local folds, and remain available when branches are hidden at the current depth.

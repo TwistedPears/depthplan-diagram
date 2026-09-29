@@ -3,6 +3,8 @@ import { duplicateSelection } from '../shared/recursiveDuplication';
 import { transactDocument } from '../shared/documentTransactions';
 import { setChildrenExpanded } from '../shared/recursiveLayouts';
 import { recursiveVisibility } from '../shared/recursiveVisibility';
+import { worldAt } from '../shared/recursiveReparent';
+import { worldPoint } from '../shared/connectionGeometry';
 
 it('copies a subtree once with hidden descendants, every depth, ports and internal wiring', () => {
   const document = recursiveFixture();
@@ -79,6 +81,45 @@ it('keeps a nested copy inside its parent and retains local folds', () => {
   expect(opened.status).toBe('accepted');
   expect(recursiveVisibility(opened.document).expanded.has(id)).toBe(true);
   expect(recursiveVisibility(opened.document).expanded.has('api')).toBe(false);
+});
+
+it('places a dragged copy and its wiring by a world-space delta in every rotated depth', () => {
+  const document = recursiveFixture();
+  document.layouts.app[1].app.rotation = 37;
+  document.layouts.app[2].app.rotation = 90;
+  document.connections.path = {
+    id: 'path',
+    ownerId: 'app',
+    kind: 'arrow',
+    z: 0,
+    start: { kind: 'free', x: 10, y: 20 },
+    end: { kind: 'object', objectId: 'api', side: 'left', offset: 0.5 },
+    points: [{ x: 30, y: 40 }],
+  };
+  const delta = { x: 130, y: -45 };
+  const copy = duplicateSelection(
+    document,
+    ['object-api', 'connection-path'],
+    delta,
+  );
+  const result = transactDocument(document, copy.edit);
+  expect(result.status).toBe('accepted');
+  const id = copy.selection[0].slice(7);
+  for (const depth of [1, 2]) {
+    const before = worldAt(document, 'app', depth, 'api');
+    const after = worldAt(result.document, 'app', depth, id);
+    expect(after.x).toBeCloseTo(before.x + delta.x);
+    expect(after.y).toBeCloseTo(before.y + delta.y);
+    expect(after.rotation).toBe(before.rotation);
+  }
+  const owner = worldAt(document, 'app', 1, 'app');
+  const path = result.document.connections[copy.selection[1].slice(11)];
+  const before = worldPoint(document.connections.path.points![0], owner);
+  const after = worldPoint(path.points![0], owner);
+  expect(after.x).toBeCloseTo(before.x + delta.x);
+  expect(after.y).toBeCloseTo(before.y + delta.y);
+  const { z: _z, ...originalGeometry } = document.layouts.app[1].api;
+  expect(result.document.layouts.app[1].api).toMatchObject(originalGeometry);
 });
 
 it('copies selected connectors and remaps arrows between copied peer objects', () => {

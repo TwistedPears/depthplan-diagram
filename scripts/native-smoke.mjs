@@ -17,6 +17,7 @@ import { expansion } from './native-expansion.mjs';
 import { connectors } from './native-connectors.mjs';
 import { rotation } from './native-rotation.mjs';
 import { parentDrop } from './native-parent-drop.mjs';
+import { shiftInteractions } from './native-shift-interactions.mjs';
 import { childContent } from './native-child-content.mjs';
 import { projects } from './native-projects.mjs';
 import { projectNavigation } from './native-project-navigation.mjs';
@@ -557,6 +558,7 @@ try {
   await connectors(resumed, probe);
   await rotation(resumed, probe);
   await parentDrop(resumed, probe);
+  await shiftInteractions(resumed, probe);
   await childContent(resumed, probe);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {

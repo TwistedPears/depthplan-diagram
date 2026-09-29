@@ -136,6 +136,34 @@ it.each(
   },
 );
 
+it('mirrors every resize handle around the center in rotated axes, including minimum size', () => {
+  for (const rotation of [0, 37, 90])
+    for (const handle of handles) {
+      const g = { x: 300, y: 200, width: 100, height: 60, rotation, z: 4 };
+      const before = handlePoint(g, handle);
+      for (const factor of [1, -100]) {
+        const target = toWorldGeometry(
+          { ...g, x: handle.x * 20 * factor, y: handle.y * 12 * factor },
+          g,
+        );
+        const delta = { x: target.x - g.x, y: target.y - g.y };
+        const after = resizeGeometry(g, handle, delta, true);
+        expect(after).toMatchObject({ x: g.x, y: g.y, rotation, z: 4 });
+        expect(after.width).toBeCloseTo(
+          handle.x ? (factor > 0 ? 140 : 0.01) : 100,
+        );
+        expect(after.height).toBeCloseTo(
+          handle.y ? (factor > 0 ? 84 : 0.01) : 60,
+        );
+        if (factor > 0) {
+          const edge = handlePoint(after, handle);
+          expect(edge.x).toBeCloseTo(before.x + delta.x);
+          expect(edge.y).toBeCloseTo(before.y + delta.y);
+        }
+      }
+    }
+});
+
 it('previews and commits anchored resizing under rotated ancestors without moving descendants or inactive layouts', () => {
   const d = recursiveFixture();
   d.rootDepths.app = 2;

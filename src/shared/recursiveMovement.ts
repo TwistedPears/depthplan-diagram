@@ -113,30 +113,33 @@ export function moveSelection(
   };
 }
 
-/** Resize in the object's axes, keeping the opposite handle fixed. */
+/** Resize in the object's axes, anchoring the opposite handle or the center. */
 export function resizeGeometry(
   geometry: Geometry,
   handle: { x: number; y: number },
   delta: { x: number; y: number },
+  centered = false,
 ): Geometry {
   const local = toLocalGeometry(
     { ...geometry, x: geometry.x + delta.x, y: geometry.y + delta.y },
     geometry,
   );
   const width = handle.x
-    ? Math.max(0.01, geometry.width + local.x * handle.x)
+    ? Math.max(0.01, geometry.width + local.x * handle.x * (centered ? 2 : 1))
     : geometry.width;
   const height = handle.y
-    ? Math.max(0.01, geometry.height + local.y * handle.y)
+    ? Math.max(0.01, geometry.height + local.y * handle.y * (centered ? 2 : 1))
     : geometry.height;
-  const center = toWorldGeometry(
-    {
-      ...geometry,
-      x: ((width - geometry.width) * handle.x) / 2,
-      y: ((height - geometry.height) * handle.y) / 2,
-    },
-    geometry,
-  );
+  const center = centered
+    ? geometry
+    : toWorldGeometry(
+        {
+          ...geometry,
+          x: ((width - geometry.width) * handle.x) / 2,
+          y: ((height - geometry.height) * handle.y) / 2,
+        },
+        geometry,
+      );
   return { ...geometry, x: center.x, y: center.y, width, height };
 }
 

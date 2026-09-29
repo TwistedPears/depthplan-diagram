@@ -557,6 +557,7 @@ export default memo(function RecursiveCanvas({
     revealParents: string[];
     world: Map<string, Geometry>;
     resize?: { x: number; y: number };
+    duplicate: boolean;
     rotate: boolean;
     snapped: boolean;
     delta: Point;
@@ -637,7 +638,11 @@ export default memo(function RecursiveCanvas({
       window.removeEventListener('mouseup', cancelOutside);
     };
   }, [cancelDrag]);
-  const beginGeometry = (ids: string[], handle?: Point | 'rotate') => {
+  const beginGeometry = (
+    ids: string[],
+    handle?: Point | 'rotate',
+    shift = false,
+  ) => {
     const movers = topmostObjects(
       document,
       ids.filter((id) => id.startsWith('object-')).map((id) => id.slice(7)),
@@ -651,6 +656,7 @@ export default memo(function RecursiveCanvas({
       revealParents: [],
       world: scene.world,
       resize: typeof handle === 'object' ? handle : undefined,
+      duplicate: !handle && shift,
       rotate: handle === 'rotate',
       snapped: false,
       delta: { x: 0, y: 0 },
@@ -661,7 +667,7 @@ export default memo(function RecursiveCanvas({
     setMoveError('');
     setPreview({ base: document, value: document });
   };
-  const updateGeometry = (preserveParent: boolean) => {
+  const updateGeometry = (preserveParent: boolean, shift = false) => {
     const active = gesture.current;
     if (!active || !active.ids.length) return;
     const point = pointer();
@@ -684,7 +690,7 @@ export default memo(function RecursiveCanvas({
       active.ids.map((id) => {
         const g = active.world.get(id)!;
         if (active.resize) {
-          return [id, resizeGeometry(g, active.resize, delta)];
+          return [id, resizeGeometry(g, active.resize, delta, shift)];
         }
         if (active.rotate) {
           const { rotation, snapped } = rotationFromPointer(
@@ -786,22 +792,23 @@ export default memo(function RecursiveCanvas({
     }
     setPreview({
       base: document,
-      value: previewGeometry(active.expandedDocument, active.patches),
+      value: active.duplicate
+        ? active.expandedDocument
+        : previewGeometry(active.expandedDocument, active.patches),
     });
   };
   const updateDragModifier = useEffectEvent((event: KeyboardEvent) => {
     if (
-      event.key === 'Control' &&
+      (event.key === 'Control' || event.key === 'Shift') &&
       gesture.current?.moved &&
-      !gesture.current.resize &&
       !gesture.current.rotate
     )
-      updateGeometry(event.ctrlKey);
+      updateGeometry(event.ctrlKey, event.shiftKey);
   });
-  const finishGeometry = (preserveParent: boolean) => {
+  const finishGeometry = (preserveParent: boolean, shift: boolean) => {
     const active = gesture.current;
     if (!active) return;
-    updateGeometry(preserveParent);
+    updateGeometry(preserveParent, shift);
     cancelDrag();
     if (!active.moved) {
       if (active.clickTarget) {
@@ -814,35 +821,53 @@ export default memo(function RecursiveCanvas({
       return;
     }
     suppressClick.current = true;
+    const copy = active.duplicate
+      ? duplicateSelection(
+          document,
+          active.ids.map((id) => `object-${id}`),
+          active.delta,
+        )
+      : undefined;
+    const ids = copy
+      ? copy.selection
+          .filter((key) => key.startsWith('object-'))
+          .map((key) => key.slice(7))
+      : active.ids;
     const edit: DocumentEdit =
       active.resize || active.rotate
         ? (draft) => {
             draft.layouts = previewGeometry(draft, active.patches).layouts;
           }
-        : moveSelection(
-            active.ids,
-            active.delta,
-            new Map(
-              active.ids.map((id) => {
-                const change = active.parentChanges.get(id);
-                return [
-                  id,
-                  change?.ready ? change.parent : document.objects[id].parentId,
-                ];
-              }),
-            ),
-            active.revealParents,
-          );
+        : (draft) => {
+            copy?.edit(draft);
+            moveSelection(
+              ids,
+              copy ? { x: 0, y: 0 } : active.delta,
+              new Map(
+                active.ids.map((id, index) => {
+                  const change = active.parentChanges.get(id);
+                  return [
+                    ids[index],
+                    change?.ready
+                      ? change.parent
+                      : document.objects[id].parentId,
+                  ];
+                }),
+              ),
+              active.revealParents,
+            )(draft);
+          };
     const result = transactDocument(document, edit);
     if (result.status === 'rejected') setMoveError(result.error);
     else {
       onEdit(edit);
+      if (copy) setSelected(copy.selection);
       const after = recursiveScene(result.document);
-      const hidden = active.ids.filter((id) => !after.world.has(id));
+      const hidden = ids.filter((id) => !after.world.has(id));
       if (hidden.length)
         setSelected([
           ...new Set(
-            active.ids.map(
+            ids.map(
               (id) =>
                 `object-${after.world.has(id) ? id : result.document.objects[id].parentId}`,
             ),
@@ -850,7 +875,7 @@ export default memo(function RecursiveCanvas({
         ]);
       if (hidden.length)
         onStatus(
-          `Moved ${hidden.length === 1 ? objectLabel(document.objects[hidden[0]]) : `${hidden.length} objects`} inside. Reveal children to see them.`,
+          `Moved ${hidden.length === 1 ? objectLabel(result.document.objects[hidden[0]]) : `${hidden.length} objects`} inside. Reveal children to see them.`,
         );
     }
   };
@@ -1029,7 +1054,10 @@ export default memo(function RecursiveCanvas({
     ],
   );
   const lifted =
-    gesture.current?.moved && !gesture.current.resize && !gesture.current.rotate
+    gesture.current?.moved &&
+    !gesture.current.resize &&
+    !gesture.current.rotate &&
+    !gesture.current.duplicate
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
@@ -1275,16 +1303,13 @@ export default memo(function RecursiveCanvas({
           if (tool !== ToolMode.POINTER) return;
           setSelectedPoint(null);
           const key = targetKey(event.target);
-          if (
-            key?.startsWith('object-') &&
-            !event.evt.shiftKey &&
-            !event.evt.metaKey
-          ) {
+          if (key?.startsWith('object-') && !event.evt.metaKey) {
             const ids = selection.includes(key) ? selection : [key];
-            if (!event.evt.ctrlKey) setSelected(ids);
-            beginGeometry(ids);
+            if (!event.evt.ctrlKey && !event.evt.shiftKey) setSelected(ids);
+            beginGeometry(ids, undefined, event.evt.shiftKey);
             gesture.current!.clickTarget = key;
-            gesture.current!.additiveClick = event.evt.ctrlKey;
+            gesture.current!.additiveClick =
+              event.evt.ctrlKey || event.evt.shiftKey;
             return;
           }
           if (!key) {
@@ -1300,7 +1325,7 @@ export default memo(function RecursiveCanvas({
         onMouseMove={(event) => {
           if (connector.mouseMove(event)) return;
           if (gesture.current) {
-            updateGeometry(event.evt.ctrlKey);
+            updateGeometry(event.evt.ctrlKey, event.evt.shiftKey);
             return;
           }
           setRotationHover(rotationAt(event.target));
@@ -1316,7 +1341,7 @@ export default memo(function RecursiveCanvas({
           if (event.evt.button !== 0) return;
           onBusyChange('canvas-gesture', false);
           if (gesture.current) {
-            finishGeometry(event.evt.ctrlKey);
+            finishGeometry(event.evt.ctrlKey, event.evt.shiftKey);
             return;
           }
           if (draw) {
@@ -1471,6 +1496,33 @@ export default memo(function RecursiveCanvas({
           />
         </Layer>
         <Layer listening={false}>
+          {gesture.current?.duplicate &&
+            gesture.current.moved &&
+            gesture.current.ids.map((id) => {
+              const geometry = {
+                ...gesture.current!.world.get(id)!,
+                ...gesture.current!.patches.get(id),
+              };
+              return (
+                <Group
+                  key={id}
+                  x={geometry.x}
+                  y={geometry.y}
+                  rotation={geometry.rotation}
+                >
+                  <ObjectOutline
+                    name="duplicate-preview"
+                    object={document.objects[id]}
+                    geometry={geometry}
+                    fillEnabled={false}
+                    stroke="#2563eb"
+                    strokeWidth={1.5 / camera.scale}
+                    dash={[1 / camera.scale, 4 / camera.scale]}
+                    lineCap="round"
+                  />
+                </Group>
+              );
+            })}
           {draw &&
             (tool === ToolMode.LINE || tool === ToolMode.ARROW ? (
               <Arrow
@@ -1638,7 +1690,11 @@ export default memo(function RecursiveCanvas({
                       onMouseDown={(event) => {
                         event.cancelBubble = true;
                         if (event.evt.button === 0 && !isBusy())
-                          beginGeometry(selection, { x, y });
+                          beginGeometry(
+                            selection,
+                            { x, y },
+                            event.evt.shiftKey,
+                          );
                       }}
                       onClick={(event) => {
                         event.cancelBubble = true;
