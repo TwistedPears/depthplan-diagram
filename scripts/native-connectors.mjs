@@ -101,6 +101,9 @@ export async function connectors(driver, probe) {
   const select = (id) =>
     command('depthplan_selection', { action: 'set', connections: [id] });
   const capture = async (name) => {
+    await js(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+    );
     const bytes = await driver.request(
       `/session/${driver.session}/screenshot`,
       undefined,
@@ -747,5 +750,46 @@ export async function connectors(driver, probe) {
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
     'PASS curved arrows: both markers aim into rectangle, diamond and ellipse attachments.',
+  );
+
+  // A steep bend just beyond a diamond's right attachment must leave a readable shaft.
+  await command('depthplan_edit', {
+    actions: [
+      {
+        type: 'delete',
+        objects: ['a', 'b', 'c'],
+        connections: ['top', 'bottom'],
+      },
+      { type: 'geometry', id: 'd', patch: { x: 600, y: 500 } },
+      {
+        type: 'edit_connection',
+        id: 'ellipse',
+        start: endpoint('d', 'right'),
+        end: { kind: 'free', x: 1000, y: 420 },
+        points: [{ x: 730, y: 230 }],
+        style: { arrowheadEnd: 'none' },
+      },
+    ],
+  });
+  await command('depthplan_selection', {
+    action: 'set',
+    connections: ['ellipse'],
+  });
+  const bend = await pointHandle(1);
+  await pointer('mousedown', bend.x, bend.y);
+  await pointer('mousemove', bend.x + 20, bend.y);
+  await pointer('mouseup', bend.x + 20, bend.y);
+  assert.deepEqual((await save()).connections.ellipse.points, [
+    { x: 750, y: 230 },
+  ]);
+  await click('Undo');
+  assert.deepEqual((await save()).connections.ellipse.points, [
+    { x: 730, y: 230 },
+  ]);
+  await command('depthplan_selection', { action: 'clear' });
+  await capture('curved-arrow-shaft.png');
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS curved shaft: steep diamond attachment retains editable bends and Undo.',
   );
 }

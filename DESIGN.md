@@ -246,7 +246,7 @@ Users can hide selection controls and reopen them from a compact selected-count 
 
 The signature top instrument keeps pan, pointer, shapes, line/arrow, and arrangement controls together, separated by small dividers. The active drawing tool is solid blue with a white icon; hovering it uses the same darker blue as the primary Export button and keeps the icon white. Arrangement is unavailable without selection. Preserve the established tool order and accessible labels; the project-provided SVGs in `src/renderer/assets/icons/` are the implemented icon source.
 
-Arrow stays active after drawing so users can connect several objects in sequence; selecting another tool or pressing Escape leaves Arrow mode. Curved connectors approach bound endpoints along the attachment direction, keeping arrowheads pointed into the shape while intermediate bends remain editable.
+Arrow stays active after drawing so users can connect several objects in sequence; selecting another tool or pressing Escape leaves Arrow mode. Curved connectors approach bound endpoints along the attachment direction with a straighter section behind each arrowhead, while intermediate bends remain editable.
 
 The Alignment popup gives every action a mouse-over tooltip. Distribution occupies the first two columns of its row; Match Width and Match Height occupy the first two columns of the next row. Both rows retain the same three-column widths as the Align controls. The size-reference callout is hidden; sizing still uses the existing selection reference.
 

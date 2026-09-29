@@ -448,9 +448,10 @@ export function connectionRoute(
       const tip = route[tipIndex];
       const controlIndex = tipIndex === 0 ? 1 : tipIndex - 1;
       const center = localPoint(world.get(endpoint.objectId)!, owner);
+      // Give the arrowhead a straighter shaft before turning toward the next bend.
       const length = Math.max(
         distance(tip, route[controlIndex]),
-        distance(tip, route[tipIndex === 0 ? 3 : tipIndex - 3]) / 6,
+        distance(tip, route[tipIndex === 0 ? 3 : tipIndex - 3]) / 3,
       );
       const direction =
         ((endpoint.objectId === connection.ownerId ? -1 : 1) * length) /

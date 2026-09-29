@@ -6,6 +6,7 @@ import {
   arrowheads,
   constrainPoint,
   distanceToSegment,
+  distance,
 } from '../shared/connectionGeometry';
 import { bindingTarget, replaceEndpoint } from '../shared/connectionEditing';
 import { activeWorldGeometry } from '../shared/recursiveHierarchy';
@@ -124,6 +125,36 @@ it('aims curved endpoints into rotated shapes and inward parent borders without 
         }
       }
     }
+});
+it('keeps a short shaft behind either arrowhead before a steep curve turns away', () => {
+  const d = recursiveFixture();
+  d.objects.payments.type = 'diamond';
+  const c: DiagramConnection = {
+    ...free(),
+    start: {
+      kind: 'object',
+      objectId: 'payments',
+      side: 'right',
+      offset: 0.5,
+      binding: 'fixed',
+    },
+    end: { kind: 'free', x: 1180, y: 0 },
+    points: [{ x: 980, y: -200 }],
+    style: { lineType: 'curved', arrowheadStart: 'arrow' },
+  };
+  for (const reverse of [false, true]) {
+    const route = connectionRoute(
+      d,
+      reverse ? { ...c, start: c.end, end: c.start } : c,
+      activeWorldGeometry(d),
+    )!;
+    const tip = reverse ? route.vertices.at(-1)! : route.vertices[0];
+    const shaft = { x: tip.x + 10, y: tip.y };
+    expect(
+      Math.min(...route.samples.map((point) => distance(point, shaft))),
+    ).toBeLessThan(2);
+    expect(route.vertices.slice(1, -1)).toEqual(c.points);
+  }
 });
 it.each([undefined, 'sharp'])(
   'preserves bends when editing other properties of an already straight path (%s)',
