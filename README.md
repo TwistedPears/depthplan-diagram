@@ -19,6 +19,11 @@ There is no downloadable preview yet. You can [build from source](#build-and-run
 or follow the [tester guide](docs/preview.md) for availability, a short exercise
 and current limitations.
 
+## About the Project
+
+DepthPlan was created and is primarily developed and maintained
+by John Sanford (@drofnas) under the TwistedPears organization.
+
 ## Build and run
 
 Use Node.js 24, npm 10+, Rust 1.94.1 and the
