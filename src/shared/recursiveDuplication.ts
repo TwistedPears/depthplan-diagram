@@ -4,7 +4,8 @@ import type {
   Geometry,
   RecursiveDocument,
 } from './recursiveDocument';
-import { indexHierarchy } from './recursiveHierarchy';
+import { indexHierarchy, toLocalGeometry } from './recursiveHierarchy';
+import { worldAt } from './recursiveReparent';
 import { topmostObjects } from './recursiveMovement';
 import { collapsedObjects, setCollapsedObjects } from './recursiveVisibility';
 import { stackSelection } from './recursiveArrangement';
@@ -42,7 +43,7 @@ export function copyScope(document: RecursiveDocument, selection: string[]) {
 export function duplicateSelection(
   document: RecursiveDocument,
   selection: string[],
-  offset = 24,
+  offset: number | { x: number; y: number } = 24,
 ) {
   const scope = copyScope(document, selection);
   const { tops, members, hierarchy } = scope;
@@ -56,11 +57,27 @@ export function duplicateSelection(
       .filter((id) => !members.has(document.connections[id].ownerId ?? ''))
       .map((id) => `connection-${connections.get(id)}`),
   ];
-  const geometry = (id: string, g: Geometry) => ({
-    ...g,
-    x: g.x + (tops.has(id) ? offset : 0),
-    y: g.y + (tops.has(id) ? offset : 0),
-  });
+  const translation = (ownerId: string | null, depth?: number) => {
+    if (typeof offset === 'number') return { x: offset, y: offset };
+    if (ownerId === null) return offset;
+    const { root } = hierarchy.entries.get(ownerId)!;
+    const owner = worldAt(
+      document,
+      root,
+      depth ?? document.rootDepths[root],
+      ownerId,
+    );
+    return toLocalGeometry(
+      { ...owner, x: owner.x + offset.x, y: owner.y + offset.y },
+      owner,
+    );
+  };
+  const geometry = (id: string, g: Geometry, depth?: number) => {
+    const delta = tops.has(id)
+      ? translation(document.objects[id].parentId, depth)
+      : { x: 0, y: 0 };
+    return { ...g, x: g.x + delta.x, y: g.y + delta.y };
+  };
   const edit: DocumentEdit = (draft) => {
     for (const [id, copyId] of objects) {
       if (draft.objects[copyId]) throw new Error('Duplicate object ID');
@@ -82,7 +99,7 @@ export function duplicateSelection(
             Object.fromEntries(
               Object.entries(layout).map(([member, g]) => [
                 objects.get(member)!,
-                geometry(member, g),
+                geometry(member, g, Number(depth)),
               ]),
             ),
           ]),
@@ -92,7 +109,11 @@ export function duplicateSelection(
         if (objects.has(root)) continue; // The root copy already includes these layouts.
         for (const [depth, layout] of Object.entries(document.layouts[root]))
           if (layout[id])
-            draft.layouts[root][depth][copyId] = geometry(id, layout[id]);
+            draft.layouts[root][depth][copyId] = geometry(
+              id,
+              layout[id],
+              Number(depth),
+            );
       }
     }
     const collapsed = collapsedObjects(draft);
@@ -104,10 +125,16 @@ export function duplicateSelection(
       if (draft.connections[copyId]) throw new Error('Duplicate connection ID');
       const source = document.connections[id];
       const connectionOffset =
-        source.ownerId !== null && objects.has(source.ownerId) ? 0 : offset;
+        source.ownerId !== null && objects.has(source.ownerId)
+          ? { x: 0, y: 0 }
+          : translation(source.ownerId);
       const endpoint = (end: Endpoint): Endpoint =>
         end.kind === 'free'
-          ? { ...end, x: end.x + connectionOffset, y: end.y + connectionOffset }
+          ? {
+              ...end,
+              x: end.x + connectionOffset.x,
+              y: end.y + connectionOffset.y,
+            }
           : { ...end, objectId: objects.get(end.objectId) ?? end.objectId };
       draft.connections[copyId] = {
         ...JSON.parse(JSON.stringify(source)),
@@ -121,8 +148,8 @@ export function duplicateSelection(
         ...(source.points
           ? {
               points: source.points.map((p) => ({
-                x: p.x + connectionOffset,
-                y: p.y + connectionOffset,
+                x: p.x + connectionOffset.x,
+                y: p.y + connectionOffset.y,
               })),
             }
           : {}),

@@ -246,9 +246,13 @@ Users can hide selection controls and reopen them from a compact selected-count 
 
 The signature top instrument keeps pan, pointer, shapes, line/arrow, and arrangement controls together, separated by small dividers. The active drawing tool is solid blue with a white icon; hovering it uses the same darker blue as the primary Export button and keeps the icon white. Arrangement is unavailable without selection. Preserve the established tool order and accessible labels; the project-provided SVGs in `src/renderer/assets/icons/` are the implemented icon source.
 
+Arrow stays active after drawing so users can connect several objects in sequence; selecting another tool or pressing Escape leaves Arrow mode. Curved connectors approach bound endpoints along the attachment direction with a straighter section behind each arrowhead, while intermediate bends remain editable.
+
 The Alignment popup gives every action a mouse-over tooltip. Distribution occupies the first two columns of its row; Match Width and Match Height occupy the first two columns of the next row. Both rows retain the same three-column widths as the Align controls. The size-reference callout is hidden; sizing still uses the existing selection reference.
 
 With Pointer active, left-drag on empty canvas selects and right-drag pans, including over shapes and resize handles. Left-drag on a shape still moves it. Holding Ctrl at any point during a shape drag preserves its parent and immediately clears any adoption or detachment preview, allowing overlap. Releasing Ctrl resumes parent checks at the current position, with a fresh dwell before adoption. Selection replaces the previous selection unless Shift, Ctrl, or Cmd is held. With Hand active, either mouse button pans. Scrolling pans; Ctrl/Cmd + scrolling zooms.
+
+Starting a shape drag with Shift pulls out a dotted, unfilled copy preview while the original stays in place. Dropping creates the copy, including its children and internal connections, in one Undo step; Escape cancels it. Shift-click still adds or removes selection. Holding Shift while resizing mirrors the movement across the object's center along its rotated axes, for edges and corners; releasing Shift returns to resizing from the opposite handle.
 
 ### Depth Navigator
 
@@ -256,7 +260,9 @@ A compact disclosure reads **Depth** followed by the root count, such as **2 roo
 
 Parents keep their original shape as children are revealed. A light dashed enclosure groups child content. Collapsed parents show a child-count disclosure on the canvas; selecting any parent exposes the same action in the sidebar. Each disclosure opens one branch by one level. A compact parent path helps navigate nested selections.
 
-Ordinary movement has no parent highlight. A 400ms hover over a different shape arms a blue outline and “Move into” hint; leaving a parent shows “Move to top level”. Only the previewed relationship is committed. Dragged objects remain visible above the diagram, and a drop preserves the destination’s open or closed state.
+The children toggle paints last inside its parent, above child shapes and their controls. Overlapping children do not hide it; unrelated objects still follow the parent's normal stacking order.
+
+Ordinary movement has no parent highlight. A 400ms hover over an existing parent arms a blue outline and “Move into” hint; holding for one second reveals its children so the object can be positioned inside, including over nested parents. An empty parent accepts a quick drop and immediately reveals its first child. Leaving a parent shows “Move to top level”. Dragged objects remain visible above the diagram. Reveals stay in the drag preview until the drop commits them with the final placement in one undo step; Escape, blur, or Ctrl-drag discards them.
 
 ### Panels and Dialogs
 

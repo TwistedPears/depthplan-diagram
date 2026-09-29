@@ -125,14 +125,12 @@ it('moves only with the parent changes explicitly armed by the gesture', () => {
     moveSelection(['api'], delta, new Map([['api', 'payments']])),
   );
   expect(dropped.objects.api.parentId).toBe('payments');
-  expect(dropped.rootDepths.payments).toBe(0);
-  expect(recursiveScene(dropped).world.has('api')).toBe(false);
-  const revealed = edit(dropped, setChildrenExpanded('payments', true));
-  expect(recursiveScene(revealed).world.get('api')).toMatchObject({
+  expect(dropped.rootDepths.payments).toBe(1);
+  expect(recursiveScene(dropped).world.get('api')).toMatchObject({
     x: 900,
     y: 20,
   });
-  expect(recursiveScene(revealed).world.has('endpoint')).toBe(false);
+  expect(recursiveScene(dropped).world.has('endpoint')).toBe(false);
   const detached = edit(
     document,
     moveSelection(['api'], { x: -300, y: 300 }, new Map([['api', null]])),

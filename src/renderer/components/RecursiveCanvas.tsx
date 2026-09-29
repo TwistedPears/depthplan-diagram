@@ -88,7 +88,6 @@ import {
   type Camera,
   geometryBounds,
   intersectsBounds,
-  unionBounds,
   sceneBounds,
   fitCamera,
   zoomCamera,
@@ -111,6 +110,7 @@ import {
   type BoundaryReference,
 } from '../../shared/recursiveBridges';
 import { recursiveScene, objectLabel } from '../../shared/recursiveScene';
+import { recursiveVisibility } from '../../shared/recursiveVisibility';
 import {
   objectContentBounds,
   type TextExclusion,
@@ -248,17 +248,6 @@ export default memo(function RecursiveCanvas({
   const displayed = preview?.base === document ? preview.value : animated;
   const scene = useMemo(() => recursiveScene(displayed), [displayed]);
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
-  const subtreeBounds = useMemo(() => {
-    const result = new Map(bounds.objects);
-    for (const id of [...scene.hierarchy.entries.keys()].reverse()) {
-      const box = result.get(id);
-      const parent = document.objects[id].parentId;
-      if (!box || parent === null) continue;
-      const owner = result.get(parent);
-      result.set(parent, owner ? unionBounds([owner, box])! : box);
-    }
-    return result;
-  }, [bounds.objects, scene.hierarchy, document.objects]);
   const toggleChildren = (
     id: string,
     event: ReactMouseEvent<HTMLButtonElement> | MouseEvent,
@@ -564,8 +553,11 @@ export default memo(function RecursiveCanvas({
     ids: string[];
     start: Point;
     document: RecursiveDocument;
+    expandedDocument: RecursiveDocument;
+    revealParents: string[];
     world: Map<string, Geometry>;
     resize?: { x: number; y: number };
+    duplicate: boolean;
     rotate: boolean;
     snapped: boolean;
     delta: Point;
@@ -646,7 +638,11 @@ export default memo(function RecursiveCanvas({
       window.removeEventListener('mouseup', cancelOutside);
     };
   }, [cancelDrag]);
-  const beginGeometry = (ids: string[], handle?: Point | 'rotate') => {
+  const beginGeometry = (
+    ids: string[],
+    handle?: Point | 'rotate',
+    shift = false,
+  ) => {
     const movers = topmostObjects(
       document,
       ids.filter((id) => id.startsWith('object-')).map((id) => id.slice(7)),
@@ -656,8 +652,11 @@ export default memo(function RecursiveCanvas({
       ids: movers,
       start: pointer(),
       document,
+      expandedDocument: document,
+      revealParents: [],
       world: scene.world,
       resize: typeof handle === 'object' ? handle : undefined,
+      duplicate: !handle && shift,
       rotate: handle === 'rotate',
       snapped: false,
       delta: { x: 0, y: 0 },
@@ -668,7 +667,7 @@ export default memo(function RecursiveCanvas({
     setMoveError('');
     setPreview({ base: document, value: document });
   };
-  const updateGeometry = (preserveParent: boolean) => {
+  const updateGeometry = (preserveParent: boolean, shift = false) => {
     const active = gesture.current;
     if (!active || !active.ids.length) return;
     const point = pointer();
@@ -691,7 +690,7 @@ export default memo(function RecursiveCanvas({
       active.ids.map((id) => {
         const g = active.world.get(id)!;
         if (active.resize) {
-          return [id, resizeGeometry(g, active.resize, delta)];
+          return [id, resizeGeometry(g, active.resize, delta, shift)];
         }
         if (active.rotate) {
           const { rotation, snapped } = rotationFromPointer(
@@ -703,7 +702,7 @@ export default memo(function RecursiveCanvas({
           active.snapped = snapped;
           return [id, { rotation }];
         }
-        return [id, { x: g.x + delta.x, y: g.y + delta.y }];
+        return [id, { ...g, x: g.x + delta.x, y: g.y + delta.y }];
       }),
     );
     if (active.resize) {
@@ -712,14 +711,12 @@ export default memo(function RecursiveCanvas({
         if (document.objects[id].parentId === active.ids[0])
           active.patches.set(id, geometry);
     }
-    setPreview({
-      base: document,
-      value: previewGeometry(document, active.patches),
-    });
     if (preserveParent) {
       for (const change of active.parentChanges.values())
         clearTimeout(change.timer);
       active.parentChanges.clear();
+      active.expandedDocument = document;
+      active.revealParents = [];
       setDropTargets([]);
     } else if (!active.resize && !active.rotate) {
       const publish = () =>
@@ -731,7 +728,11 @@ export default memo(function RecursiveCanvas({
       for (const id of active.ids) {
         const center = { ...active.world.get(id)!, ...active.patches.get(id) };
         const current = document.objects[id].parentId;
-        let candidate = eligibleParent(document, center, new Set(active.ids));
+        let candidate = eligibleParent(
+          active.expandedDocument,
+          center,
+          new Set(active.ids),
+        );
         // Small edge movements stay within the current parent without flicker.
         if (
           candidate === null &&
@@ -754,32 +755,60 @@ export default memo(function RecursiveCanvas({
             parent: string | null;
             ready: boolean;
             timer?: ReturnType<typeof setTimeout>;
-          } = { parent: candidate, ready: candidate === null };
+          } = {
+            parent: candidate,
+            ready:
+              candidate === null || !scene.hierarchy.children.has(candidate),
+          };
           active.parentChanges.set(id, change);
-          if (candidate !== null)
+          if (candidate !== null && !change.ready)
             change.timer = setTimeout(() => {
               if (gesture.current !== active) return;
               change.ready = true;
               publish();
+              if (
+                !recursiveVisibility(active.expandedDocument).expanded.has(
+                  candidate,
+                )
+              )
+                change.timer = setTimeout(() => {
+                  if (gesture.current !== active) return;
+                  const result = transactDocument(
+                    active.expandedDocument,
+                    setChildrenExpanded(candidate, true),
+                  );
+                  if (result.status === 'rejected') {
+                    setMoveError(result.error);
+                    return;
+                  }
+                  active.expandedDocument = result.document;
+                  active.revealParents.push(candidate);
+                  updateGeometry(false);
+                }, 600);
             }, 400);
         }
       }
       publish();
     }
+    setPreview({
+      base: document,
+      value: active.duplicate
+        ? active.expandedDocument
+        : previewGeometry(active.expandedDocument, active.patches),
+    });
   };
   const updateDragModifier = useEffectEvent((event: KeyboardEvent) => {
     if (
-      event.key === 'Control' &&
+      (event.key === 'Control' || event.key === 'Shift') &&
       gesture.current?.moved &&
-      !gesture.current.resize &&
       !gesture.current.rotate
     )
-      updateGeometry(event.ctrlKey);
+      updateGeometry(event.ctrlKey, event.shiftKey);
   });
-  const finishGeometry = (preserveParent: boolean) => {
+  const finishGeometry = (preserveParent: boolean, shift: boolean) => {
     const active = gesture.current;
     if (!active) return;
-    updateGeometry(preserveParent);
+    updateGeometry(preserveParent, shift);
     cancelDrag();
     if (!active.moved) {
       if (active.clickTarget) {
@@ -792,34 +821,53 @@ export default memo(function RecursiveCanvas({
       return;
     }
     suppressClick.current = true;
+    const copy = active.duplicate
+      ? duplicateSelection(
+          document,
+          active.ids.map((id) => `object-${id}`),
+          active.delta,
+        )
+      : undefined;
+    const ids = copy
+      ? copy.selection
+          .filter((key) => key.startsWith('object-'))
+          .map((key) => key.slice(7))
+      : active.ids;
     const edit: DocumentEdit =
       active.resize || active.rotate
         ? (draft) => {
             draft.layouts = previewGeometry(draft, active.patches).layouts;
           }
-        : moveSelection(
-            active.ids,
-            active.delta,
-            new Map(
-              active.ids.map((id) => {
-                const change = active.parentChanges.get(id);
-                return [
-                  id,
-                  change?.ready ? change.parent : document.objects[id].parentId,
-                ];
-              }),
-            ),
-          );
+        : (draft) => {
+            copy?.edit(draft);
+            moveSelection(
+              ids,
+              copy ? { x: 0, y: 0 } : active.delta,
+              new Map(
+                active.ids.map((id, index) => {
+                  const change = active.parentChanges.get(id);
+                  return [
+                    ids[index],
+                    change?.ready
+                      ? change.parent
+                      : document.objects[id].parentId,
+                  ];
+                }),
+              ),
+              active.revealParents,
+            )(draft);
+          };
     const result = transactDocument(document, edit);
     if (result.status === 'rejected') setMoveError(result.error);
     else {
       onEdit(edit);
+      if (copy) setSelected(copy.selection);
       const after = recursiveScene(result.document);
-      const hidden = active.ids.filter((id) => !after.world.has(id));
+      const hidden = ids.filter((id) => !after.world.has(id));
       if (hidden.length)
         setSelected([
           ...new Set(
-            active.ids.map(
+            ids.map(
               (id) =>
                 `object-${after.world.has(id) ? id : result.document.objects[id].parentId}`,
             ),
@@ -827,7 +875,7 @@ export default memo(function RecursiveCanvas({
         ]);
       if (hidden.length)
         onStatus(
-          `Moved ${hidden.length === 1 ? objectLabel(document.objects[hidden[0]]) : `${hidden.length} objects`} inside. Reveal children to see them.`,
+          `Moved ${hidden.length === 1 ? objectLabel(result.document.objects[hidden[0]]) : `${hidden.length} objects`} inside. Reveal children to see them.`,
         );
     }
   };
@@ -1006,7 +1054,10 @@ export default memo(function RecursiveCanvas({
     ],
   );
   const lifted =
-    gesture.current?.moved && !gesture.current.resize && !gesture.current.rotate
+    gesture.current?.moved &&
+    !gesture.current.resize &&
+    !gesture.current.rotate &&
+    !gesture.current.duplicate
       ? gesture.current.ids
       : undefined;
   const liftedIds = useMemo(() => lifted && new Set(lifted), [lifted]);
@@ -1121,22 +1172,9 @@ export default memo(function RecursiveCanvas({
       width: 2 * half,
       height: 2 * half,
     };
-    const worldControl = {
-      x: center.x - worldHalf,
-      y: center.y - worldHalf,
-      width: 2 * worldHalf,
-      height: 2 * worldHalf,
-    };
     // Rotation/small frames can leave no clear slot. Selection still provides
-    // the full-size Reveal/Hide action without covering text or stealing hits.
-    // ponytail: conservative boxes can hide clear slots; use ink bounds if needed.
-    if (
-      (object.name && title.width > 0 && intersectsBounds(control, title)) ||
-      children.some((child) => {
-        const box = subtreeBounds.get(child);
-        return box && intersectsBounds(worldControl, box);
-      })
-    )
+    // the full-size Reveal/Hide action without covering the parent's title.
+    if (object.name && title.width > 0 && intersectsBounds(control, title))
       continue;
     if (intersectsBounds(control, body)) {
       const leftSpace = Math.max(0, control.x - body.x - 2);
@@ -1185,35 +1223,8 @@ export default memo(function RecursiveCanvas({
     renderBoundaryPoints,
     liftedIds,
   ]);
-  const rotationAt = (target: Konva.Node) => {
-    if (
-      tool !== ToolMode.POINTER ||
-      selection.length !== 1 ||
-      !selection[0].startsWith('object-') ||
-      draw ||
-      selectedPoint ||
-      textEditing ||
-      properties ||
-      linkEditing ||
-      isBusy() ||
-      target.hasName('resize-handle') ||
-      target.findAncestor('.child-stack-toggle, .boundary-point', true)
-    )
-      return false;
-    const g = scene.world.get(selection[0].slice(7))!;
-    const p = localPoint(pointer(), g);
-    return transformHandles.some(({ x, y }) => {
-      const offset = 14 / (Math.hypot(x, y) * camera.scale);
-      return (
-        Math.hypot(
-          p.x - x * (g.width / 2 + offset),
-          p.y - y * (g.height / 2 + offset),
-        ) *
-          camera.scale <=
-        10
-      );
-    });
-  };
+  const rotationAt = (target: Konva.Node) =>
+    target.hasName('rotation-handle') && !isBusy();
   return (
     <div
       className="canvas-container"
@@ -1292,16 +1303,13 @@ export default memo(function RecursiveCanvas({
           if (tool !== ToolMode.POINTER) return;
           setSelectedPoint(null);
           const key = targetKey(event.target);
-          if (
-            key?.startsWith('object-') &&
-            !event.evt.shiftKey &&
-            !event.evt.metaKey
-          ) {
+          if (key?.startsWith('object-') && !event.evt.metaKey) {
             const ids = selection.includes(key) ? selection : [key];
-            if (!event.evt.ctrlKey) setSelected(ids);
-            beginGeometry(ids);
+            if (!event.evt.ctrlKey && !event.evt.shiftKey) setSelected(ids);
+            beginGeometry(ids, undefined, event.evt.shiftKey);
             gesture.current!.clickTarget = key;
-            gesture.current!.additiveClick = event.evt.ctrlKey;
+            gesture.current!.additiveClick =
+              event.evt.ctrlKey || event.evt.shiftKey;
             return;
           }
           if (!key) {
@@ -1317,7 +1325,7 @@ export default memo(function RecursiveCanvas({
         onMouseMove={(event) => {
           if (connector.mouseMove(event)) return;
           if (gesture.current) {
-            updateGeometry(event.evt.ctrlKey);
+            updateGeometry(event.evt.ctrlKey, event.evt.shiftKey);
             return;
           }
           setRotationHover(rotationAt(event.target));
@@ -1333,7 +1341,7 @@ export default memo(function RecursiveCanvas({
           if (event.evt.button !== 0) return;
           onBusyChange('canvas-gesture', false);
           if (gesture.current) {
-            finishGeometry(event.evt.ctrlKey);
+            finishGeometry(event.evt.ctrlKey, event.evt.shiftKey);
             return;
           }
           if (draw) {
@@ -1364,7 +1372,7 @@ export default memo(function RecursiveCanvas({
                 );
               }
               cancelDrag();
-              setTool(ToolMode.POINTER);
+              if (tool !== ToolMode.ARROW) setTool(ToolMode.POINTER);
               suppressClick.current = true;
               return;
             }
@@ -1488,6 +1496,33 @@ export default memo(function RecursiveCanvas({
           />
         </Layer>
         <Layer listening={false}>
+          {gesture.current?.duplicate &&
+            gesture.current.moved &&
+            gesture.current.ids.map((id) => {
+              const geometry = {
+                ...gesture.current!.world.get(id)!,
+                ...gesture.current!.patches.get(id),
+              };
+              return (
+                <Group
+                  key={id}
+                  x={geometry.x}
+                  y={geometry.y}
+                  rotation={geometry.rotation}
+                >
+                  <ObjectOutline
+                    name="duplicate-preview"
+                    object={document.objects[id]}
+                    geometry={geometry}
+                    fillEnabled={false}
+                    stroke="#2563eb"
+                    strokeWidth={1.5 / camera.scale}
+                    dash={[1 / camera.scale, 4 / camera.scale]}
+                    lineCap="round"
+                  />
+                </Group>
+              );
+            })}
           {draw &&
             (tool === ToolMode.LINE || tool === ToolMode.ARROW ? (
               <Arrow
@@ -1619,8 +1654,28 @@ export default memo(function RecursiveCanvas({
             (() => {
               const id = selection[0].slice(7),
                 g = scene.world.get(id)!;
+              const rotationHandles = transformHandles.filter(({ x, y }) =>
+                ['ellipse', 'diamond'].includes(document.objects[id].type)
+                  ? x === 0 || y === 0
+                  : x !== 0 && y !== 0,
+              );
               return (
                 <Group x={g.x} y={g.y} rotation={g.rotation}>
+                  {rotationHandles.map(({ x, y }) => {
+                    const offset = 20 / (Math.hypot(x, y) * camera.scale);
+                    return (
+                      <Circle
+                        key={`rotate-${x}:${y}`}
+                        name="rotation-handle"
+                        x={x * (g.width / 2 + offset)}
+                        y={y * (g.height / 2 + offset)}
+                        radius={3 / camera.scale}
+                        fill="#2563eb"
+                        stroke="white"
+                        strokeWidth={1 / camera.scale}
+                      />
+                    );
+                  })}
                   {transformHandles.map(({ x, y }) => (
                     <Rect
                       key={`${x}:${y}`}
@@ -1635,7 +1690,11 @@ export default memo(function RecursiveCanvas({
                       onMouseDown={(event) => {
                         event.cancelBubble = true;
                         if (event.evt.button === 0 && !isBusy())
-                          beginGeometry(selection, { x, y });
+                          beginGeometry(
+                            selection,
+                            { x, y },
+                            event.evt.shiftKey,
+                          );
                       }}
                       onClick={(event) => {
                         event.cancelBubble = true;

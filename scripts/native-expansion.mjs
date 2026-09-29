@@ -682,7 +682,7 @@ export async function expansion(driver, probe) {
         await sync(
           'return !!document.querySelector(".selection-hierarchy button[aria-expanded]")',
         ),
-        'text/child collisions retain the selection disclosure action',
+        'cramped text retains the selection disclosure action',
       );
       await command('depthplan_selection', { action: 'clear' });
       return;
@@ -1320,5 +1320,127 @@ export async function expansion(driver, probe) {
   }
   console.log(
     'PASS rotated toggles: all shapes stay upright in the visual upper-right, with interior clearance, nested rotations, icon/dot zoom and pointer clicks.',
+  );
+
+  const fractional = structuredClone(document);
+  fractional.layouts.b[0].b.x = 1800;
+  for (const depth of [1, 2])
+    for (const id of ['a1', 'a2'])
+      Object.assign(fractional.layouts.a[depth][id], {
+        width: 120.1,
+        rotation: 1,
+      });
+  const fractionalFile = path.join(profile, 'expansion-fractional.depthplan');
+  await writeFile(fractionalFile, JSON.stringify(fractional));
+  await dialogs('open', fractionalFile);
+  await click('Menu');
+  await click('Open Board…');
+  await until(async () => (await state()).source?.path === fractionalFile);
+  await click('Reset view');
+  for (const action of [
+    'Reveal children of a',
+    'Undo',
+    'Redo',
+    'Hide children of a',
+    'Reveal children of a',
+  ]) {
+    await click(action);
+    await until(() => sync('return window.Konva.stages[0].listening()'));
+    const expanded = action !== 'Undo' && action !== 'Hide children of a';
+    assert.deepEqual(
+      await sync(`const stage=window.Konva.stages[0];
+      return ['a1','a2'].map(id=>!!stage.findOne('#object-'+id));`),
+      [expanded, expanded],
+    );
+    assert.equal(
+      await sync(
+        `return document.body.innerText.includes('Unable to arrange children');`,
+      ),
+      false,
+    );
+  }
+  await screenshot('expansion-fractional.png');
+  await click('Save document');
+  await until(async () => !(await state()).dirty);
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS fractional child arrangement: reveal, Undo/Redo and collapse/reopen show both rotated children without an arrangement error.',
+  );
+
+  const overlap = structuredClone(document);
+  overlap.rootDepths.a = 1;
+  overlap.connections = {};
+  overlap.objects.a.name = '';
+  overlap.objects.a2.type = 'diamond';
+  for (const object of Object.values(overlap.objects))
+    object.style = { fill: '#ffffff', strokeWidth: 1.5 };
+  Object.assign(overlap.layouts.a[1].a, {
+    width: 400,
+    height: 400,
+    rotation: 30,
+  });
+  Object.assign(overlap.layouts.a[1].a1, { x: -80, y: -60 });
+  Object.assign(overlap.layouts.a[1].a2, { x: -50, y: 80, z: 999 });
+  overlap.layouts.b[0].b.x = 1800;
+  const overlapFile = path.join(profile, 'toggle-child-overlap.depthplan');
+  await writeFile(overlapFile, JSON.stringify(overlap));
+  await dialogs('open', overlapFile);
+  await click('Menu');
+  await click('Open Board…');
+  await until(async () => (await state()).source?.path === overlapFile);
+  await click('Reset view');
+  const togglePaint = () =>
+    sync(`const stage=window.Konva.stages[0], layer=stage.getLayers()[0];
+    const toggle=stage.findOne('#child-toggle-a');
+    if (!toggle) return null;
+    const ink=toggle.getAbsoluteTransform().point({x:16,y:10});
+    const center=toggle.getAbsoluteTransform().point({x:16,y:16});
+    layer.draw();
+    const canvas=layer.getCanvas(), ratio=canvas.getPixelRatio();
+    return {center, owner:toggle.getParent().id(),
+      hit:stage.getIntersection(center)?.findAncestor('.child-stack-toggle',true)?.id(),
+      pixel:[...canvas.getContext().getImageData(Math.round(ink.x*ratio),Math.round(ink.y*ratio),1,1).data]};`);
+  const clearToggle = await togglePaint();
+  assert.equal(clearToggle.owner, 'object-a');
+  assert.equal(clearToggle.hit, 'child-toggle-a');
+  const start = await sync(
+    `return window.Konva.stages[0].findOne('#object-a2').getAbsolutePosition();`,
+  );
+  await pointer('mousedown', start);
+  await pointer('mousemove', clearToggle.center);
+  await pointer('mouseup', clearToggle.center);
+  assert.deepEqual(
+    await togglePaint(),
+    clearToggle,
+    'parent toggle paints and receives clicks above its overlapping child',
+  );
+  await screenshot('toggle-above-child.png');
+  await pointer('mousedown', clearToggle.center, false);
+  await pointer('mouseup', clearToggle.center, false);
+  await until(() => sync('return window.Konva.stages[0].listening()'));
+  assert.equal(
+    await sync(`return !!window.Konva.stages[0].findOne('#object-a2');`),
+    false,
+  );
+  await click('Undo');
+  await until(() => sync('return window.Konva.stages[0].listening()'));
+  assert.deepEqual(await togglePaint(), clearToggle);
+  await edit({
+    type: 'geometry',
+    id: 'b',
+    patch: { ...clearToggle.center, width: 160, height: 160, z: 1000 },
+  });
+  assert.notDeepEqual(
+    (await togglePaint()).pixel,
+    clearToggle.pixel,
+    'unrelated higher object still covers the parent toggle',
+  );
+  assert.equal((await togglePaint()).hit, undefined);
+  await screenshot('toggle-below-unrelated-object.png');
+  await click('Save document');
+  await until(async () => !(await state()).dirty);
+  assert.deepEqual(await sync('return window.nativeErrors'), []);
+  console.log(
+    'PASS parent toggle stacking: overlapping high-Z child, rotated parent, native collapse click and Undo; unrelated higher object still covers the toggle.',
   );
 }

@@ -7,11 +7,12 @@ import { CHILD_CONTROL_SPACE } from './objectContentBounds';
 const GAP = 24;
 const TITLE_SPACE = CHILD_CONTROL_SPACE + 4;
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+// Match separate's placement arithmetic so rounding cannot reopen an exact gap.
 const overlaps = (a: Bounds, b: Bounds) =>
   a.x < b.x + b.width + GAP &&
-  a.x + a.width + GAP > b.x &&
+  a.x > b.x - GAP - a.width &&
   a.y < b.y + b.height + GAP &&
-  a.y + a.height + GAP > b.y;
+  a.y > b.y - GAP - a.height;
 
 /** Place each group once, moving monotonically away from already placed groups.
  * Existing overlaps unrelated to the expansion are left alone. */

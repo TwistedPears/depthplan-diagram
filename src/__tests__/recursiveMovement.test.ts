@@ -16,6 +16,7 @@ import {
 } from '../shared/recursiveHierarchy';
 import { setChildrenExpanded } from '../shared/recursiveLayouts';
 import type { Geometry } from '../shared/recursiveDocument';
+import { recursiveScene } from '../shared/recursiveScene';
 
 const handles = [-1, 0, 1].flatMap((x) =>
   [-1, 0, 1].filter((y) => x || y).map((y) => ({ x, y })),
@@ -134,6 +135,34 @@ it.each(
     }
   },
 );
+
+it('mirrors every resize handle around the center in rotated axes, including minimum size', () => {
+  for (const rotation of [0, 37, 90])
+    for (const handle of handles) {
+      const g = { x: 300, y: 200, width: 100, height: 60, rotation, z: 4 };
+      const before = handlePoint(g, handle);
+      for (const factor of [1, -100]) {
+        const target = toWorldGeometry(
+          { ...g, x: handle.x * 20 * factor, y: handle.y * 12 * factor },
+          g,
+        );
+        const delta = { x: target.x - g.x, y: target.y - g.y };
+        const after = resizeGeometry(g, handle, delta, true);
+        expect(after).toMatchObject({ x: g.x, y: g.y, rotation, z: 4 });
+        expect(after.width).toBeCloseTo(
+          handle.x ? (factor > 0 ? 140 : 0.01) : 100,
+        );
+        expect(after.height).toBeCloseTo(
+          handle.y ? (factor > 0 ? 84 : 0.01) : 60,
+        );
+        if (factor > 0) {
+          const edge = handlePoint(after, handle);
+          expect(edge.x).toBeCloseTo(before.x + delta.x);
+          expect(edge.y).toBeCloseTo(before.y + delta.y);
+        }
+      }
+    }
+});
 
 it('previews and commits anchored resizing under rotated ancestors without moving descendants or inactive layouts', () => {
   const d = recursiveFixture();
@@ -349,7 +378,7 @@ it('previews connected nested movement and centered resize without mutating sour
   );
 });
 
-it('adopts a group into a collapsed parent in one transaction without adopting its own movers', () => {
+it('reveals a group of first children at their exact drop positions in one transaction', () => {
   const d = recursiveFixture();
   d.objects.other = { ...d.objects.api, id: 'other', name: 'Other' };
   for (const depth of [1, 2])
@@ -370,27 +399,72 @@ it('adopts a group into a collapsed parent in one transaction without adopting i
   );
   const moved = result.current.result!;
   expect(moved.status).toBe('accepted');
-  // Inspect the saved destination layout before disclosure adds spacing.
-  const destination = moved.document.layouts.payments[1];
-  for (const id of ['api', 'other']) {
-    const g = toWorldGeometry(destination[id], destination.payments);
-    expect(g.x).toBeCloseTo(before.get(id)!.x + 500);
-    expect(g.y).toBeCloseTo(before.get(id)!.y);
-  }
-  const world = activeWorldGeometry(
-    transactDocument(moved.document, setChildrenExpanded('payments', true))
-      .document,
-  );
+  const world = recursiveScene(moved.document).world;
   for (const id of ['api', 'other']) {
     expect(moved.document.objects[id].parentId).toBe('payments');
-    expect(world.get(id)!.x).toBeCloseTo(before.get(id)!.x + 500);
-    expect(world.get(id)!.width).toBe(before.get(id)!.width);
+    const g = world.get(id)!;
+    expect(g.x).toBeCloseTo(before.get(id)!.x + 500);
+    expect(g.y).toBeCloseTo(before.get(id)!.y);
+    expect(g.width).toBe(before.get(id)!.width);
   }
-  expect(
-    Math.abs(world.get('api')!.y - world.get('other')!.y),
-  ).toBeGreaterThanOrEqual(60);
-  expect(moved.document.rootDepths.payments).toBe(0);
+  expect(world.has('endpoint')).toBe(false);
+  expect(moved.document.rootDepths.payments).toBe(1);
   expect(result.current.past).toHaveLength(1);
   act(() => result.current.undo());
   expect(result.current.document).toEqual(d);
+});
+
+it('reveals the first child of a nested empty parent, even with a retained fold', () => {
+  const d = recursiveFixture();
+  d.rootDepths.app = 2;
+  d.extensions = { collapsedObjects: ['endpoint'] };
+  const before = activeWorldGeometry(d).get('payments')!;
+  const moved = transactDocument(
+    d,
+    moveSelection(
+      ['payments'],
+      { x: -360, y: 40 },
+      new Map([['payments', 'endpoint']]),
+    ),
+  );
+  expect(moved.status).toBe('accepted');
+  expect(moved.document.rootDepths.app).toBe(3);
+  expect(recursiveScene(moved.document).world.get('payments')).toMatchObject({
+    ...before,
+    x: before.x - 360,
+    y: before.y + 40,
+  });
+});
+
+it('commits nested drag reveals and the final world pose as one undo step', () => {
+  const d = transactDocument(
+    recursiveFixture(),
+    setChildrenExpanded('app', false),
+  ).document;
+  const { result } = renderHook(() => useDocumentState(d));
+  const before = activeWorldGeometry(d).get('payments')!;
+  act(() =>
+    result.current.transact(
+      moveSelection(
+        ['payments'],
+        { x: -460, y: 30 },
+        new Map([['payments', 'api']]),
+        ['app', 'api'],
+      ),
+    ),
+  );
+  expect(result.current.result!.status).toBe('accepted');
+  const after = result.current.document!;
+  expect(after.objects.payments.parentId).toBe('api');
+  expect(recursiveScene(after).world.get('payments')).toMatchObject({
+    ...before,
+    x: before.x - 460,
+    y: before.y + 30,
+  });
+  expect(recursiveScene(after).world.has('endpoint')).toBe(true);
+  expect(result.current.past).toHaveLength(1);
+  act(() => result.current.undo());
+  expect(result.current.document).toEqual(d);
+  act(() => result.current.redo());
+  expect(result.current.document).toEqual(after);
 });

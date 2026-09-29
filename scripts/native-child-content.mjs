@@ -67,11 +67,11 @@ export async function childContent(driver, probe) {
           if (b.width > 0 && b.height > 0 && box.x < b.x+b.width && box.x+box.width > b.x && box.y < b.y+b.height && box.y+box.height > b.y)
             failures.push({id:owner.id(), name:node.name(), box, text:b});
         }
-        const screen = badge.getClientRect();
         for (const child of owner.find('.recursive-object')) {
-          const b = child.findOne('.object-hit-area').getClientRect();
-          if (screen.x < b.x+b.width && screen.x+screen.width > b.x && screen.y < b.y+b.height && screen.y+screen.height > b.y)
-            failures.push({id:owner.id(), child:child.id(), screen, bounds:b});
+          let branch = child;
+          while (branch.getParent() !== owner) branch = branch.getParent();
+          if (toggle.zIndex() <= branch.zIndex())
+            failures.push({id:owner.id(), child:child.id(), underChild:true});
         }
         if (badge.getClassName() === 'Circle') {
           const center = badge.getAbsolutePosition();
@@ -86,7 +86,7 @@ export async function childContent(driver, probe) {
     assert.deepEqual(
       violations,
       [],
-      'controls leave text and outside pointer input clear',
+      'controls stay above children and leave their own text and outside pointer input clear',
     );
   };
   const camera = (scale) =>
@@ -287,7 +287,7 @@ export async function childContent(driver, probe) {
   }
   await save();
 
-  // Stored tour layouts stay untouched and their child cards win hit testing.
+  // Tour content retains the same text-clearance and pointer-hit safeguards.
   const tour = JSON.parse(
     await readFile('docs/sample/depthplan_application_tour.depthplan', 'utf8'),
   );

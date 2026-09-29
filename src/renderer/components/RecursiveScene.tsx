@@ -199,7 +199,6 @@ export default memo(function RecursiveScene({
           editingText={editingTextId === id}
           onError={onError}
         />
-        {renderChildrenToggle?.(id)}
         <Group
           {...(clip
             ? {
@@ -213,6 +212,7 @@ export default memo(function RecursiveScene({
           {renderScope(id)}
         </Group>
         {renderBoundaryPoints?.(id)}
+        {renderChildrenToggle?.(id)}
       </Group>
     );
   };
