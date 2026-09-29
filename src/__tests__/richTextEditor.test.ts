@@ -68,11 +68,23 @@ const content: RichBlock[] = [
     wrap: false,
   },
 ];
-it('aligns the complete text block vertically, defaults to middle, and keeps overflow at the top', () => {
+it('defaults text to center/middle, honors explicit alignment, and keeps overflow at the top', () => {
   const blocks: RichBlock[] = [
     { type: 'paragraph', runs: [{ text: 'Hello' }] },
   ];
   const measure = (text: string) => text.length * 6;
+  expect(layoutRichContent(blocks, 120, measure, 100).pieces[0].x).toBe(45);
+  for (const [align, x] of [
+    ['left', 0],
+    ['center', 45],
+    ['right', 90],
+  ] as const) {
+    const explicit: RichBlock[] = [
+      { type: 'paragraph', align, runs: [{ text: 'Hello' }] },
+    ];
+    expect(layoutRichContent(explicit, 120, measure, 100).pieces[0].x).toBe(x);
+    expect(fromEditorContent(toEditorContent(explicit))).toEqual(explicit);
+  }
   for (const [align, y] of [
     ['top', 0],
     ['middle', 42.2],
@@ -104,7 +116,7 @@ it('aligns the complete text block vertically, defaults to middle, and keeps ove
     );
     expect(layout.pieces.map((p) => p.text).join('')).toBe('Hello');
     expect(layout.pieces[0].y).toBeCloseTo(align === 'middle' ? 42.2 : 84.4, 0);
-    expect(layout.pieces[0].x).toBe(0);
+    expect(layout.pieces[0].x).toBe(45);
   }
 });
 it('uses the same missing-font fallback for measurement and rich editor marks', () => {
@@ -264,6 +276,7 @@ it('wraps beside an icon and returns to full width below it without shifting the
   const blocks: RichBlock[] = [
     {
       type: 'paragraph',
+      align: 'left',
       runs: [
         {
           text: 'one two three four five six seven eight nine ten eleven twelve',

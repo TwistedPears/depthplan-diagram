@@ -49,7 +49,11 @@ it('lists installed fonts, preserves missing names, applies selection marks, and
   const middle = screen.getByRole('button', { name: 'Align text middle' });
   expect(middle).toHaveAttribute('aria-pressed', 'true');
   expect(middle.closest('details')).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Align text center' }),
+  ).toHaveAttribute('aria-pressed', 'true');
   const prose = screen.getByRole('textbox', { name: 'Text' });
+  expect(prose.querySelector('p')).toHaveStyle({ textAlign: 'center' });
   await act(async () => {
     prose.focus();
     window.getSelection()!.selectAllChildren(prose);

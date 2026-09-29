@@ -66,10 +66,11 @@ export async function textEditing(driver) {
   await driver.drag(center.x, center.y, 0, 0, 0);
   const painted = () =>
     sync(
-      `const group=window.Konva.stages[0].findOne('#object-text').findOne('.object-content'); const text=group.findOne('Text'); return {y:text.y(), height:group.clipHeight(), font:text.fontFamily(), width:text.width()};`,
+      `const group=window.Konva.stages[0].findOne('#object-text').findOne('.object-content'); const text=group.findOne('Text'); return {x:text.x(), y:text.y(), height:group.clipHeight(), bodyWidth:group.clipWidth(), font:text.fontFamily(), width:text.width()};`,
     );
   const middle = await painted();
   assert(Math.abs(middle.y - (middle.height - 15.6) / 2) < 0.1);
+  assert(Math.abs(middle.x - (middle.bodyWidth - middle.width) / 2) < 0.1);
   assert.match(middle.font, /RandomFontName.*sans-serif/);
   await click('Edit text');
   await until(() =>
@@ -89,6 +90,11 @@ export async function textEditing(driver) {
     );
   const inline = await editorY();
   assert(Math.abs(inline.y - (inline.body - inline.height) / 2) <= 1);
+  assert(
+    await sync(
+      `return document.querySelector('[aria-label="Align text center"]').getAttribute('aria-pressed')==='true' && getComputedStyle(document.querySelector('.ProseMirror p')).textAlign==='center';`,
+    ),
+  );
   await sync(
     `const prose=document.querySelector('.ProseMirror'); prose.focus(); window.getSelection().selectAllChildren(prose); document.dispatchEvent(new Event('selectionchange'));`,
   );

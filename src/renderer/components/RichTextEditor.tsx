@@ -102,7 +102,10 @@ export default function RichTextEditor({
   const [size, setSize] = useState('12');
   const [color, setColor] = useState('#334155');
   const [link, setLink] = useState('');
-  const [format, setFormat] = useState({ ...defaultTextStyle, align: 'left' });
+  const [format, setFormat] = useState({
+    ...defaultTextStyle,
+    align: 'center',
+  });
   useLayoutEffect(() => {
     const state = richEditorState(initial.current);
     const editor = new EditorView(host.current!, {
@@ -161,7 +164,7 @@ export default function RichTextEditor({
         color:
           marks.find((mark) => mark.type.name === 'color')?.attrs.value ??
           defaultTextStyle.color,
-        align: editor.state.selection.$from.parent.attrs.align ?? 'left',
+        align: editor.state.selection.$from.parent.attrs.align ?? 'center',
       });
     };
     view.current = editor;

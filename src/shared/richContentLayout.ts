@@ -45,7 +45,7 @@ export function layoutRichContent(
     runs: TextRun[],
     left: number,
     style: TextStyle,
-    align = 'left',
+    align = 'center',
     wrap = true,
   ) => {
     // A later large mark must not grow a line back into the icon.

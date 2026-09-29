@@ -23,8 +23,9 @@ generation sets, not a count of all integrated icons:
 - [Base icon prompt bible](DepthPlan%20Icon%20Prompt%20Bible.json).
 - [Style popup icon prompt bible](DepthPlan%20Style%20Popup%20Icon%20Prompt%20Bible.json).
 
-The six stroke width/pattern assets are integrated; there is no outstanding
-placeholder-icon backlog. Keep the Style bible's path and `assets[].summary`
+The six stroke width/pattern assets are integrated. The base bible marks existing
+masters with `completed: true` and the 11 pending text-formatting icons with
+`completed: false`. Keep the Style bible's path and `assets[].summary`
 `Target SVG:` entries stable: [native-expansion.mjs](../../scripts/native-expansion.mjs)
 uses them to validate its 40-icon set plus `square-stack-2`, `square-stack-3`, and
 `stroke-width-none`. Stroke widths use solid 2/3/4px previews; No stroke adds a

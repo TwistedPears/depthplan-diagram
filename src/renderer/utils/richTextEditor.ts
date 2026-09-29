@@ -132,7 +132,7 @@ export const richSchema = new Schema({
         { tag: 'p', getAttrs: align },
         { tag: 'div', getAttrs: align },
       ],
-      toDOM: (node) => styled('p', { textAlign: node.attrs.align ?? '' }),
+      toDOM: (node) => styled('p', { textAlign: node.attrs.align ?? 'center' }),
     },
     heading: {
       group: 'block',
@@ -144,7 +144,9 @@ export const richSchema = new Schema({
         getAttrs: (element) => ({ ...align(element), level }),
       })),
       toDOM: (node) =>
-        styled(`h${node.attrs.level}`, { textAlign: node.attrs.align ?? '' }),
+        styled(`h${node.attrs.level}`, {
+          textAlign: node.attrs.align ?? 'center',
+        }),
     },
     bullet_list: {
       group: 'block',
