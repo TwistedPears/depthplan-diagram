@@ -1437,6 +1437,8 @@ export async function expansion(driver, probe) {
   );
   assert.equal((await togglePaint()).hit, undefined);
   await screenshot('toggle-below-unrelated-object.png');
+  await click('Save document');
+  await until(async () => !(await state()).dirty);
   assert.deepEqual(await sync('return window.nativeErrors'), []);
   console.log(
     'PASS parent toggle stacking: overlapping high-Z child, rotated parent, native collapse click and Undo; unrelated higher object still covers the toggle.',
