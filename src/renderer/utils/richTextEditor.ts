@@ -7,6 +7,7 @@ import {
 import { EditorState, type Command } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
 import { history, undo, redo } from 'prosemirror-history';
+import { fontFamily } from '../../shared/textFont';
 import { baseKeymap, chainCommands, toggleMark } from 'prosemirror-commands';
 import {
   splitListItem,
@@ -97,7 +98,11 @@ for (const [name, property, css] of [
     toDOM: (mark) =>
       styled('span', {
         [property]:
-          name === 'size' ? `${mark.attrs.value}px` : mark.attrs.value,
+          name === 'size'
+            ? `${mark.attrs.value}px`
+            : name === 'font'
+              ? fontFamily(mark.attrs.value)
+              : mark.attrs.value,
       }),
   };
 }

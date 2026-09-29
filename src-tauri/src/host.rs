@@ -671,6 +671,7 @@ fn io_command(
             .unwrap_or_else(|error| json!({"status":"error","error":error})));
     }
     match method {
+        "fonts:list" => Ok(json!(crate::fonts::families()?)),
         "transition:confirm" => {
             let kind = string(a)?;
             let label = string(b)?;

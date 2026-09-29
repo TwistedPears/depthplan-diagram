@@ -1,16 +1,21 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import type {
   Geometry,
   RecursiveDocument,
 } from '../../shared/recursiveDocument';
-import {
-  editObject,
-  type DocumentEdit,
-} from '../../shared/documentTransactions';
+import type { DocumentEdit } from '../../shared/documentTransactions';
+import { patchObject } from '../../shared/editorProperties';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import RichTextEditor from './RichTextEditor';
 import {
   objectContentBounds,
+  textVerticalAlignment,
   type TextExclusion,
 } from '../../shared/objectContentBounds';
 
@@ -38,17 +43,41 @@ export default function InlineObjectText({
   const object = document.objects[objectId];
   const initial = useRef(object.content);
   const content = useRef(object.content);
+  const [verticalAlign, setVerticalAlign] = useState(
+    textVerticalAlignment(object),
+  );
   const host = useRef<HTMLDivElement>(null);
   const finished = useRef(false);
   const finish = () => {
     if (finished.current) return;
     finished.current = true;
-    if (JSON.stringify(content.current) !== JSON.stringify(initial.current))
-      onEdit(editObject(objectId, { content: content.current }));
+    const alignmentChanged = verticalAlign !== textVerticalAlignment(object);
+    if (
+      alignmentChanged ||
+      JSON.stringify(content.current) !== JSON.stringify(initial.current)
+    )
+      onEdit(
+        patchObject(objectId, {
+          content: content.current,
+          ...(alignmentChanged
+            ? { style: { textVerticalAlign: verticalAlign } }
+            : {}),
+        }),
+      );
     onClose();
   };
   const finishRef = useRef(finish);
   finishRef.current = finish;
+  useLayoutEffect(() => {
+    const prose = host.current?.querySelector<HTMLElement>('.ProseMirror');
+    if (!prose || !exclusion || typeof ResizeObserver === 'undefined') return;
+    const update = () =>
+      host.current?.style.setProperty('--text-offset', `${prose.offsetTop}px`);
+    const observer = new ResizeObserver(update);
+    observer.observe(prose);
+    update();
+    return () => observer.disconnect();
+  }, [exclusion, verticalAlign]);
   useDocumentDraft({
     label: 'object text',
     active: () => true,
@@ -131,6 +160,8 @@ export default function InlineObjectText({
           compact
           focusOnMount
           toolbarTarget={toolbarTarget}
+          verticalAlign={verticalAlign}
+          onVerticalAlignChange={setVerticalAlign}
         />
       </div>
     </div>

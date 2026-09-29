@@ -285,7 +285,7 @@ it('preserves unapplied form and rich-text drafts, focus, and text undo through 
   expect(board().getByRole('textbox', { name: 'Text' })).toHaveTextContent(
     'retained draft text',
   );
-  fireEvent.click(board().getByText('Undo text'));
+  fireEvent.click(board().getByRole('button', { name: 'Undo text' }));
   expect(board().getByRole('textbox', { name: 'Text' })).not.toHaveTextContent(
     'retained draft text',
   );

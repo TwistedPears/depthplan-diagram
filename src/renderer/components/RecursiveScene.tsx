@@ -14,6 +14,7 @@ import RecursiveRichContent from './RecursiveRichContent';
 import ObjectOutline from './ObjectOutline';
 import {
   objectContentBounds,
+  textVerticalAlignment,
   type TextExclusion,
 } from '../../shared/objectContentBounds';
 
@@ -87,6 +88,7 @@ const ObjectContent = memo(function ObjectContent({
             {...body}
             exclusion={exclusion}
             content={object.content}
+            verticalAlign={textVerticalAlignment(object)}
             onError={onError}
           />
         )}

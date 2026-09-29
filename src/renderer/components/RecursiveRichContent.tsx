@@ -2,7 +2,11 @@ import { memo, useMemo } from 'react';
 import { Group, Text, Line } from 'react-konva';
 import { type RichBlock, validLink } from '../../shared/recursiveDocument';
 import { layoutRichContent, textFont } from '../../shared/richContentLayout';
-import type { TextExclusion } from '../../shared/objectContentBounds';
+import type {
+  TextExclusion,
+  VerticalAlignment,
+} from '../../shared/objectContentBounds';
+import { fontFamily } from '../../shared/textFont';
 let context: CanvasRenderingContext2D | null = null;
 export default memo(function RecursiveRichContent({
   content,
@@ -11,6 +15,7 @@ export default memo(function RecursiveRichContent({
   width,
   height,
   exclusion,
+  verticalAlign,
   onError,
 }: {
   content: RichBlock[];
@@ -19,6 +24,7 @@ export default memo(function RecursiveRichContent({
   width: number;
   height: number;
   exclusion?: TextExclusion;
+  verticalAlign?: VerticalAlignment;
   onError: (message: string) => void;
 }) {
   const {
@@ -38,8 +44,18 @@ export default memo(function RecursiveRichContent({
       },
       height,
       side ? { side, width: exclusionWidth, top, bottom } : undefined,
+      verticalAlign,
     );
-  }, [content, width, height, side, exclusionWidth, top, bottom]);
+  }, [
+    content,
+    width,
+    height,
+    side,
+    exclusionWidth,
+    top,
+    bottom,
+    verticalAlign,
+  ]);
   return (
     <Group
       name="object-content"
@@ -66,7 +82,7 @@ export default memo(function RecursiveRichContent({
           x={piece.x}
           y={piece.y}
           text={piece.text}
-          fontFamily={piece.style.font}
+          fontFamily={fontFamily(piece.style.font)}
           fontSize={piece.style.size}
           fontStyle={`${piece.style.italic ? 'italic ' : ''}${piece.style.bold ? 'bold' : 'normal'}`}
           textDecoration={[

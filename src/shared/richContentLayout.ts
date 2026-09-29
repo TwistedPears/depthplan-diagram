@@ -1,6 +1,7 @@
 import { codeRuns } from './codePresentation';
 import type { RichBlock, TextRun } from './recursiveDocument';
-import type { TextExclusion } from './objectContentBounds';
+import type { TextExclusion, VerticalAlignment } from './objectContentBounds';
+import { fontFamily } from './textFont';
 export type TextStyle = Required<
   Pick<NonNullable<TextRun['marks']>, 'font' | 'size' | 'color'>
 > &
@@ -19,7 +20,7 @@ export const defaultTextStyle: TextStyle = {
   color: '#334155',
 };
 export const textFont = (s: TextStyle) =>
-  `${s.italic ? 'italic ' : ''}${s.bold ? 'bold ' : ''}${s.size}px ${s.font}`;
+  `${s.italic ? 'italic ' : ''}${s.bold ? 'bold ' : ''}${s.size}px ${fontFamily(s.font)}`;
 
 /** Derived text geometry shared by the canvas and flattened export. Never changes source or object size. */
 export function layoutRichContent(
@@ -28,10 +29,12 @@ export function layoutRichContent(
   measure: (text: string, style: TextStyle) => number,
   height = Infinity,
   exclusion?: TextExclusion,
+  verticalAlign: VerticalAlignment = 'middle',
 ) {
   const pieces: TextPiece[] = [],
     rules: ContentRule[] = [];
   let y = 0;
+  let clipped = false;
   const besideIcon = (top: number, lineHeight: number) =>
     exclusion && top < exclusion.bottom && top + lineHeight > exclusion.top;
   const leftInset = (top: number, lineHeight: number) =>
@@ -98,7 +101,10 @@ export function layoutRichContent(
       for (const token of run.text.match(/\r\n|\r|\n|[^\S\r\n]+|[^\s]+/gu) ??
         []) {
         if (!line.length) fitLine();
-        if (y >= height) return;
+        if (y >= height) {
+          clipped = true;
+          return;
+        }
         if (/^[\r\n]+$/.test(token)) {
           flush(true);
           continue;
@@ -115,7 +121,10 @@ export function layoutRichContent(
               )
             : [token];
         for (const text of parts) {
-          if (y >= height) return;
+          if (y >= height) {
+            clipped = true;
+            return;
+          }
           const w = parts.length === 1 ? tokenWidth : measure(text, s);
           if (wrap && x > 0 && x + w > available) {
             flush(false);
@@ -136,7 +145,10 @@ export function layoutRichContent(
   };
   const visit = (values: RichBlock[], left: number) => {
     for (const block of values) {
-      if (y >= height) return;
+      if (y >= height) {
+        clipped = true;
+        return;
+      }
       if (block.type === 'list') {
         block.items.forEach((item, at) => {
           const text = block.ordered ? `${(block.start ?? 1) + at}.` : '•';
@@ -212,6 +224,33 @@ export function layoutRichContent(
     }
   };
   visit(blocks, 0);
+  if (!clipped && verticalAlign !== 'top' && Number.isFinite(height)) {
+    const divisor = verticalAlign === 'middle' ? 2 : 1;
+    const offset = Math.max(0, (height - Math.max(0, y - 6)) / divisor);
+    if (exclusion && offset > 0) {
+      // Moving text can change wrapping around the fixed child control. Find
+      // ponytail: cap reflow at 16 passes; raise for finer alignment in giant boxes.
+      let low = 0,
+        high = height / divisor;
+      const place = (start: number) => {
+        pieces.length = rules.length = 0;
+        clipped = false;
+        y = start;
+        visit(blocks, 0);
+      };
+      for (let pass = 0; pass < 16 && high - low > 0.1; pass++) {
+        const mid = (low + high) / 2;
+        place(mid);
+        if (clipped || y - 6 + mid * (divisor - 1) > height) high = mid;
+        else low = mid;
+      }
+      place(low);
+    } else {
+      for (const piece of pieces) piece.y += offset;
+      for (const rule of rules) rule.y += offset;
+      y += offset;
+    }
+  }
   // A word is a layout unit, not a required canvas node. Keep wrapping and
   // justification positions, but paint adjacent ASCII words in one text run.
   // Other scripts retain their original shaping boundaries.

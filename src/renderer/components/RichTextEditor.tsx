@@ -1,9 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TextSelection, type EditorState } from 'prosemirror-state';
 import PropertyColorPalette from './PropertyColorPalette';
 import Icon from './Icon';
 import { defaultTextStyle } from '../../shared/richContentLayout';
+import { genericFonts } from '../../shared/textFont';
+import type { VerticalAlignment } from '../../shared/objectContentBounds';
 import { EditorView } from 'prosemirror-view';
 import { DOMParser as EditorParser, Slice, Fragment } from 'prosemirror-model';
 import { type Command } from 'prosemirror-state';
@@ -58,12 +60,16 @@ export default function RichTextEditor({
   toolbarTarget,
   compact = false,
   focusOnMount = false,
+  verticalAlign = 'middle',
+  onVerticalAlignChange,
 }: {
   content: RichBlock[];
   onChange: (value: RichBlock[]) => void;
   toolbarTarget?: HTMLElement | null;
   compact?: boolean;
   focusOnMount?: boolean;
+  verticalAlign?: VerticalAlignment;
+  onVerticalAlignChange?: (value: VerticalAlignment) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -72,7 +78,27 @@ export default function RichTextEditor({
   const change = useRef(onChange);
   change.current = onChange;
   const [error, setError] = useState('');
-  const [font, setFont] = useState('Arial');
+  const [fonts, setFonts] = useState<string[]>(genericFonts);
+  const [fontError, setFontError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    window.desktop
+      ?.fonts?.()
+      .then((names) => {
+        if (active)
+          setFonts(
+            [...new Set([...names, ...genericFonts])].sort((a, b) =>
+              a.localeCompare(b),
+            ),
+          );
+      })
+      .catch(() => {
+        if (active) setFontError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [size, setSize] = useState('12');
   const [color, setColor] = useState('#334155');
   const [link, setLink] = useState('');
@@ -185,6 +211,53 @@ export default function RichTextEditor({
       return true;
     });
   };
+  const fontControl = (
+    <label>
+      Font{' '}
+      <select
+        aria-label="Text font"
+        value={format.font}
+        onChange={(event) => mark('font', event.target.value)}
+      >
+        {!fonts.includes(format.font) && (
+          <option value={format.font}>{format.font} (fallback)</option>
+        )}
+        {fonts.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+      {fontError && (
+        <small role="status">
+          System fonts unavailable. Using standard fonts.
+        </small>
+      )}
+    </label>
+  );
+  const verticalControl = (
+    <fieldset className="property-group">
+      <legend>Vertical alignment</legend>
+      <div className="property-choices">
+        {(['top', 'middle', 'bottom'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-label={`Align text ${value}`}
+            title={`Align ${value}`}
+            aria-pressed={verticalAlign === value}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onVerticalAlignChange?.(value)}
+          >
+            <Icon
+              name={`objects-align-${value === 'middle' ? 'center-vertical' : value}`}
+              className="property-icon"
+            />
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
   const fullToolbar = (
     <div
       role="toolbar"
@@ -195,12 +268,20 @@ export default function RichTextEditor({
         <button
           type="button"
           key={name}
+          aria-label={
+            name === 'strike'
+              ? 'Strikethrough'
+              : name[0].toUpperCase() + name.slice(1)
+          }
+          title={
+            name === 'strike'
+              ? 'Strikethrough'
+              : name[0].toUpperCase() + name.slice(1)
+          }
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => run(toggleMark(richSchema.marks[name]))}
         >
-          {name === 'strike'
-            ? 'Strikethrough'
-            : name[0].toUpperCase() + name.slice(1)}
+          {name === 'strike' ? 'Strikethrough' : <Icon name={name} />}
         </button>
       ))}
       <label>
@@ -229,29 +310,26 @@ export default function RichTextEditor({
           ))}
         </select>
       </label>
-      <label>
-        Align{' '}
-        <select
-          aria-label="Text alignment"
-          defaultValue="left"
-          onChange={(e) => run(setAlignment(e.target.value))}
-        >
-          {['left', 'center', 'right', 'justify'].map((value) => (
-            <option key={value}>{value}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Font{' '}
-        <input
-          aria-label="Text font"
-          value={font}
-          onChange={(e) => setFont(e.target.value)}
-        />
-      </label>
-      <button type="button" onClick={() => mark('font', font)}>
-        Set font
-      </button>
+      {!compact && (
+        <>
+          <div className="text-alignment-controls">
+            <label>
+              Text alignment{' '}
+              <select
+                aria-label="Text alignment"
+                value={format.align}
+                onChange={(event) => run(setAlignment(event.target.value))}
+              >
+                {['left', 'center', 'right', 'justify'].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            {verticalControl}
+          </div>
+          {fontControl}
+        </>
+      )}
       <label>
         Size{' '}
         <input
@@ -359,6 +437,8 @@ export default function RichTextEditor({
       </label>
       <button
         type="button"
+        aria-label="Set link"
+        title="Set link"
         onClick={() => {
           if (validLink(link)) {
             mark('link', link);
@@ -369,13 +449,15 @@ export default function RichTextEditor({
             );
         }}
       >
-        Set link
+        <Icon name="link" />
       </button>
       <button type="button" onClick={() => mark('link', null)}>
         Remove link
       </button>
       <button
         type="button"
+        aria-label="Insert code"
+        title="Insert code"
         onClick={() =>
           run((state, dispatch) => {
             dispatch?.(
@@ -394,13 +476,23 @@ export default function RichTextEditor({
           })
         }
       >
-        Insert code
+        <Icon name="file-code" />
       </button>
-      <button type="button" onClick={() => run(undo)}>
-        Undo text
+      <button
+        type="button"
+        aria-label="Undo text"
+        title="Undo text"
+        onClick={() => run(undo)}
+      >
+        <Icon name="rotate-left" />
       </button>
-      <button type="button" onClick={() => run(redo)}>
-        Redo text
+      <button
+        type="button"
+        aria-label="Redo text"
+        title="Redo text"
+        onClick={() => run(redo)}
+      >
+        <Icon name="rotate-right" />
       </button>
     </div>
   );
@@ -416,31 +508,7 @@ export default function RichTextEditor({
           value={format.color}
           onChange={(value) => mark('color', value)}
         />
-        <fieldset className="property-group">
-          <legend>Font family</legend>
-          <div className="property-choices">
-            {(
-              [
-                ['Sans serif', 'Arial'],
-                ['Serif', 'Georgia'],
-                ['Monospace', 'Courier New'],
-              ] as const
-            ).map(([label, value]) => (
-              <button
-                type="button"
-                key={value}
-                style={{ fontFamily: value }}
-                aria-label={label}
-                title={label}
-                aria-pressed={format.font === value}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => mark('font', value)}
-              >
-                {label === 'Monospace' ? '</>' : 'Aa'}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <div className="property-group">{fontControl}</div>
         <fieldset className="property-group">
           <legend>Font size</legend>
           <div className="property-choices">
@@ -469,7 +537,7 @@ export default function RichTextEditor({
         <fieldset className="property-group">
           <legend>Text align</legend>
           <div className="property-choices">
-            {['left', 'center', 'right'].map((value) => (
+            {['left', 'center', 'right', 'justify'].map((value) => (
               <button
                 key={value}
                 type="button"
@@ -479,11 +547,16 @@ export default function RichTextEditor({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => run(setAlignment(value))}
               >
-                <Icon name={`align-${value}`} className="property-icon" />
+                {value === 'justify' ? (
+                  'Justify'
+                ) : (
+                  <Icon name={`align-${value}`} className="property-icon" />
+                )}
               </button>
             ))}
           </div>
         </fieldset>
+        {verticalControl}
       </div>
       <details className="advanced-text-options">
         <summary>More text options</summary>
@@ -495,7 +568,10 @@ export default function RichTextEditor({
     fullToolbar
   );
   return (
-    <section className={`rich-editor${compact ? ' rich-editor-inline' : ''}`}>
+    <section
+      className={`rich-editor${compact ? ' rich-editor-inline' : ''}`}
+      data-vertical-align={verticalAlign}
+    >
       {compact
         ? toolbarTarget && createPortal(toolbar, toolbarTarget)
         : toolbar}

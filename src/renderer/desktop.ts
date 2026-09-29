@@ -102,6 +102,7 @@ async function projectCall(
 }
 
 const desktopHandler = {
+  fonts: (): Promise<string[]> => native('fonts:list'),
   templates: {
     list: async () => {
       const result = await native<{

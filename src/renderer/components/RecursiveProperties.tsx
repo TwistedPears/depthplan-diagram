@@ -13,6 +13,10 @@ import {
 import { activeGeometry } from '../../shared/recursiveLayouts';
 import RichTextEditor from './RichTextEditor';
 import { indexHierarchy } from '../../shared/recursiveHierarchy';
+import {
+  textVerticalAlignment,
+  type VerticalAlignment,
+} from '../../shared/objectContentBounds';
 
 const geometryKeys = ['x', 'y', 'z', 'width', 'height', 'rotation'] as const;
 
@@ -47,6 +51,11 @@ export default function RecursiveProperties({
     : undefined;
   const style = object?.style ?? connection?.style ?? {};
   const [content, setContent] = useState<RichBlock[] | null>(null);
+  const [verticalAlign, setVerticalAlign] = useState<VerticalAlignment>(
+    object ? textVerticalAlignment(object) : 'middle',
+  );
+  const alignmentChanged =
+    object && verticalAlign !== textVerticalAlignment(object);
   const contentChanged =
     object &&
     content !== null &&
@@ -118,13 +127,15 @@ export default function RecursiveProperties({
           if (
             ![...values.keys()].some(changed) &&
             !changed('clipToFrame') &&
-            !contentChanged
+            !contentChanged &&
+            !alignmentChanged
           ) {
             onClose();
             return;
           }
           onEdit((draft) => {
             const nextStyle = { ...style };
+            if (alignmentChanged) nextStyle.textVerticalAlign = verticalAlign;
             const stringKeys = [
               'fill',
               'stroke',
@@ -148,7 +159,7 @@ export default function RecursiveProperties({
             if (object) {
               const patch: Parameters<typeof patchObject>[1] = {};
               if (changed('name')) patch.name = text('name');
-              if (styleChanged) patch.style = nextStyle;
+              if (styleChanged || alignmentChanged) patch.style = nextStyle;
               if (contentChanged) patch.content = content!;
               patchObject(object.id, patch)(draft);
               const geometryPatch = Object.fromEntries(
@@ -217,7 +228,12 @@ export default function RecursiveProperties({
                 compatibility record.
               </p>
             )}
-            <RichTextEditor content={object.content} onChange={setContent} />
+            <RichTextEditor
+              content={object.content}
+              onChange={setContent}
+              verticalAlign={verticalAlign}
+              onVerticalAlignChange={setVerticalAlign}
+            />
             <label>
               Fill{' '}
               <input
