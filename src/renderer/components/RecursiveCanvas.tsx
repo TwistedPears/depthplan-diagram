@@ -88,7 +88,6 @@ import {
   type Camera,
   geometryBounds,
   intersectsBounds,
-  unionBounds,
   sceneBounds,
   fitCamera,
   zoomCamera,
@@ -249,17 +248,6 @@ export default memo(function RecursiveCanvas({
   const displayed = preview?.base === document ? preview.value : animated;
   const scene = useMemo(() => recursiveScene(displayed), [displayed]);
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
-  const subtreeBounds = useMemo(() => {
-    const result = new Map(bounds.objects);
-    for (const id of [...scene.hierarchy.entries.keys()].reverse()) {
-      const box = result.get(id);
-      const parent = document.objects[id].parentId;
-      if (!box || parent === null) continue;
-      const owner = result.get(parent);
-      result.set(parent, owner ? unionBounds([owner, box])! : box);
-    }
-    return result;
-  }, [bounds.objects, scene.hierarchy, document.objects]);
   const toggleChildren = (
     id: string,
     event: ReactMouseEvent<HTMLButtonElement> | MouseEvent,
@@ -1156,22 +1144,9 @@ export default memo(function RecursiveCanvas({
       width: 2 * half,
       height: 2 * half,
     };
-    const worldControl = {
-      x: center.x - worldHalf,
-      y: center.y - worldHalf,
-      width: 2 * worldHalf,
-      height: 2 * worldHalf,
-    };
     // Rotation/small frames can leave no clear slot. Selection still provides
-    // the full-size Reveal/Hide action without covering text or stealing hits.
-    // ponytail: conservative boxes can hide clear slots; use ink bounds if needed.
-    if (
-      (object.name && title.width > 0 && intersectsBounds(control, title)) ||
-      children.some((child) => {
-        const box = subtreeBounds.get(child);
-        return box && intersectsBounds(worldControl, box);
-      })
-    )
+    // the full-size Reveal/Hide action without covering the parent's title.
+    if (object.name && title.width > 0 && intersectsBounds(control, title))
       continue;
     if (intersectsBounds(control, body)) {
       const leftSpace = Math.max(0, control.x - body.x - 2);
