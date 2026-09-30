@@ -171,6 +171,7 @@ try {
       'if(window.nativeErrors.length)throw new Error(window.nativeErrors.join("; "));return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
     ),
   );
+  await click('Menu');
   const status = await native('automation:status');
   probe = client(adapter, status.descriptor);
   await probe.initialize();
