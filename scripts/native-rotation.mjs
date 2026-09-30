@@ -194,10 +194,10 @@ export async function rotation(driver, probe) {
     }
     await edit({ type: 'geometry', id, patch: { rotation: 0 } });
   }
-  await camera(1);
   // Every dot supports rotation while preserving the existing drag behavior.
   for (const id of Object.keys(document.objects)) {
     await select(id);
+    await camera(1, id);
     const before = await pose(id);
     const zones = await handles();
     assert.equal(zones.length, 4);
