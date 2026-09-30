@@ -1,16 +1,76 @@
 .rich-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  gap: 12px;
   margin-bottom: 8px;
 }
-.rich-toolbar input {
-  width: 90px;
+.rich-toolbar .property-group {
+  margin: 0;
 }
-.inline-text-controls select[aria-label='Text font'] {
+.inline-text-controls .property-icon {
+  width: 20px;
+  height: 20px;
+}
+.font-picker > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  margin-top: 6px;
+  gap: 8px;
+}
+.font-picker > button span,
+.font-choice span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.font-picker .menu-flyout-panel {
+  max-height: min(440px, calc(100vh - 36px));
+}
+.font-picker h3 {
+  margin: 8px 8px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.font-choice {
+  display: flex;
+  gap: 4px;
+}
+.font-choice button {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+  padding: 8px;
+}
+.font-choice [role='menuitemradio'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+}
+.font-choice button:hover {
+  background: var(--surface-hover);
+}
+.font-choice [role='menuitemradio'][aria-checked='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.font-choice svg {
+  flex: none;
+}
+.font-star {
+  width: 34px;
+  color: var(--muted);
+}
+.font-star[aria-checked='true'] {
+  color: var(--accent);
+}
+.font-star[aria-checked='false'] svg {
+  fill: none;
+}
+.font-see-all {
+  width: 100%;
+  margin-top: 8px;
 }
 .rich-editor .ProseMirror {
   min-height: 120px;
@@ -35,39 +95,4 @@
   font-family: monospace;
   tab-size: 4;
   white-space: pre;
-}
-
-.code-pane {
-  position: relative;
-  height: 180px;
-  background: #f1f5f9;
-}
-.rich-editor .code-pane pre,
-.code-pane textarea {
-  box-sizing: border-box;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 10px;
-  border: 0;
-  font: 13px/1.5 monospace;
-  letter-spacing: normal;
-  tab-size: 4;
-  overflow: auto;
-}
-.rich-editor .code-pane pre {
-  pointer-events: none;
-  color: #334155;
-}
-.code-pane textarea {
-  background: transparent;
-  color: transparent;
-  caret-color: #0f172a;
-  resize: none;
-}
-.code-pane textarea::selection {
-  background: #60a5fa66;
-  color: transparent;
 }

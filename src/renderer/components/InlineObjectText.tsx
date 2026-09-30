@@ -99,6 +99,10 @@ export default function InlineObjectText({
       if (
         !event.defaultPrevented &&
         !event.isComposing &&
+        !(
+          event.target instanceof Element &&
+          event.target.closest('[popover][aria-hidden="false"]')
+        ) &&
         (event.key === 'Escape' ||
           (event.key === 'Enter' && (event.metaKey || event.ctrlKey)))
       ) {

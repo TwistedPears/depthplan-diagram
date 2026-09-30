@@ -2,6 +2,7 @@ import { codeRuns } from './codePresentation';
 import type { RichBlock, TextRun } from './recursiveDocument';
 import type { TextExclusion, VerticalAlignment } from './objectContentBounds';
 import { fontFamily } from './textFont';
+import { parseInlineLinks } from './inlineLinks';
 export type TextStyle = Required<
   Pick<NonNullable<TextRun['marks']>, 'font' | 'size' | 'color'>
 > &
@@ -210,7 +211,7 @@ export function layoutRichContent(
         );
       } else
         paragraph(
-          block.runs,
+          parseInlineLinks(block.runs),
           left,
           block.type === 'heading'
             ? {

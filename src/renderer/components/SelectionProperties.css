@@ -188,15 +188,6 @@
 .advanced-text-options .rich-toolbar {
   padding-top: 12px;
 }
-.inline-text-controls .rich-toolbar button {
-  font-size: 11px;
-  padding: 6px 8px;
-}
-.inline-text-controls .rich-toolbar label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 .text-editing-hint {
   margin: 6px 0 0;
   font-size: 11px;
@@ -287,16 +278,6 @@
 .properties-panel > form > label > input:not([type='checkbox']),
 .properties-panel > form > label > select {
   width: 160px;
-}
-.properties-panel .rich-toolbar {
-  gap: 5px;
-}
-.properties-panel .rich-toolbar button {
-  padding: 5px 7px;
-  font-size: 11px;
-}
-.properties-panel .rich-toolbar > label {
-  width: auto;
 }
 @media (max-width: 600px) {
   #selection-controls {

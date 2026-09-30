@@ -138,6 +138,24 @@ it('round-trips the canonical tree without interpreting or normalizing source', 
   validateContent(result);
   expect(JSON.parse(JSON.stringify(result))).toEqual(content);
 });
+it('edits legacy code as plain text while retaining metadata, line endings and undo', () => {
+  const code: RichBlock = {
+    type: 'code' as const,
+    text: 'one\r\ntwo\r\n',
+    language: 'typescript',
+    wrap: true,
+  };
+  let state = richEditorState([code]);
+  const dispatch = (tr: typeof state.tr) => {
+    state = state.apply(tr);
+  };
+  dispatch(state.tr.insertText('!', 4));
+  expect(fromEditorContent(state.doc)).toEqual([
+    { ...code, text: 'one!\r\ntwo\r\n' },
+  ]);
+  undo(state, dispatch);
+  expect(fromEditorContent(state.doc)).toEqual([code]);
+});
 it('splits a selected run, preserves surrounding marks/code, and keeps Undo within the draft', () => {
   let state = richEditorState(content);
   const dispatch = (tr: typeof state.tr) => {

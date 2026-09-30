@@ -1,15 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TextSelection, type EditorState } from 'prosemirror-state';
 import PropertyColorPalette from './PropertyColorPalette';
 import Icon from './Icon';
 import { defaultTextStyle } from '../../shared/richContentLayout';
-import { genericFonts } from '../../shared/textFont';
+import FontPicker from './FontPicker';
+import { expandInlineLinks, escapeLinkText } from '../../shared/inlineLinks';
 import type { VerticalAlignment } from '../../shared/objectContentBounds';
 import { EditorView } from 'prosemirror-view';
 import { DOMParser as EditorParser, Slice, Fragment } from 'prosemirror-model';
 import { type Command } from 'prosemirror-state';
-import { toggleMark, wrapIn, lift } from 'prosemirror-commands';
+import { toggleMark } from 'prosemirror-commands';
 import {
   wrapInList,
   sinkListItem,
@@ -25,7 +26,6 @@ import {
 } from '../utils/richTextEditor';
 import 'prosemirror-view/style/prosemirror.css';
 import './RichTextEditor.css';
-import { codeNodeView } from '../utils/codeNodeView';
 
 export function pastedContent(html: string, text: string): Slice {
   if (!html)
@@ -50,6 +50,21 @@ export function pastedContent(html: string, text: string): Slice {
   template.content
     .querySelectorAll('br')
     .forEach((node) => node.replaceWith('\n'));
+  template.content.querySelectorAll('a').forEach((anchor) => {
+    const href = anchor.getAttribute('href');
+    const text = anchor.textContent ?? '';
+    if (
+      validLink(href) &&
+      expandInlineLinks([{ text, marks: { link: href } }])[0]?.text !== text
+    ) {
+      const walker = document.createTreeWalker(anchor, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode())
+        node.textContent = escapeLinkText(node.textContent ?? '');
+      anchor.prepend(document.createTextNode('['));
+      anchor.append(document.createTextNode(` | ${escapeLinkText(href)}]`));
+    }
+    anchor.replaceWith(...anchor.childNodes);
+  });
   return EditorParser.fromSchema(richSchema).parseSlice(template.content, {
     preserveWhitespace: 'full',
   });
@@ -77,29 +92,6 @@ export default function RichTextEditor({
   const retained = useRef<EditorState | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
-  const [error, setError] = useState('');
-  const [fonts, setFonts] = useState<string[]>(genericFonts);
-  const [fontError, setFontError] = useState(false);
-  useEffect(() => {
-    let active = true;
-    window.desktop
-      ?.fonts?.()
-      .then((names) => {
-        if (active)
-          setFonts(
-            [...new Set([...names, ...genericFonts])].sort((a, b) =>
-              a.localeCompare(b),
-            ),
-          );
-      })
-      .catch(() => {
-        if (active) setFontError(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  const [link, setLink] = useState('');
   const [format, setFormat] = useState({
     ...defaultTextStyle,
     align: 'center',
@@ -108,7 +100,6 @@ export default function RichTextEditor({
     const state = richEditorState(initial.current);
     const editor = new EditorView(host.current!, {
       state: retained.current ?? state,
-      nodeViews: { code: codeNodeView },
       attributes: {
         role: 'textbox',
         'aria-label': 'Text',
@@ -153,15 +144,10 @@ export default function RichTextEditor({
       const marks =
         editor.state.storedMarks ?? editor.state.selection.$from.marks();
       setFormat({
-        font:
-          marks.find((mark) => mark.type.name === 'font')?.attrs.value ??
-          defaultTextStyle.font,
-        size:
-          marks.find((mark) => mark.type.name === 'size')?.attrs.value ??
-          defaultTextStyle.size,
-        color:
-          marks.find((mark) => mark.type.name === 'color')?.attrs.value ??
-          defaultTextStyle.color,
+        ...defaultTextStyle,
+        ...Object.fromEntries(
+          marks.map((mark) => [mark.type.name, mark.attrs.value]),
+        ),
         align: editor.state.selection.$from.parent.attrs.align ?? 'center',
       });
     };
@@ -179,8 +165,7 @@ export default function RichTextEditor({
         editor.state,
         editor.dispatch,
       );
-      if (!document.activeElement?.hasAttribute('data-code-source'))
-        editor.focus();
+      editor.focus();
     };
     host.current!.addEventListener('editor-history', history);
     const node = host.current!;
@@ -196,46 +181,17 @@ export default function RichTextEditor({
     command(editor.state, editor.dispatch, editor);
     editor.focus();
   };
-  const mark = (name: string, value: string | number | null) => {
+  const mark = (name: string, value: string | number) => {
     const type = richSchema.marks[name];
     run((state, dispatch) => {
       const { from, to, empty } = state.selection;
       const tr = state.tr;
-      if (empty) {
-        if (value === null) tr.removeStoredMark(type);
-        else tr.addStoredMark(type.create({ value }));
-      } else {
-        tr.removeMark(from, to, type);
-        if (value !== null) tr.addMark(from, to, type.create({ value }));
-      }
+      if (empty) tr.addStoredMark(type.create({ value }));
+      else tr.addMark(from, to, type.create({ value }));
       dispatch?.(tr);
       return true;
     });
   };
-  const fontControl = (
-    <label>
-      Font{' '}
-      <select
-        aria-label="Text font"
-        value={format.font}
-        onChange={(event) => mark('font', event.target.value)}
-      >
-        {!fonts.includes(format.font) && (
-          <option value={format.font}>{format.font} (fallback)</option>
-        )}
-        {fonts.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
-      {fontError && (
-        <small role="status">
-          System fonts unavailable. Using standard fonts.
-        </small>
-      )}
-    </label>
-  );
   const verticalControl = (
     <fieldset className="property-group">
       <legend>Vertical alignment</legend>
@@ -265,112 +221,67 @@ export default function RichTextEditor({
       aria-label="Advanced text formatting"
       className="rich-toolbar"
     >
-      {(['bold', 'italic', 'underline', 'strike'] as const).map((name) => (
-        <button
-          type="button"
-          key={name}
-          aria-label={
-            name === 'strike'
-              ? 'Strikethrough'
-              : name[0].toUpperCase() + name.slice(1)
-          }
-          title={
-            name === 'strike'
-              ? 'Strikethrough'
-              : name[0].toUpperCase() + name.slice(1)
-          }
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => run(toggleMark(richSchema.marks[name]))}
-        >
-          <Icon name={name === 'strike' ? 'strikethrough' : name} />
-        </button>
-      ))}
-      {(
-        [
-          [
-            'Bullet list',
-            'list-bullet',
-            wrapInList(richSchema.nodes.bullet_list),
-          ],
-          [
-            'Numbered list',
-            'list-numbered',
-            wrapInList(richSchema.nodes.ordered_list),
-          ],
-          ['Indent', 'indent', sinkListItem(richSchema.nodes.list_item)],
-          ['Outdent', 'outdent', liftListItem(richSchema.nodes.list_item)],
-          ['Blockquote', 'blockquote', wrapIn(richSchema.nodes.quote)],
-          ['Unwrap block', 'unwrap-block', lift],
-        ] as const
-      ).map(([label, icon, command]) => (
-        <button
-          key={icon}
-          type="button"
-          aria-label={label}
-          title={label}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run(command)}
-        >
-          <Icon name={icon} />
-        </button>
-      ))}
-      <label>
-        Link{' '}
-        <input
-          aria-label="Link URL"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        aria-label="Set link"
-        title="Set link"
-        onClick={() => {
-          if (validLink(link)) {
-            mark('link', link);
-            setError('');
-          } else
-            setError(
-              'Use an absolute http, https or mailto URL without credentials or control characters.',
-            );
-        }}
-      >
-        <Icon name="link" />
-      </button>
-      <button
-        type="button"
-        aria-label="Remove link"
-        title="Remove link"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => mark('link', null)}
-      >
-        <Icon name="link-remove" />
-      </button>
-      <button
-        type="button"
-        aria-label="Insert code"
-        title="Insert code"
-        onClick={() =>
-          run((state, dispatch) => {
-            dispatch?.(
-              state.tr.replaceSelectionWith(
-                richSchema.nodes.code.create({
-                  block: {
-                    type: 'code',
-                    text: '',
-                    language: 'plaintext',
-                    wrap: false,
-                  },
-                }),
-              ),
-            );
-            return true;
-          })
-        }
-      >
-        <Icon name="file-code" />
-      </button>
+      <fieldset className="property-group">
+        <legend>Font format</legend>
+        <div className="property-choices">
+          {(['bold', 'italic', 'underline', 'strike'] as const).map((name) => (
+            <button
+              type="button"
+              key={name}
+              aria-pressed={format[name] === true}
+              aria-label={
+                name === 'strike'
+                  ? 'Strikethrough'
+                  : name[0].toUpperCase() + name.slice(1)
+              }
+              title={
+                name === 'strike'
+                  ? 'Strikethrough'
+                  : name[0].toUpperCase() + name.slice(1)
+              }
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => run(toggleMark(richSchema.marks[name]))}
+            >
+              <Icon
+                name={name === 'strike' ? 'strikethrough' : name}
+                className="property-icon"
+              />
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="property-group">
+        <legend>List</legend>
+        <div className="property-choices">
+          {(
+            [
+              [
+                'Bullet list',
+                'list-bullet',
+                wrapInList(richSchema.nodes.bullet_list),
+              ],
+              [
+                'Numbered list',
+                'list-numbered',
+                wrapInList(richSchema.nodes.ordered_list),
+              ],
+              ['Indent', 'indent', sinkListItem(richSchema.nodes.list_item)],
+              ['Outdent', 'outdent', liftListItem(richSchema.nodes.list_item)],
+            ] as const
+          ).map(([label, icon, command]) => (
+            <button
+              key={icon}
+              type="button"
+              aria-label={label}
+              title={label}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => run(command)}
+            >
+              <Icon name={icon} className="property-icon" />
+            </button>
+          ))}
+        </div>
+      </fieldset>
     </div>
   );
   const toolbar = (
@@ -385,7 +296,10 @@ export default function RichTextEditor({
           value={format.color}
           onChange={(value) => mark('color', value)}
         />
-        <div className="property-group">{fontControl}</div>
+        <FontPicker
+          value={format.font}
+          onChange={(value) => mark('font', value)}
+        />
         <fieldset className="property-group">
           <legend>Font size</legend>
           <div className="property-choices">
@@ -439,7 +353,6 @@ export default function RichTextEditor({
       ) : (
         advancedToolbar
       )}
-      {error && <p role="alert">{error}</p>}
     </div>
   );
   return (

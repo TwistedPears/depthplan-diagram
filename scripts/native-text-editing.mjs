@@ -4,6 +4,18 @@ import path from 'node:path';
 
 export async function textEditing(driver) {
   const { native, sync, js, click, dialogs, until, profile } = driver;
+  const screenshot = async (name) =>
+    writeFile(
+      path.join(profile, name),
+      Buffer.from(
+        await driver.request(
+          `/session/${driver.session}/screenshot`,
+          undefined,
+          'GET',
+        ),
+        'base64',
+      ),
+    );
   const fonts = await native('fonts:list');
   assert(fonts.length > 0, 'OS font enumeration returns installed families');
   assert.equal(new Set(fonts).size, fonts.length);
@@ -73,10 +85,47 @@ export async function textEditing(driver) {
   assert(Math.abs(middle.x - (middle.bodyWidth - middle.width) / 2) < 0.1);
   assert.match(middle.font, /RandomFontName.*sans-serif/);
   await click('Edit text');
+  await click('Text font');
   await until(() =>
     sync(
-      'return [...document.querySelector(`[aria-label="Text font"]`).options].some(option => option.value === arguments[0])',
-      [font],
+      'return document.querySelector(".font-picker [popover]").getAttribute("aria-hidden") === "false"',
+    ),
+  );
+  await until(() =>
+    sync(
+      'return document.querySelectorAll(".font-star[aria-checked=true]").length === 5',
+    ),
+  );
+  assert(
+    await sync(
+      `return !!document.querySelector('[aria-label="Favorite monospace"][aria-checked=true]')`,
+    ),
+  );
+  await screenshot('font-favorites.png');
+  await click('Favorite monospace');
+  assert(
+    !(await sync(
+      'return JSON.parse(localStorage.getItem("depthplan.favoriteFonts")).includes("monospace")',
+    )),
+  );
+  await js(
+    'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+  );
+  await sync('document.querySelector(".font-see-all").focus()');
+  await click('See all fonts');
+  assert(
+    await sync(
+      'return document.activeElement.classList.contains("font-see-all")',
+    ),
+  );
+  await screenshot('font-all.png');
+  await click('Favorite monospace');
+  await sync(
+    'document.activeElement.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape", bubbles:true, cancelable:true}))',
+  );
+  assert(
+    await sync(
+      'return !!document.querySelector(".inline-object-text") && document.querySelector(".font-picker [popover]").getAttribute("aria-hidden") === "true"',
     ),
   );
   assert(
@@ -101,10 +150,9 @@ export async function textEditing(driver) {
   await js(
     'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
   );
-  await sync(
-    `const select=document.querySelector('[aria-label="Text font"]'); select.value=arguments[0]; select.dispatchEvent(new Event('change',{bubbles:true}));`,
-    [font],
-  );
+  await click('Text font');
+  await click('See all fonts');
+  await click(font);
   for (const align of ['top', 'middle', 'bottom']) {
     await click(`Align text ${align}`);
     const box = await editorY();
@@ -119,17 +167,12 @@ export async function textEditing(driver) {
     'Bold',
     'Italic',
     'Underline',
-    'Set link',
-    'Insert code',
     'Strikethrough',
     'Align text justify',
     'Bullet list',
     'Numbered list',
     'Indent',
     'Outdent',
-    'Blockquote',
-    'Unwrap block',
-    'Remove link',
   ]) {
     assert(
       await sync(
@@ -140,7 +183,7 @@ export async function textEditing(driver) {
   }
   assert(
     await sync(
-      `return !['Text block','Text size','Text color','List start','Undo text','Redo text'].some(label=>document.querySelector('[aria-label="'+label+'"]'));`,
+      `return !['Text block','Text size','Text color','List start','Undo text','Redo text','Set link','Remove link','Link URL','Insert code','Blockquote','Unwrap block'].some(label=>document.querySelector('[aria-label="'+label+'"]'));`,
     ),
   );
   await click('Strikethrough');
@@ -165,17 +208,28 @@ export async function textEditing(driver) {
       struck,
     );
   }
-  await writeFile(
-    path.join(profile, 'text-editing.png'),
-    Buffer.from(
-      await driver.request(
-        `/session/${driver.session}/screenshot`,
-        undefined,
-        'GET',
+  await screenshot('text-editing.png');
+  await click('Text font');
+  for (const width of [1280, 760]) {
+    await driver.request(`/session/${driver.session}/window/rect`, {
+      width,
+      height: 900,
+    });
+    await js(
+      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+    );
+    assert(
+      await sync(
+        `const r=document.querySelector('.font-picker [popover]').getBoundingClientRect(); return r.width>0 && r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight`,
       ),
-      'base64',
-    ),
-  );
+    );
+    await screenshot(`font-menu-${width}.png`);
+  }
+  await driver.request(`/session/${driver.session}/window/rect`, {
+    width: 1280,
+    height: 900,
+  });
+  await sync('document.querySelector(".font-picker [popover]").hidePopover()');
   await sync(
     `window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));`,
   );
@@ -199,6 +253,61 @@ export async function textEditing(driver) {
   const saved = JSON.parse(await readFile(file, 'utf8')).objects.text;
   assert.equal(saved.style.textVerticalAlign, 'bottom');
   assert.equal(saved.content[0].runs[0].marks.font, font);
+  await click('Edit text');
+  await sync(
+    `const prose=document.querySelector('.ProseMirror');prose.focus();window.getSelection().selectAllChildren(prose);document.dispatchEvent(new Event('selectionchange'))`,
+  );
+  await js(
+    'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
+  );
+  await sync(
+    `const prose=document.querySelector('.ProseMirror');const event=new Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(event,'clipboardData',{value:{getData:type=>type==='text/plain'?'[Docs | https://example.com] and https://example.org':''}});prose.dispatchEvent(event)`,
+  );
+  assert(
+    await sync(
+      'return document.querySelector(".ProseMirror").textContent === "[Docs | https://example.com] and https://example.org"',
+    ),
+  );
+  await sync(
+    'window.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}))',
+  );
+  await until(() =>
+    sync('return !document.querySelector(".inline-object-text")'),
+  );
+  assert(
+    await sync(
+      `const pieces=window.Konva.stages[0].findOne('#object-text').findOne('.object-content').find('Text');return pieces.map(p=>p.text()).join('')==='Docs and https://example.org' && pieces.some(p=>p.text()==='Docs' && p.textDecoration()==='underline')`,
+    ),
+  );
+  assert.equal(
+    await sync(`
+    const original=window.desktop.openLink; let opened;
+    window.desktop.openLink=url=>{opened=url;return Promise.resolve()};
+    try { window.Konva.stages[0].findOne('#object-text').findOne('.object-content').find('Text').find(p=>p.text()==='Docs').fire('click',{evt:{ctrlKey:true}}); }
+    finally { window.desktop.openLink=original; }
+    return opened;`),
+    'https://example.com',
+  );
+  await click('Edit text');
+  assert(
+    await sync(
+      'return document.querySelector(".ProseMirror").textContent === "[Docs | https://example.com] and https://example.org"',
+    ),
+  );
+  await sync(
+    'window.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}))',
+  );
+  if (
+    await sync(
+      'return !!document.querySelector(`[aria-label="Save document"]`)',
+    )
+  )
+    await click('Save document');
+  await until(
+    async () =>
+      JSON.parse(await readFile(file, 'utf8')).objects.text.content[0].runs[0]
+        .marks?.link === 'https://example.com',
+  );
   const svg = path.join(profile, 'text-editing.svg');
   await click('Menu');
   await click('Export');
@@ -216,6 +325,6 @@ export async function textEditing(driver) {
   });
   assert.match(await readFile(svg, 'utf8'), /font-family="[^"\n]*sans-serif/);
   console.log(
-    `PASS text editing: system fonts, fallback, vertical alignment, SVG icons, persistence and export. Evidence: ${profile}`,
+    `PASS text editing: font favorites, keyboard menu, responsive controls, inline links, draft history, persistence and export. Evidence: ${profile}`,
   );
 }

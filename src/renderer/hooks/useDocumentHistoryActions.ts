@@ -26,8 +26,7 @@ export default function useDocumentHistoryActions(
       if (
         editor &&
         !(document.activeElement instanceof HTMLInputElement) &&
-        (!(document.activeElement instanceof HTMLTextAreaElement) ||
-          document.activeElement.hasAttribute('data-code-source'))
+        !(document.activeElement instanceof HTMLTextAreaElement)
       ) {
         editor.dispatchEvent(
           new CustomEvent('editor-history', { detail: direction }),

@@ -16,16 +16,25 @@ files together. No image service or runtime download is used.
 ## Interface icons
 
 The [interface asset directory](../../src/renderer/assets/icons/) currently contains
-92 SVGs, including Style controls, text formatting, and the two/three-square child indicators.
+93 SVGs, including Style controls, text formatting, and the two/three-square child indicators.
 The shipped files are the inventory; the prompt collections describe overlapping
 generation sets, not a count of all integrated icons:
 
 - [Base icon prompt bible](DepthPlan%20Icon%20Prompt%20Bible.json).
 - [Style popup icon prompt bible](DepthPlan%20Style%20Popup%20Icon%20Prompt%20Bible.json).
 
-The six stroke width/pattern assets and all 11 text-formatting assets are integrated.
+The six stroke width/pattern assets and all 11 text-formatting assets are available.
 The base bible marks their completed masters with `completed: true`. The text size
 and color assets are available, while the editor uses size presets and color swatches.
+Font format and List groups share the alignment controls’ button styles. Blockquote,
+unwrap, code and link actions are absent from the text toolbar. The star asset marks
+saved font favorites; the font side menu starts with four available fonts and
+monospace, and See all fonts reveals the remaining installed families.
+
+Bare web URLs autolink. Use `[label | https://example.com]` for a labeled link;
+editing expands the label back into that syntax. Ctrl/⌘-click opens a link on the
+canvas. Existing code blocks remain editable as plain monospace text with their
+language, wrapping and line endings retained. New code can use the monospace font.
 Keep the Style bible's path and `assets[].summary`
 `Target SVG:` entries stable: [native-expansion.mjs](../../scripts/native-expansion.mjs)
 uses them to validate its 40-icon set plus `square-stack-2`, `square-stack-3`, and

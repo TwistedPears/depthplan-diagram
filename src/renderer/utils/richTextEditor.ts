@@ -8,6 +8,8 @@ import { EditorState, type Command } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
 import { history, undo, redo } from 'prosemirror-history';
 import { fontFamily } from '../../shared/textFont';
+import { expandInlineLinks, parseInlineLinks } from '../../shared/inlineLinks';
+import { editCodeText } from '../../shared/codePresentation';
 import { baseKeymap, chainCommands, toggleMark } from 'prosemirror-commands';
 import {
   splitListItem,
@@ -186,8 +188,11 @@ export const richSchema = new Schema({
     },
     code: {
       group: 'block',
-      atom: true,
-      selectable: true,
+      content: 'text*',
+      marks: '',
+      code: true,
+      whitespace: 'pre',
+      defining: true,
       attrs: { block: {} },
       parseDOM: [
         {
@@ -203,8 +208,11 @@ export const richSchema = new Schema({
       ],
       toDOM: (node) => [
         'pre',
-        { contenteditable: 'false', 'aria-label': 'Code block' },
-        node.attrs.block.text,
+        {
+          'aria-label': 'Code block',
+          style: `white-space: ${node.attrs.block.wrap ? 'pre-wrap' : 'pre'}`,
+        },
+        0,
       ],
     },
     text: { group: 'inline' },
@@ -214,7 +222,11 @@ export const richSchema = new Schema({
 
 export function toEditorContent(blocks: RichBlock[]): EditorNode {
   const block = (b: RichBlock): EditorNode => {
-    if (b.type === 'code') return richSchema.nodes.code.create({ block: b });
+    if (b.type === 'code')
+      return richSchema.nodes.code.create(
+        { block: b },
+        b.text ? richSchema.text(b.text.replace(/\r\n?/g, '\n')) : undefined,
+      );
     if (b.type === 'list')
       return richSchema.node(
         b.ordered ? 'ordered_list' : 'bullet_list',
@@ -231,7 +243,7 @@ export function toEditorContent(blocks: RichBlock[]): EditorNode {
         align: b.align ?? null,
         level: b.type === 'heading' ? b.level : undefined,
       },
-      b.runs
+      expandInlineLinks(b.runs)
         .filter((r) => r.text)
         .map((r) =>
           richSchema.text(
@@ -257,7 +269,11 @@ export function fromEditorContent(doc: EditorNode): RichBlock[] {
   };
   const block = (node: EditorNode): RichBlock => {
     const type = node.type.name;
-    if (type === 'code') return node.attrs.block;
+    if (type === 'code')
+      return {
+        ...node.attrs.block,
+        text: editCodeText(node.attrs.block.text, node.textContent),
+      };
     if (type === 'quote') return { type, blocks: children(node) };
     if (type === 'ordered_list' || type === 'bullet_list') {
       const items: RichBlock[][] = [];
@@ -282,7 +298,7 @@ export function fromEditorContent(doc: EditorNode): RichBlock[] {
       type: type as 'paragraph',
       ...(type === 'heading' ? { level: node.attrs.level } : {}),
       ...(node.attrs.align ? { align: node.attrs.align } : {}),
-      runs,
+      runs: parseInlineLinks(runs),
     };
   };
   return children(doc);
@@ -323,7 +339,11 @@ export function richEditorState(content: RichBlock[]) {
           dispatch?.(state.tr.insertText('\n'));
           return true;
         },
-        Tab: chainCommands(sinkListItem(item), () => true),
+        Tab: chainCommands(sinkListItem(item), (state, dispatch) => {
+          if (state.selection.$from.parent.type.spec.code)
+            dispatch?.(state.tr.insertText('\t'));
+          return true;
+        }),
         'Shift-Tab': chainCommands(liftListItem(item), () => true),
       }),
       keymap(baseKeymap),
