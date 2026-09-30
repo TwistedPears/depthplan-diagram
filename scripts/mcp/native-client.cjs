@@ -2,17 +2,21 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { createInterface } = require('node:readline');
 
-function client(executable, descriptor) {
-  const child = spawn(executable, ['--descriptor', descriptor], {
-    env: {
-      ...process.env,
-      PATH:
-        process.platform === 'win32'
-          ? process.env.SystemRoot + '/System32'
-          : '/usr/bin:/bin',
+function client(executable, descriptor, launcherArgs = []) {
+  const child = spawn(
+    executable,
+    [...launcherArgs, '--descriptor', descriptor],
+    {
+      env: {
+        ...process.env,
+        PATH:
+          process.platform === 'win32'
+            ? process.env.SystemRoot + '/System32'
+            : '/usr/bin:/bin',
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
     },
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  );
   let next = 0;
   const pending = new Map();
   let diagnostic = '';

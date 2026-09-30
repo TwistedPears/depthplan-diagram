@@ -10,6 +10,25 @@ const status: AutomationStatus = {
   executable: 'C:\\Program Files\\DepthPlan\\DepthPlan.exe',
   descriptor: '/private/runtime space/connection.json',
 };
+
+test('Flatpak client configuration launches the bundled adapter in its sandbox', () => {
+  const configuration = codexConfiguration({
+    ...status,
+    executable: 'flatpak',
+    launcherArgs: [
+      'run',
+      '--command=depthplan-mcp',
+      'com.twistedpears.depthplan',
+    ],
+  });
+  expect(configuration).toContain('command = "flatpak"');
+  expect(configuration).toContain(
+    `args = ${JSON.stringify(['run', '--command=depthplan-mcp', 'com.twistedpears.depthplan', '--descriptor', status.descriptor])}`,
+  );
+  expect(codexConfiguration(status)).toContain(
+    `args = ${JSON.stringify(['--descriptor', status.descriptor])}`,
+  );
+});
 const handlers = {
   depthplan_get_context: jest.fn(() => ({ ok: true })),
   depthplan_get_hierarchy: jest.fn(),

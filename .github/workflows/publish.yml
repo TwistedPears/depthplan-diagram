@@ -10,11 +10,11 @@ concurrency:
 jobs:
   validate:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest, ubuntu-22.04, ubuntu-22.04-arm]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -43,7 +43,7 @@ jobs:
           if-no-files-found: warn
       - name: Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb dbus-daemon
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf file xvfb dbus-daemon openbox scrot xdotool xdg-utils desktop-file-utils libfile-mimeinfo-perl flatpak
       - name: Check version tag
         run: node -e "if (process.env.GITHUB_REF_NAME !== 'v' + require('./package.json').version) throw new Error('Tag must match package version')"
       - run: npm ci
@@ -74,6 +74,7 @@ jobs:
         run: ${{ runner.os == 'Linux' && 'xvfb-run --auto-servernum dbus-run-session --' || '' }} npm run smoke:ci
       - name: Package uninstrumented application without publishing
         env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -81,6 +82,25 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASS }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run package
+      - name: Package Flatpak from the native Linux build
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- npm run package:flatpak
+      - name: Check the Linux distribution artifacts
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: |
+          xvfb-run --auto-servernum dbus-run-session -- node scripts/installed-acceptance.mjs appimage
+          xvfb-run --auto-servernum dbus-run-session -- node scripts/installed-acceptance.mjs flatpak
+      - name: Retain Linux distribution evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: distribution-evidence-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/depthplan-installed-*/*.png
+            ${{ runner.temp }}/depthplan-installed-*/report.json
+            ${{ runner.temp }}/depthplan-installed-*/workspaces.json
+          if-no-files-found: warn
       - name: Verify release excludes automation
         shell: bash
         run: |
@@ -95,6 +115,7 @@ jobs:
             src-tauri/target/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.exe
             src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.flatpak
   upload-draft:
     needs: validate
     runs-on: ubuntu-latest

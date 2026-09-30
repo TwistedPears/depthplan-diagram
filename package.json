@@ -27,6 +27,7 @@
     "start": "tauri dev",
     "build": "tauri build --no-bundle",
     "package": "tauri build",
+    "package:flatpak": "node scripts/package-flatpak.mjs",
     "package:dir": "tauri build --bundles app",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",

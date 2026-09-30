@@ -27,6 +27,7 @@ prefix native commands with `DEVELOPER_DIR=/Library/Developer/CommandLineTools`.
 | `npm run build`                    | Ordinary release executables without installers   |
 | `npm run package:dir`              | macOS application bundle                          |
 | `npm run package`                  | Native installers for the host; does not publish  |
+| `npm run package:flatpak`          | Flatpak from the current native Linux `.deb`      |
 | `npm run icons`                    | Regenerate desktop icons from the canonical logo  |
 | `npm run generate:contracts`       | Generate native MCP schemas and document fixtures |
 | `npm run build:automation`         | Debug native build with explicit test automation  |
@@ -38,6 +39,63 @@ license inventories. Outputs live under `src-tauri/target/release/` unless
 install its Rust target and pass `--target` to Tauri; cross-compilation does not
 validate native execution. `CI=true npm run package -- --ci` produces a macOS DMG
 without Finder's cosmetic AppleScript layout step.
+
+### Linux distribution builds
+
+CI uses native `ubuntu-22.04` (x86_64) and `ubuntu-22.04-arm` (ARM64/aarch64)
+runners for checks, native integration and packaging. Ubuntu 22.04 is the
+AppImage build baseline; newer build hosts can raise its minimum glibc version.
+These are 64-bit targets, not 32-bit x86 or ARM. AppImage support still depends
+on the host's kernel, graphics stack and compatible system libraries.
+
+On either native Linux architecture:
+
+```sh
+sudo apt-get install flatpak dbus-daemon file
+APPIMAGE_EXTRACT_AND_RUN=1 npm run package
+dbus-run-session -- npm run package:flatpak
+```
+
+The first command after dependency setup creates an AppImage and a `.deb`.
+The Flatpak command reuses that `.deb`, including the native MCP adapter and
+license resources, checks both executable architectures, installs the GNOME 49
+Platform/SDK and Flatpak Builder from Flathub in the build user's installation, and creates
+`src-tauri/target/release/bundle/flatpak/DepthPlan-<version>-<arch>.flatpak`.
+Its manifest is `flatpak/com.twistedpears.depthplan.json`; update and validate
+the runtime before its upstream support ends. Build each CPU on its own native
+host. AppImage tooling does not support ordinary ARM cross-compilation.
+The current Flatpak Builder is used instead of Ubuntu 22.04's older package so
+metadata generation stays compatible with the runtime.
+
+The draft-release workflow uploads AppImage and Flatpak for both Linux CPUs.
+The `.deb` remains a packaging input and an installed-test target. No Flathub
+submission or public release is performed. Test workflow artifacts named
+`linux-candidates-X64` and `linux-candidates-ARM64` provide the same formats for
+review before tagging.
+
+On a Linux desktop with Flatpak installed, install a downloaded candidate with
+`flatpak install --user ./DepthPlan-<version>-<arch>.flatpak`, then launch it with
+`flatpak run com.twistedpears.depthplan`. The bundle references Flathub for its
+runtime; the first installation requires a network connection. AppImages can
+be marked executable and launched directly, or extracted with
+`--appimage-extract` and launched using `squashfs-root/AppRun` when FUSE is absent.
+
+Flatpak grants access to the user's home directory because projects use multiple
+neighboring files and native file dialogs. It does not grant host command
+execution, network access or unrestricted system files. Files outside home need
+an explicit Flatpak filesystem grant. MCP's own folder grants still apply.
+Copy the configuration from MCP Details: the Flatpak build launches the adapter
+with `flatpak run --command=depthplan-mcp com.twistedpears.depthplan` and keeps
+its private connection under the shared app runtime directory.
+
+On disposable CI desktops, `node scripts/installed-acceptance.mjs appimage`
+and `node scripts/installed-acceptance.mjs flatpak` reuse the installed project,
+file-association, adapter and lifecycle checks. Run each under
+`xvfb-run --auto-servernum dbus-run-session --`. AppImage acceptance exercises
+the extracted artifact's AppRun launcher, not FUSE mounting. Flatpak acceptance
+installs the actual bundle and checks its runtime linkage. Both retain hashes,
+screenshots and workspace evidence. These checks do not certify every distro,
+Wayland compositor or physical GPU; validate those on the chosen release scope.
 
 ## Validation
 
@@ -120,10 +178,10 @@ Development recovery uses `DepthPlan Development`, production uses `DepthPlan`,
 and automation uses a temporary profile. Test-only profile overrides are not
 ordinary release configuration.
 
-The Test workflow runs three independent suites on macOS, Windows and Linux:
+The Test workflow runs three independent suites on macOS, Windows and both Linux CPUs:
 `checks` (source checks, unit tests, Clippy and audits), `native` (instrumented
 application integration), and `release` (ordinary installer, associations/lifecycle, licenses and automation
-exclusion). All nine jobs must pass; a native failure leaves the other results
+exclusion). All twelve jobs must pass; a native failure leaves the other results
 visible. Windows checks also stress concurrent native handle clone/drop and
 cleanup after the runtime exits; see the [runtime patch](../src-tauri/vendor/README.md#tauri-windows-runtime-ownership).
 Native failures retain screenshots and `failure.json` with process diagnostics.
