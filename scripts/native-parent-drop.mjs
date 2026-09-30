@@ -112,7 +112,13 @@ export async function parentDrop(driver, probe) {
     await dialogs('open', file);
     await click('Menu');
     await click('Open Board…');
-    await until(async () => (await state()).source?.path === file);
+    // Mounting the canvas advances viewRevision after the file is published.
+    await until(async () => {
+      const current = await state();
+      return (
+        current.source?.path === file && current.canvas.viewport.height > 0
+      );
+    });
     const current = await state();
     const reply = await probe.call('depthplan_camera', {
       handle: current.handle,
