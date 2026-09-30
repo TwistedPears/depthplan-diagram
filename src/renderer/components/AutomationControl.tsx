@@ -12,7 +12,7 @@ type Props = {
 export function codexConfiguration(status: AutomationStatus) {
   return `[mcp_servers.depthplan]
 command = ${JSON.stringify(status.executable)}
-args = ${JSON.stringify(['--descriptor', status.descriptor])}
+args = ${JSON.stringify([...(status.launcherArgs ?? []), '--descriptor', status.descriptor])}
 enabled = true`;
 }
 export default function AutomationControl({

@@ -40,8 +40,10 @@ the README and tester guide when the download is actually available.
 ## Candidate checklist
 
 - [ ] Approve supported OS versions/architectures. Apple Silicon is the first
-      macOS target; Windows x64, Ubuntu x64 and Intel Mac need separate native
-      acceptance. Align CI and documentation with the approved scope.
+      macOS target; Windows x64, Linux x86_64/ARM64 and Intel Mac need separate native
+      acceptance. Linux CI builds AppImage and Flatpak on both CPUs; validate each
+      exact format on the supported distributions, including Wayland and GPU
+      behavior. CI coverage alone does not approve platform support.
 - [ ] Record the source commit, lockfile hashes, app/installer SHA-256,
       OS/WebView versions, CPU/RAM/display scale and actual MCP client version.
 - [ ] Pass formatting, lint, typecheck, JavaScript/Rust tests, Clippy, audits,
@@ -243,8 +245,9 @@ a universal deadline. No route is active or tested merely because it appears her
 ## Distribution and verification
 
 The current app has no automatic updater. The tag-triggered Draft release workflow
-requires `v<package version>`, waits for all three configured OS jobs and uploads
-ordinary installers to a draft only. Publishing and signing setup are separate
+requires `v<package version>`, waits for all four configured platform/CPU jobs and uploads
+ordinary installers to a draft only. Linux candidates include AppImage and Flatpak
+for x86_64 and ARM64, with installed-artifact checks before upload. Publishing and signing setup are separate
 actions; a draft is not a production release. Align this workflow with approved
 platform scope before release.
 

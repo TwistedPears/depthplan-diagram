@@ -19,16 +19,32 @@ const exec = promisify(execFile);
 assert.equal(process.env.CI, 'true', 'Run only on a disposable CI desktop');
 const temp = process.env.RUNNER_TEMP;
 assert(temp, 'A disposable runner temp directory is required');
-const evidence = path.join(temp, 'depthplan-installed');
+const format = process.argv[2];
+assert(
+  !format ||
+    (process.platform === 'linux' && ['appimage', 'flatpak'].includes(format)),
+);
+const appId = 'com.twistedpears.depthplan';
+const evidence = path.join(
+  temp,
+  `depthplan-installed${format ? '-' + format : ''}`,
+);
 await mkdir(evidence, { recursive: true });
+if (format === 'appimage')
+  process.env.XDG_CONFIG_HOME = path.join(evidence, 'config');
+if (format === 'flatpak') {
+  process.env.XDG_DATA_DIRS = `${os.homedir()}/.local/share/flatpak/exports/share:${process.env.XDG_DATA_DIRS || '/usr/local/share:/usr/share'}`;
+}
 const work = path.join(evidence, 'Files with spaces 演示');
 await mkdir(work);
 const config =
-  process.platform === 'darwin'
-    ? path.join(os.homedir(), 'Library/Application Support')
-    : process.platform === 'win32'
-      ? process.env.APPDATA
-      : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  format === 'flatpak'
+    ? path.join(os.homedir(), '.var/app', appId, 'config')
+    : process.platform === 'darwin'
+      ? path.join(os.homedir(), 'Library/Application Support')
+      : process.platform === 'win32'
+        ? process.env.APPDATA
+        : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
 const workspaceFile = path.join(config, 'DepthPlan/workspaces.json');
 assert.equal(
   await access(workspaceFile).then(
@@ -40,6 +56,8 @@ assert.equal(
 );
 const report = {
   platform: process.platform,
+  architecture: process.arch,
+  format: format || 'native-installer',
   release: os.release(),
   cpu: os.cpus()[0].model,
   commit: (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim(),
@@ -74,9 +92,12 @@ const until = async (fn, message) => {
   throw new Error(message);
 };
 const bundleRoot = path.resolve('src-tauri/target/release/bundle');
-const suffix = { darwin: '.dmg', win32: '.exe', linux: '.deb' }[
-  process.platform
-];
+const suffix =
+  format === 'appimage'
+    ? '.AppImage'
+    : format === 'flatpak'
+      ? '.flatpak'
+      : { darwin: '.dmg', win32: '.exe', linux: '.deb' }[process.platform];
 const bundles = (await readdir(bundleRoot, { recursive: true })).filter(
   (file) => file.endsWith(suffix),
 );
@@ -97,6 +118,8 @@ const processes = async () => {
     // Linux comm is a basename; verify the actual installed executable via procfs.
     if (process.platform === 'linux' && executable === path.basename(binary))
       executable = await readlink(`/proc/${match[1]}/exe`).catch(() => null);
+    if (format === 'flatpak' && executable === '/app/bin/depthplan')
+      executable = binary;
     if (executable === binary)
       found.push({ pid: Number(match[1]), path: executable });
   }
@@ -110,9 +133,9 @@ const launch = async (file) => {
       `application/x-${path.extname(file).slice(1)}`,
       'The desktop must recognize the installed file type',
     );
-    // Generic xdg-open may wait for the app to exit; observe the app independently.
+    // GIO honors quoted desktop Exec paths even on the minimal CI desktop.
     await new Promise((resolve, reject) => {
-      const opener = spawn('xdg-open', [file], { stdio: 'ignore' });
+      const opener = spawn('gio', ['open', file], { stdio: 'ignore' });
       opener.once('spawn', resolve);
       opener.once('error', reject);
       opener.unref();
@@ -127,7 +150,8 @@ const launch = async (file) => {
   return running.pid;
 };
 const capture = async (name, expected) => {
-  await wait(3000);
+  // A cold Flatpak WebKit can finish painting after workspace persistence acknowledges the open.
+  await wait(format === 'flatpak' ? 10000 : 3000);
   const file = path.join(evidence, `${name}.png`);
   if (process.platform === 'win32') await ps('capture', file);
   else if (process.platform === 'darwin' && expected)
@@ -159,8 +183,9 @@ const quit = async () => {
       await exec('xdotool', [
         'search',
         '--onlyvisible',
-        '--pid',
-        String(running[0].pid),
+        ...(format === 'flatpak'
+          ? ['--class', 'depthplan']
+          : ['--pid', String(running[0].pid)]),
       ])
     ).stdout
       .trim()
@@ -245,6 +270,81 @@ try {
       report.registration[extension] = registration;
     }
     await access(path.join(appPath, 'project.ico'));
+  } else if (format) {
+    wm = spawn('openbox', [], { stdio: 'ignore' });
+    let desktop;
+    if (format === 'appimage') {
+      // Exercise the distributed AppImage's extraction fallback; CI needs no FUSE mount.
+      await exec(installer, ['--appimage-extract'], {
+        cwd: evidence,
+        maxBuffer: 20 * 1024 * 1024,
+      });
+      appPath = path.join(evidence, 'squashfs-root');
+      binary = path.join(appPath, 'usr/bin/depthplan');
+      const applications = path.join(os.homedir(), '.local/share/applications');
+      await mkdir(applications, { recursive: true });
+      desktop = 'depthplan-appimage.desktop';
+      const entries = await readdir(
+        path.join(appPath, 'usr/share/applications'),
+      );
+      const files = entries.filter((name) => name.endsWith('.desktop'));
+      assert.equal(files.length, 1);
+      const entry = (
+        await readFile(
+          path.join(appPath, 'usr/share/applications', files[0]),
+          'utf8',
+        )
+      ).replace(/^Exec=.*$/m, `Exec="${appPath}/AppRun" %F`);
+      await writeFile(path.join(applications, desktop), entry);
+      await exec('desktop-file-validate', [path.join(applications, desktop)]);
+      await exec('xdg-mime', [
+        'install',
+        '--novendor',
+        '--mode',
+        'user',
+        path.join(appPath, 'usr/share/mime/packages/depthplan.xml'),
+      ]);
+      await exec('update-desktop-database', [applications]);
+      report.phases.push(
+        'Extracted the distributed AppImage and registered its AppRun launcher',
+      );
+    } else {
+      await exec('flatpak', [
+        'install',
+        '--user',
+        '--noninteractive',
+        installer,
+      ]);
+      appPath = (
+        await exec('flatpak', ['info', '--user', '--show-location', appId])
+      ).stdout.trim();
+      binary = path.join(appPath, 'files/bin/depthplan');
+      desktop = `${appId}.desktop`;
+      const linkage = (
+        await exec('flatpak', [
+          'run',
+          '--command=sh',
+          appId,
+          '-c',
+          'ldd /app/bin/depthplan; ldd /app/bin/depthplan-mcp',
+        ])
+      ).stdout;
+      assert(!linkage.includes('not found'), linkage);
+      report.phases.push(
+        'Installed the Flatpak bundle and checked both executables against its runtime',
+      );
+    }
+    for (const type of [
+      'application/x-depthplan',
+      'application/x-depthproject',
+    ]) {
+      await exec('xdg-mime', ['default', desktop, type]);
+      assert.equal(
+        (await exec('xdg-mime', ['query', 'default', type])).stdout.trim(),
+        desktop,
+      );
+    }
+    report.registration = desktop;
   } else {
     await exec('sudo', ['apt-get', 'install', '-y', installer]);
     binary = '/usr/bin/depthplan';
@@ -293,7 +393,11 @@ try {
     path.dirname(binary),
     process.platform === 'win32' ? 'depthplan-mcp.exe' : 'depthplan-mcp',
   );
-  const probe = client(adapter, path.join(evidence, 'missing-descriptor.json'));
+  const probe = client(
+    format === 'flatpak' ? 'flatpak' : adapter,
+    path.join(evidence, 'missing-descriptor.json'),
+    format === 'flatpak' ? ['run', '--command=depthplan-mcp', appId] : [],
+  );
   try {
     await probe.initialize();
     assert.equal(

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DepthPlan
+Comment=Diagramming with audience-specific levels of detail
+Exec=depthplan %F
+Icon=com.twistedpears.depthplan
+Terminal=false
+Categories=Development;
+StartupWMClass=depthplan
+MimeType=application/x-depthplan;application/x-depthproject;

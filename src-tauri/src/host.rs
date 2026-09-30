@@ -90,7 +90,19 @@ fn status(app: &AppHandle) -> Value {
         } else {
             "depthplan-mcp"
         });
-    json!({"enabled":service.token.is_some(),"generation":service.generation,"descriptor":service.descriptor(),"executable":binary,"folders":host.folders.list()})
+    let (binary, launcher_args) = if automation::is_flatpak() {
+        (
+            PathBuf::from("flatpak"),
+            vec![
+                "run",
+                "--command=depthplan-mcp",
+                "com.twistedpears.depthplan",
+            ],
+        )
+    } else {
+        (binary, vec![])
+    };
+    json!({"enabled":service.token.is_some(),"generation":service.generation,"descriptor":service.descriptor(),"executable":binary,"launcherArgs":launcher_args,"folders":host.folders.list()})
 }
 fn announce(app: &AppHandle) {
     let host = app.state::<Host>();

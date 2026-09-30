@@ -1,0 +1,38 @@
+{
+  "app-id": "com.twistedpears.depthplan",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "49",
+  "sdk": "org.gnome.Sdk",
+  "command": "depthplan",
+  "default-branch": "stable",
+  "separate-locales": false,
+  "finish-args": [
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--share=ipc",
+    "--device=dri",
+    "--filesystem=home"
+  ],
+  "modules": [
+    {
+      "name": "depthplan",
+      "buildsystem": "simple",
+      "build-commands": [
+        "mkdir -p /app/bin /app/lib",
+        "cp -a usr/bin/. /app/bin/",
+        "cp -a usr/lib/. /app/lib/",
+        "install -Dm644 com.twistedpears.depthplan.desktop /app/share/applications/com.twistedpears.depthplan.desktop",
+        "install -Dm644 com.twistedpears.depthplan.metainfo.xml /app/share/metainfo/com.twistedpears.depthplan.metainfo.xml",
+        "install -Dm644 usr/share/icons/hicolor/512x512/mimetypes/application-x-depthplan.png /app/share/icons/hicolor/512x512/apps/com.twistedpears.depthplan.png",
+        "install -Dm644 usr/share/icons/hicolor/512x512/mimetypes/application-x-depthproject.png /app/share/icons/hicolor/512x512/mimetypes/com.twistedpears.depthplan.project.png",
+        "install -Dm644 usr/share/mime/packages/depthplan.xml /app/share/mime/packages/com.twistedpears.depthplan.xml",
+        "sed -i -e 's/application-x-depthplan/com.twistedpears.depthplan/g' -e 's/application-x-depthproject/com.twistedpears.depthplan.project/g' /app/share/mime/packages/com.twistedpears.depthplan.xml"
+      ],
+      "sources": [
+        { "type": "dir", "path": "../.tmp/flatpak-source" },
+        { "type": "file", "path": "com.twistedpears.depthplan.desktop" },
+        { "type": "file", "path": "com.twistedpears.depthplan.metainfo.xml" }
+      ]
+    }
+  ]
+}

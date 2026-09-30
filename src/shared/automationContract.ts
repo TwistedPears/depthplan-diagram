@@ -18,6 +18,7 @@ export type AutomationStatus = {
   enabled: boolean;
   descriptor: string;
   executable: string;
+  launcherArgs?: string[];
 };
 export const unavailable = (
   code: ApiErrorCode = 'APP_UNAVAILABLE',

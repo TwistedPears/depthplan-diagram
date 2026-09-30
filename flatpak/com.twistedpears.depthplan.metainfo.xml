@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.twistedpears.depthplan</id>
+  <name>DepthPlan</name>
+  <summary>Diagramming with audience-specific levels of detail</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>BUSL-1.1</project_license>
+  <developer id="com.twistedpears"><name>TwistedPears</name></developer>
+  <description>
+    <p>Keep system overviews, nested components, connections, rich text and code in one document. Use bookmarks and depth controls to present different levels of detail.</p>
+  </description>
+  <launchable type="desktop-id">com.twistedpears.depthplan.desktop</launchable>
+  <url type="homepage">https://github.com/TwistedPears/depthplan-diagram</url>
+  <url type="bugtracker">https://github.com/TwistedPears/depthplan-diagram/issues</url>
+  <content_rating type="oars-1.1"/>
+</component>

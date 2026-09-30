@@ -16,6 +16,7 @@ pids
 # Local documents, except maintained samples
 *.depthplan
 *.depthplan.json
+!/flatpak/com.twistedpears.depthplan.json
 !/docs/sample/recursive_document.depthplan
 !/docs/sample/workflow_document.depthplan
 !/docs/sample/depthplan_application_tour.depthplan

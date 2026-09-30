@@ -196,6 +196,8 @@ export async function rotation(driver, probe) {
   }
   // Every dot supports rotation while preserving the existing drag behavior.
   for (const id of Object.keys(document.objects)) {
+    // Hosted desktops may be shorter than the requested window size.
+    await camera(1, id);
     await select(id);
     await camera(1, id);
     const before = await pose(id);

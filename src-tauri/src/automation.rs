@@ -17,6 +17,21 @@ pub fn failure(code: &str, message: &str) -> Value {
 pub fn unavailable() -> Value {
     failure("APP_UNAVAILABLE","The app is unavailable. Query current state before retrying an interrupted command with the same request ID.")
 }
+pub fn is_flatpak() -> bool {
+    cfg!(target_os = "linux")
+        && std::env::var("FLATPAK_ID").as_deref() == Ok("com.twistedpears.depthplan")
+}
+#[cfg(unix)]
+fn connection_root(flatpak: bool, runtime: Option<PathBuf>) -> Result<PathBuf> {
+    if flatpak {
+        // Separate Flatpak launches share this app directory, but not their /tmp.
+        Ok(runtime
+            .ok_or("Flatpak requires XDG_RUNTIME_DIR")?
+            .join("app/com.twistedpears.depthplan"))
+    } else {
+        Ok(PathBuf::from("/tmp"))
+    }
+}
 pub struct Service {
     pub instance: String,
     pub generation: u64,
@@ -115,7 +130,10 @@ impl Service {
         }
         if self.directory.is_none() {
             #[cfg(unix)]
-            let root = Path::new("/tmp");
+            let root = connection_root(
+                is_flatpak(),
+                std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from),
+            )?;
             #[cfg(windows)]
             let root = std::env::temp_dir();
             let directory = tempfile::Builder::new()
@@ -429,6 +447,18 @@ impl Folders {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[cfg(unix)]
+    fn flatpak_connections_use_the_shared_app_runtime_directory() {
+        assert_eq!(connection_root(false, None).unwrap(), Path::new("/tmp"));
+        assert!(connection_root(true, None).is_err());
+        let root = connection_root(true, Some("/run/user/1000".into())).unwrap();
+        assert_eq!(
+            root,
+            Path::new("/run/user/1000/app/com.twistedpears.depthplan")
+        );
+        assert!(root.join("dp-123456/ipc").as_os_str().len() <= 103);
+    }
     #[test]
     fn shutdown_removes_descriptor_after_disable() {
         let mut service = Service::new(Uuid::new_v4().to_string()).unwrap();
