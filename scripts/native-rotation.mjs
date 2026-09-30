@@ -61,10 +61,6 @@ export async function rotation(driver, probe) {
     return JSON.parse(await readFile(file, 'utf8'));
   };
   const pointer = async (type, point, buttons = type === 'mouseup' ? 0 : 1) => {
-    // Undo/Redo updates node geometry before Konva repaints its hit canvas.
-    await js(
-      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
-    );
     await sync(
       `const [type,p,buttons]=arguments;
       document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type, {

@@ -91,11 +91,13 @@ export async function launchNative(existingProfile, fileArguments = []) {
     await until(
       () =>
         sync(
-          'const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]));if(!b||b.disabled||b.closest("[inert]"))return false;b.click();return true',
+          'const b=Array.from((document.querySelector("dialog[open]")||document).querySelectorAll("button")).find(b=>b.getClientRects().length && (b.getAttribute("aria-label")===arguments[0]||b.textContent.trim()===arguments[0]||b.title===arguments[0]));if(!b||b.disabled||b.closest("[inert]"))return false;return true',
           [label],
         ),
       `Timed out waiting for button ${label}`,
     );
+    // Settle React effects and Konva hit-canvas paint before the next gesture.
+    await clickToPaint({ js }, label);
   };
   const closeBoard = async (boardId) => {
     if (!(await sync('return !!document.querySelector("#project-drawer")')))
