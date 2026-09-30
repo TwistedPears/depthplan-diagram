@@ -2,7 +2,7 @@ import { TextSelection } from 'prosemirror-state';
 import { undo } from 'prosemirror-history';
 import {
   richEditorState,
-  richSchema,
+  toEditorContent,
   fromEditorContent,
 } from '../renderer/utils/richTextEditor';
 import Prism from 'prismjs';
@@ -85,16 +85,16 @@ it('inserts a code block between prose blocks with one draft Undo and unchanged 
   ];
   let state = richEditorState(content);
   const block = {
-    type: 'code',
+    type: 'code' as const,
     text: '\tconst x = "漢字";\r\n',
-    language: 'typescript',
+    language: 'typescript' as const,
     wrap: false,
   };
   state = state.apply(
     state.tr.setSelection(TextSelection.create(state.doc, 7)),
   );
   state = state.apply(
-    state.tr.replaceSelectionWith(richSchema.nodes.code.create({ block })),
+    state.tr.replaceSelectionWith(toEditorContent([block]).firstChild!),
   );
   expect(fromEditorContent(state.doc)).toEqual([content[0], block, content[1]]);
   undo(state, (tr) => {

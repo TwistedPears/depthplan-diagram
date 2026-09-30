@@ -10,7 +10,12 @@ import {
   setAlignment,
 } from '../renderer/utils/richTextEditor';
 import { pastedContent } from '../renderer/components/RichTextEditor';
-import { layoutRichContent } from '../shared/richContentLayout';
+import {
+  layoutRichContent,
+  textFont,
+  defaultTextStyle,
+} from '../shared/richContentLayout';
+import { fontFamily } from '../shared/textFont';
 import {
   validateContent,
   validLink,
@@ -63,11 +68,93 @@ const content: RichBlock[] = [
     wrap: false,
   },
 ];
+it('defaults text to center/middle, honors explicit alignment, and keeps overflow at the top', () => {
+  const blocks: RichBlock[] = [
+    { type: 'paragraph', runs: [{ text: 'Hello' }] },
+  ];
+  const measure = (text: string) => text.length * 6;
+  expect(layoutRichContent(blocks, 120, measure, 100).pieces[0].x).toBe(45);
+  for (const [align, x] of [
+    ['left', 0],
+    ['center', 45],
+    ['right', 90],
+  ] as const) {
+    const explicit: RichBlock[] = [
+      { type: 'paragraph', align, runs: [{ text: 'Hello' }] },
+    ];
+    expect(layoutRichContent(explicit, 120, measure, 100).pieces[0].x).toBe(x);
+    expect(fromEditorContent(toEditorContent(explicit))).toEqual(explicit);
+  }
+  for (const [align, y] of [
+    ['top', 0],
+    ['middle', 42.2],
+    ['bottom', 84.4],
+  ] as const) {
+    expect(
+      layoutRichContent(blocks, 120, measure, 100, undefined, align).pieces[0]
+        .y,
+    ).toBeCloseTo(y);
+  }
+  expect(layoutRichContent(blocks, 120, measure, 100).pieces[0].y).toBeCloseTo(
+    42.2,
+  );
+  const overflowing: RichBlock[] = [
+    { type: 'paragraph', runs: [{ text: 'long text '.repeat(50) }] },
+  ];
+  expect(
+    layoutRichContent(overflowing, 60, measure, 40, undefined, 'bottom')
+      .pieces[0].y,
+  ).toBe(0);
+  for (const align of ['middle', 'bottom'] as const) {
+    const layout = layoutRichContent(
+      blocks,
+      120,
+      measure,
+      100,
+      { side: 'right', width: 100, top: 0, bottom: 30 },
+      align,
+    );
+    expect(layout.pieces.map((p) => p.text).join('')).toBe('Hello');
+    expect(layout.pieces[0].y).toBeCloseTo(align === 'middle' ? 42.2 : 84.4, 0);
+    expect(layout.pieces[0].x).toBe(45);
+  }
+});
+it('uses the same missing-font fallback for measurement and rich editor marks', () => {
+  const font = 'RandomFontName';
+  expect(fontFamily(font)).toMatch(/^"RandomFontName",.*Arial.*sans-serif$/);
+  expect(fontFamily(fontFamily(font))).toBe(fontFamily(font));
+  expect(fontFamily('Font 123')).toContain('"Font 123"');
+  expect(textFont({ ...defaultTextStyle, font })).toContain(fontFamily(font));
+  const dom = richSchema.marks.font.spec.toDOM!(
+    richSchema.mark('font', { value: font }),
+    true,
+  ) as { dom: HTMLElement };
+  expect(dom.dom.style.fontFamily).toContain('RandomFontName');
+  expect(dom.dom.style.fontFamily).toContain('sans-serif');
+});
 it('round-trips the canonical tree without interpreting or normalizing source', () => {
   const result = fromEditorContent(toEditorContent(content));
   expect(result).toEqual(content);
   validateContent(result);
   expect(JSON.parse(JSON.stringify(result))).toEqual(content);
+});
+it('edits legacy code as plain text while retaining metadata, line endings and undo', () => {
+  const code: RichBlock = {
+    type: 'code' as const,
+    text: 'one\r\ntwo\r\n',
+    language: 'typescript',
+    wrap: true,
+  };
+  let state = richEditorState([code]);
+  const dispatch = (tr: typeof state.tr) => {
+    state = state.apply(tr);
+  };
+  dispatch(state.tr.insertText('!', 4));
+  expect(fromEditorContent(state.doc)).toEqual([
+    { ...code, text: 'one!\r\ntwo\r\n' },
+  ]);
+  undo(state, dispatch);
+  expect(fromEditorContent(state.doc)).toEqual([code]);
 });
 it('splits a selected run, preserves surrounding marks/code, and keeps Undo within the draft', () => {
   let state = richEditorState(content);
@@ -207,6 +294,7 @@ it('wraps beside an icon and returns to full width below it without shifting the
   const blocks: RichBlock[] = [
     {
       type: 'paragraph',
+      align: 'left',
       runs: [
         {
           text: 'one two three four five six seven eight nine ten eleven twelve',

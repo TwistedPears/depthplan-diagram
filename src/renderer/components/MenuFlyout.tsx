@@ -11,12 +11,14 @@ export default function MenuFlyout({
   label,
   active,
   className = '',
+  trigger,
   onOpen,
   children,
 }: {
   label: string;
   active: boolean;
   className?: string;
+  trigger?: ReactNode;
   onOpen?: () => void;
   children: ReactNode;
 }) {
@@ -30,9 +32,9 @@ export default function MenuFlyout({
     if (!open) return;
     const position = () => {
       const rect = button.current!.getBoundingClientRect();
-      const right = button
-        .current!.closest('.dropdown-menu')!
-        .getBoundingClientRect().right;
+      const right =
+        button.current!.closest('.dropdown-menu')?.getBoundingClientRect()
+          .right ?? rect.right + 6;
       const panel = menu.current!;
       panel.style.left = `${Math.max(18, Math.min(right, window.innerWidth - panel.offsetWidth - 18))}px`;
       panel.style.top = `${Math.max(18, Math.min(rect.top, window.innerHeight - panel.offsetHeight - 18))}px`;
@@ -69,6 +71,7 @@ export default function MenuFlyout({
       <button
         ref={button}
         type="button"
+        aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={id}
@@ -81,7 +84,7 @@ export default function MenuFlyout({
           }
         }}
       >
-        {label}
+        {trigger ?? label}
       </button>
       <div
         ref={menu}

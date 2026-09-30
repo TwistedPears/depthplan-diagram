@@ -2,6 +2,15 @@ import type { DiagramObject } from './recursiveDocument';
 
 export const CHILD_CONTROL_SPACE = 40;
 
+export type VerticalAlignment = 'top' | 'middle' | 'bottom';
+export const textVerticalAlignment = (
+  object: DiagramObject,
+): VerticalAlignment =>
+  object.style?.textVerticalAlign === 'top' ||
+  object.style?.textVerticalAlign === 'bottom'
+    ? object.style.textVerticalAlign
+    : 'middle';
+
 export type TextExclusion = {
   side: 'left' | 'right';
   width: number;

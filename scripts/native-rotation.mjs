@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { clickToPaint } from './native-driver.mjs';
 
 export async function rotation(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
@@ -193,10 +194,10 @@ export async function rotation(driver, probe) {
     }
     await edit({ type: 'geometry', id, patch: { rotation: 0 } });
   }
-  await camera(1);
   // Every dot supports rotation while preserving the existing drag behavior.
   for (const id of Object.keys(document.objects)) {
     await select(id);
+    await camera(1, id);
     const before = await pose(id);
     const zones = await handles();
     assert.equal(zones.length, 4);
@@ -238,11 +239,11 @@ export async function rotation(driver, probe) {
         ...document.objects[id].geometry,
         rotation: 17,
       });
-      await click('Undo');
+      await clickToPaint(driver, 'Undo');
       assert.deepEqual(await pose(id), before);
-      await click('Redo');
+      await clickToPaint(driver, 'Redo');
       assert.equal(Math.round((await pose(id)).rotation), 17);
-      await click('Undo');
+      await clickToPaint(driver, 'Undo');
     }
   }
   for (const scale of [0.5, 2]) {

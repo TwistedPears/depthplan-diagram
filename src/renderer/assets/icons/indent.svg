@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.028233336,0,0,0.028233336,-5.70230352,-5.6458368)">
+    <rect x="487" y="375" width="565" height="67" rx="33.5" />
+    <rect x="535" y="591" width="517" height="66" rx="33" />
+    <rect x="487" y="809" width="565" height="66" rx="33" />
+    <path d="m 380,545 80,78 -80,78" fill="none" stroke="currentColor" stroke-width="62" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 233,623 H 458" fill="none" stroke="currentColor" stroke-width="62" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

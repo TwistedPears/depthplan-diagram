@@ -1,4 +1,5 @@
 mod files;
+mod fonts;
 mod host;
 pub mod mcp;
 mod png_export;

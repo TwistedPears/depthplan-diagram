@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <g fill="currentColor" transform="matrix(0.03326403326,0,0,0.03326403326,-8.798336798,-8.856548857)">
+    <circle cx="326.5" cy="429.5" r="62" />
+    <rect x="463" y="397" width="523" height="63" rx="31.5" />
+    <circle cx="326.5" cy="628.0" r="62" />
+    <rect x="463" y="598" width="408" height="62" rx="31.0" />
+    <circle cx="326.5" cy="824.5" r="62" />
+    <rect x="463" y="793" width="490" height="64" rx="32.0" />
+  </g>
+</svg>

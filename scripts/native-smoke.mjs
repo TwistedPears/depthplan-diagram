@@ -19,6 +19,7 @@ import { rotation } from './native-rotation.mjs';
 import { parentDrop } from './native-parent-drop.mjs';
 import { shiftInteractions } from './native-shift-interactions.mjs';
 import { childContent } from './native-child-content.mjs';
+import { textEditing } from './native-text-editing.mjs';
 import { projects } from './native-projects.mjs';
 import { projectNavigation } from './native-project-navigation.mjs';
 import { menuSettings } from './native-menu-settings.mjs';
@@ -170,6 +171,7 @@ try {
       'if(window.nativeErrors.length)throw new Error(window.nativeErrors.join("; "));return document.querySelector(`[role=menuitemcheckbox][aria-label="MCP Server"]`).getAttribute("aria-checked")==="true"',
     ),
   );
+  await click('Menu');
   const status = await native('automation:status');
   probe = client(adapter, status.descriptor);
   await probe.initialize();
@@ -560,6 +562,7 @@ try {
   await parentDrop(resumed, probe);
   await shiftInteractions(resumed, probe);
   await childContent(resumed, probe);
+  await textEditing(resumed);
   await authoring(resumed, probe);
   await assert.rejects(stat(path.dirname(resumedDescriptor)), {
     code: 'ENOENT',

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 export function isEditingText(target: EventTarget | null): boolean {
   return (
@@ -15,9 +15,9 @@ export default function useDocumentHistoryActions(
   redo: () => void,
   enabled = true,
 ) {
-  useEffect(() => {
-    if (!enabled) return;
-    const menu = (direction: 'undo' | 'redo') => {
+  const history = useCallback(
+    (direction: 'undo' | 'redo') => {
+      if (!enabled) return;
       const editor = [
         ...document.querySelectorAll<HTMLElement>('[data-rich-editor]'),
       ].find(
@@ -26,8 +26,7 @@ export default function useDocumentHistoryActions(
       if (
         editor &&
         !(document.activeElement instanceof HTMLInputElement) &&
-        (!(document.activeElement instanceof HTMLTextAreaElement) ||
-          document.activeElement.hasAttribute('data-code-source'))
+        !(document.activeElement instanceof HTMLTextAreaElement)
       ) {
         editor.dispatchEvent(
           new CustomEvent('editor-history', { detail: direction }),
@@ -35,12 +34,16 @@ export default function useDocumentHistoryActions(
       } else if (!recursive || isEditingText(document.activeElement)) {
         window.desktop.editHistory(direction);
       } else (direction === 'undo' ? undo : redo)();
-    };
+    },
+    [enabled, recursive, undo, redo],
+  );
+  useEffect(() => {
+    if (!enabled) return;
     const unbindUndo = window.desktop.events.on('menu:undo', () =>
-      menu('undo'),
+      history('undo'),
     );
     const unbindRedo = window.desktop.events.on('menu:redo', () =>
-      menu('redo'),
+      history('redo'),
     );
     const keydown = (event: KeyboardEvent) => {
       if (
@@ -63,5 +66,6 @@ export default function useDocumentHistoryActions(
       unbindRedo();
       window.removeEventListener('keydown', keydown);
     };
-  }, [recursive, undo, redo, enabled]);
+  }, [recursive, undo, redo, enabled, history]);
+  return history;
 }
