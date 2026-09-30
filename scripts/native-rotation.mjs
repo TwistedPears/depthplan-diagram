@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { clickToPaint } from './native-driver.mjs';
 
 export async function rotation(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
@@ -238,11 +239,11 @@ export async function rotation(driver, probe) {
         ...document.objects[id].geometry,
         rotation: 17,
       });
-      await click('Undo');
+      await clickToPaint(driver, 'Undo');
       assert.deepEqual(await pose(id), before);
-      await click('Redo');
+      await clickToPaint(driver, 'Redo');
       assert.equal(Math.round((await pose(id)).rotation), 17);
-      await click('Undo');
+      await clickToPaint(driver, 'Undo');
     }
   }
   for (const scale of [0.5, 2]) {
