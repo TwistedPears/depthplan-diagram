@@ -44,6 +44,9 @@ the README and tester guide when the download is actually available.
       acceptance. Linux CI builds AppImage and Flatpak on both CPUs; validate each
       exact format on the supported distributions, including Wayland and GPU
       behavior. CI coverage alone does not approve platform support.
+      Claim support only for tested and approved OS/CPU combinations;
+      initial releases may support a limited set. Align CI and documentation with
+      the approved scope.
 - [ ] Record the source commit, lockfile hashes, app/installer SHA-256,
       OS/WebView versions, CPU/RAM/display scale and actual MCP client version.
 - [ ] Pass formatting, lint, typecheck, JavaScript/Rust tests, Clippy, audits,
@@ -96,6 +99,10 @@ Record pass/fail observations and failures for each group:
 10. **Performance:** representative real input and host/WebView/GPU/network/adapter
     memory on the uninstrumented app against the unchanged development budgets.
     Instrumented timings do not measure physical input latency or certify all hosts.
+11. **Accessibility:** keyboard-only workflows and focus behavior, screen-reader
+    behavior, contrast and reduced motion on supported candidate platforms.
+    Record the assistive technology and OS versions, tested workflows and outcomes.
+    Named controls alone do not establish accessibility acceptance.
 
 On macOS, launch the copied app after ejecting the DMG, test dock reopen and native
 shortcuts, and verify the intended signing/notarization outcome. On Windows, test
