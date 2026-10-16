@@ -1,24 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function expansion(driver, probe) {
   const { sync, js, dialogs, until, profile } = driver;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const command = async (name, args) => {
-    const current = await state();
-    const reply = await probe.call(name, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
-      ...args,
-    });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
+    await mcpCommand(probe, name, args);
     await js(
       'new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))',
     );
@@ -54,20 +43,8 @@ export async function expansion(driver, probe) {
   };
   const pointer = async (type, point, ctrlKey = true) => {
     // Geometry/listening update before Konva repaints its hit canvas.
-    if (type === 'mousedown')
-      await js(
-        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-      );
-    await sync(
-      `const [type,p,ctrlKey]=arguments;
-      document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
-        bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,
-        button:0,buttons:type==='mouseup'?0:1,ctrlKey}));`,
-      [type, point, ctrlKey],
-    );
-    await js(
-      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-    );
+    if (type === 'mousedown') await driver.frames();
+    await driver.pointer(type, point, { ctrlKey });
   };
   const document = {
     formatVersion: 2,

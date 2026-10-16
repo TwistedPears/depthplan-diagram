@@ -3,7 +3,10 @@
 A project groups independent diagrams into one folder. Open its `.depthproject`
 file to navigate the boards together. Each `.depthplan` board remains a complete
 version-2 diagram that can be opened independently after closing the project.
-Existing `.depthplan.json` diagrams remain supported.
+Think of boards as files in a VS Code project: each is independently editable,
+while the project supplies membership and navigation.
+Existing `.depthplan.json` diagrams remain supported when their contents pass
+the current board contract. See the [PRD](PRD.md#projects-and-boards) for product scope.
 
 ## Start and navigate
 
@@ -152,16 +155,88 @@ ones. Paths are inspected when opening a project; board contents are validated
 on demand when each board opens. Diagnostics remain actionable without rewriting
 unrelated files.
 
+## Project file schema
+
+A `.depthproject` file is a UTF-8 JSON manifest, with `projectVersion: 1`.
+It references board files relative to the manifest's directory. Board content
+uses the separate [version-2 document contract](document-and-editing.md#format-and-identity).
+For example:
+
+```text
+service-design/
+  service_design.depthproject
+  system_overview.depthplan
+  api_details.depthplan
+```
+
+```json
+{
+  "projectVersion": 1,
+  "id": "project_service_design",
+  "name": "Service Design",
+  "description": "System overview and API implementation details",
+  "boards": [
+    {
+      "id": "board_overview",
+      "name": "System Overview",
+      "path": "system_overview.depthplan"
+    },
+    {
+      "id": "board_api",
+      "name": "API Details",
+      "path": "api_details.depthplan"
+    }
+  ],
+  "homeBoardId": "board_overview",
+  "autosave": true
+}
+```
+
+All fields below are required except `extensions`. Unknown top-level or board-entry
+fields are rejected. Use `extensions` for additional JSON metadata.
+
+| Field            | Type and constraints                                                         | Meaning                                                                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projectVersion` | Integer literal `1`                                                          | Manifest format version, independent of board `formatVersion`.                                                                                       |
+| `id`             | String, 1–128 ASCII letters, digits, underscores or hyphens                  | Persistent project identity. Copying a folder preserves it; local workspace identity also considers location.                                        |
+| `name`           | Project name, 1–120 UTF-16 code units                                        | Display name, subject to the name rules below.                                                                                                       |
+| `description`    | String, at most 4,000 UTF-16 code units; empty allowed                       | Preserved metadata. No current Project Settings editor.                                                                                              |
+| `boards`         | Array of 0–1,000 strict member objects                                       | Membership. An empty project is valid; the drawer sorts names rather than using array order.                                                         |
+| `boards[].id`    | Same ID rules as project `id`; unique among members                          | Must equal the referenced board document's `id`.                                                                                                     |
+| `boards[].name`  | Same name rules as project `name`                                            | Member display name. Repeated names are allowed; paths distinguish them.                                                                             |
+| `boards[].path`  | Relative portable ASCII path, at most 240 characters, ending in `.depthplan` | File location inside the project folder. Unique under case-insensitive comparison.                                                                   |
+| `homeBoardId`    | Member ID or `null`                                                          | Fallback when usable local navigation state is absent. Must identify a member when non-null. Preserved metadata; no current Project Settings editor. |
+| `autosave`       | Boolean                                                                      | Compatibility field. Current autosave is controlled by local Settings; `false` here does not disable it. Editing the project title writes `true`.    |
+| `extensions`     | Optional object mapping strings to JSON values                               | Additional portable metadata.                                                                                                                        |
+
+Names reject `\ / : * ? " < > |`, Unicode control characters and leading/trailing
+whitespace. Names longer than one character also cannot end in a dot. Paths use
+forward-slash separators; directory components contain only ASCII letters, digits,
+underscores and hyphens. A board filename starts with a letter, digit, underscore
+or hyphen and may then contain those characters, dots and spaces before the
+required extension. Absolute paths, parent traversal and reserved device names
+such as `CON` or `NUL` are invalid. Native storage also rejects symlinks and
+checks containment and document identity.
+
+The manifest is limited to 1 MiB, including its encoded JSON. The shared validator
+checks serialized size; the native reader also caps file bytes before parsing.
+IDs and paths must be unique as described above, and `homeBoardId` must resolve.
+Schema validity alone cannot prove that a referenced file exists, is contained
+or has the expected document ID.
+
+The executable source of truth is
+[`projectManifestSchema` and `validateProjectManifest`](../src/shared/projectContract.ts),
+with filesystem checks in [native project storage](../src-tauri/src/projects.rs).
+Run `npm run generate:contracts` from the app repository to generate
+`src-tauri/generated/project-schema.json`; the native app embeds that generated
+JSON Schema. The [contract generator](../scripts/generate-mcp-schema.mjs) derives
+it from the shared schema, so a second handwritten schema is unnecessary.
+
+Open/active boards, ordinary camera positions, drawer/window state, recents,
+Undo history, recovery checkpoints and the current Autosave preference are not
+manifest fields. Bookmarks and object links belong to the individual board files.
+
 ## Technical boundaries
-
-The version-1 `autosave` field remains readable for compatibility; it no longer
-disables automatic saving in the app. Editing the project title writes it as `true`.
-
-The manifest is strict version 1 JSON, at most 1 MiB and 1,000 members. Member IDs
-must match their document IDs. Paths are relative, contained, portable and unique
-under case-insensitive comparison; symlink escapes and unsupported versions are
-rejected. [Project contracts](../src/shared/projectContract.ts) and
-[native storage](../src-tauri/src/projects.rs) are authoritative.
 
 The native owner validates identities, ownership, paths and expected file bytes
 before atomic publication. Multi-file creation and rename can leave explicit

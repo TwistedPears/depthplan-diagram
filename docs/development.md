@@ -197,6 +197,12 @@ checks after public automatic CI has passed. See [release](release.md).
 
 ## Dependency audits and notices
 
+The scoped `@istanbuljs/load-nyc-config` override in `package.json` uses
+`js-yaml` 4.3.2 to remove its old `argparse` → `sprintf-js` dependency chain.
+Keep it until the coverage loader supports a dependency tree without the
+`sprintf-js` advisory (GHSA-hp3w-g68c-fv3c); verify YAML/JSON configuration loading
+and inherited settings when changing or removing the override.
+
 Run both ecosystems' audits. To retain machine-readable evidence while preserving
 the failing command's status, run this block in Bash:
 

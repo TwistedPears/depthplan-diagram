@@ -1,20 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function childContent(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
-  const state = async () => (await probe.call('depthplan_get_state')).data;
+  const state = () => mcpState(probe);
   const command = async (name, args) => {
-    const current = await state();
-    const reply = await probe.call(name, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
-      ...args,
-    });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
+    await mcpCommand(probe, name, args);
     await js(
       'new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))',
     );

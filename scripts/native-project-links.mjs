@@ -9,6 +9,7 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import client from './mcp/native-client.cjs';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function projectLinks(driver) {
   const { profile, click, native, sync, until } = driver;
@@ -62,21 +63,12 @@ export async function projectLinks(driver) {
     (await native('automation:status')).descriptor,
   );
   let sequence = 0;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const command = async (tool, args) => {
-    const current = await state();
-    const reply = await probe.call(tool, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
+    const reply = await mcpCommand(probe, tool, {
       requestId: `links-${sequence++}`,
       ...args,
     });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
     return reply.data;
   };
   const active = (id) =>

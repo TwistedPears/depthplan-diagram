@@ -1,28 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 // Run inside smoke's isolated native profile and live MCP session.
 export async function layering(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
-  const select = async (objects, connections) => {
-    const current = await state();
-    const reply = await probe.call('depthplan_selection', {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
+  const state = () => mcpState(probe);
+  const select = (objects, connections) =>
+    mcpCommand(probe, 'depthplan_selection', {
       action: 'set',
       objects,
       connections,
     });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-  };
   const document = {
     formatVersion: 2,
     id: 'layering',

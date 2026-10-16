@@ -1,39 +1,21 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function shiftInteractions(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
   const paint = () =>
     js('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const command = async (name, args) => {
-    const current = await state();
-    const reply = await probe.call(name, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
-      ...args,
-    });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
+    await mcpCommand(probe, name, args);
     await paint();
   };
   const select = (objects) =>
     command('depthplan_selection', { action: 'set', objects });
-  const pointer = async (type, point, modifiers = {}) => {
-    await sync(
-      `const [type,p,modifiers]=arguments;
-      document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type,{
-      bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
-      [type, point, modifiers],
-    );
-    await paint();
-  };
+  const pointer = (type, point, modifiers = {}) =>
+    driver.pointer(type, point, modifiers);
   const key = async (type, key, shiftKey = false) => {
     await sync(
       `window.dispatchEvent(new KeyboardEvent(arguments[0],{key:arguments[1],shiftKey:arguments[2],bubbles:true}));`,

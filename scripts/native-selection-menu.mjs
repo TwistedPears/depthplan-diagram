@@ -55,6 +55,8 @@ export async function selectionMenu() {
       [id],
     );
   const menu = async (id = 'a') => {
+    // The canvas ignores right-clicks while a save or animation is in flight.
+    await driver.idle(`canvas to accept a right-click on ${id}`);
     const p = await position(id);
     await driver.drag(p.x, p.y, 0, 0, 2);
     await driver.until(
@@ -70,11 +72,12 @@ export async function selectionMenu() {
       'document.activeElement.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape",bubbles:true,cancelable:true}))',
     );
   const save = async () => {
-    await driver.sync(
-      `const save=document.querySelector('[aria-label="Save document"]'); if (save && !save.disabled) save.click();`,
-    );
+    await driver.click('Save document');
+    // Dirty clears before recovery cleanup releases the file-operation lock.
     await driver.until(() =>
-      driver.sync('return !document.querySelector("[aria-label=Unsaved]")'),
+      driver.sync(
+        `const save=document.querySelector('[aria-label="Save document"]'); return !!save && !save.disabled && !document.querySelector('[aria-label="Unsaved"]');`,
+      ),
     );
     return JSON.parse(await readFile(file, 'utf8'));
   };

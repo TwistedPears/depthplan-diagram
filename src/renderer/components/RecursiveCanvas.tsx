@@ -245,6 +245,15 @@ export default memo(function RecursiveCanvas({
     preview?.base === document,
   );
   const animating = animated !== document;
+  // Native integration tests wait on the same guards that drop canvas gestures.
+  useEffect(() => {
+    const state = () => ({ busy: isBusy(), animating });
+    window.depthplanCanvasState = state;
+    return () => {
+      if (window.depthplanCanvasState === state)
+        delete window.depthplanCanvasState;
+    };
+  }, [isBusy, animating]);
   const displayed = preview?.base === document ? preview.value : animated;
   const scene = useMemo(() => recursiveScene(displayed), [displayed]);
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import client from './mcp/native-client.cjs';
+import { mcpState } from './native-driver.mjs';
 
 export async function projectMcp(driver) {
   const { native, dialogs, click, sync, until, profile } = driver;
@@ -62,11 +63,7 @@ export async function projectMcp(driver) {
     assert.notEqual(discovery.boards[0].id, discovery.boards[1].id);
     const handleA = discovery.boards[0].handle;
     let sequence = 0;
-    const state = async (handle = handleA) => {
-      const result = await probe.call('depthplan_get_state', { handle });
-      assert.equal(result.ok, true, JSON.stringify(result));
-      return result.data;
-    };
+    const state = (handle = handleA) => mcpState(probe, { handle });
     const args = async (handle = handleA) => {
       const s = await state(handle);
       return {
