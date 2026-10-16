@@ -161,7 +161,8 @@ export async function projectNavigation(driver) {
   await click('Menu');
   await click('Save Project As…');
   await until(
-    async () => (await native('test:last-file-dialog')).kind === 'project-save',
+    async () =>
+      (await native('test:last-file-dialog'))?.kind === 'project-save',
   );
   assert.deepEqual(await native('test:last-file-dialog'), {
     kind: 'project-save',
