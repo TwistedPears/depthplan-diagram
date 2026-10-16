@@ -147,6 +147,11 @@
     "zod": "4.3.6",
     "esbuild": "^0.25.12"
   },
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.3.2"
+    }
+  },
   "devEngines": {
     "runtime": {
       "name": "node",
