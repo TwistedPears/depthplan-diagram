@@ -1,28 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpState } from './native-driver.mjs';
 
 export async function parentDrop(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const paint = () =>
     js('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
   const hold = (ms) => js('new Promise(r=>setTimeout(r,arguments[0]))', [ms]);
-  const pointer = async (type, point, ctrlKey = false) => {
-    await sync(
-      `const [type,p,ctrlKey]=arguments;
-      document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type, {
-        bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,button:0,
-        buttons:type==='mouseup'?0:1,ctrlKey
-      }));`,
-      [type, point, ctrlKey],
-    );
-    await paint();
-  };
+  const pointer = (type, point, ctrlKey = false) =>
+    driver.pointer(type, point, { ctrlKey });
   const visible = (id) =>
     sync(`return !!window.Konva.stages[0].findOne('#object-'+arguments[0]);`, [
       id,

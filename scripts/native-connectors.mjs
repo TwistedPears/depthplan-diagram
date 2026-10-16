@@ -1,24 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function connectors(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const command = async (name, args) => {
-    const current = await state();
-    const reply = await probe.call(name, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
-      ...args,
-    });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
+    await mcpCommand(probe, name, args);
   };
   const document = {
     formatVersion: 2,
@@ -67,18 +56,8 @@ export async function connectors(driver, probe) {
     });
     return JSON.parse(await readFile(file, 'utf8'));
   };
-  const pointer = async (type, x, y, modifiers = {}) => {
-    await sync(
-      `const [type,x,y,modifiers]=arguments;
-      const target=document.elementFromPoint(x,y);
-      if(!target)throw new Error('Pointer '+x+','+y+' outside viewport '+innerWidth+'x'+innerHeight);
-      target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0,buttons:type==='mouseup'?0:1,...modifiers}));`,
-      [type, x, y, modifiers],
-    );
-    await js(
-      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
-    );
-  };
+  const pointer = (type, x, y, modifiers = {}) =>
+    driver.pointer(type, { x, y }, modifiers);
   const pointHandle = async (index) => {
     let position;
     // Node attributes update before Konva's scheduled scene/hit-canvas paint.

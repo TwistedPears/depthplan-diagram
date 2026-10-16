@@ -1,25 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { clickToPaint } from './native-driver.mjs';
+import { clickToPaint, mcpCommand, mcpState } from './native-driver.mjs';
 
 export async function rotation(driver, probe) {
   const { sync, js, click, dialogs, until, profile } = driver;
-  const state = async () => {
-    const reply = await probe.call('depthplan_get_state');
-    assert.equal(reply.ok, true, JSON.stringify(reply));
-    return reply.data;
-  };
+  const state = () => mcpState(probe);
   const command = async (name, args) => {
-    const current = await state();
-    const reply = await probe.call(name, {
-      handle: current.handle,
-      expectedRevision: current.revision,
-      expectedViewRevision: current.viewRevision,
-      requestId: crypto.randomUUID(),
-      ...args,
-    });
-    assert.equal(reply.ok, true, JSON.stringify(reply));
+    await mcpCommand(probe, name, args);
     // MCP acknowledges model state before React paints selection/camera changes.
     await js(
       'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
@@ -61,18 +49,12 @@ export async function rotation(driver, probe) {
     });
     return JSON.parse(await readFile(file, 'utf8'));
   };
-  const pointer = async (type, point, buttons = type === 'mouseup' ? 0 : 1) => {
-    await sync(
-      `const [type,p,buttons]=arguments;
-      document.elementFromPoint(p.x,p.y).dispatchEvent(new MouseEvent(type, {
-        bubbles:true,cancelable:true,clientX:Math.round(p.x),clientY:Math.round(p.y),button:0,buttons
-      }));`,
-      [type, point, buttons],
-    );
-    await js(
-      'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))',
-    );
-  };
+  const pointer = (type, point, buttons = type === 'mouseup' ? 0 : 1) =>
+    driver.pointer(type, point, {
+      clientX: Math.round(point.x),
+      clientY: Math.round(point.y),
+      buttons,
+    });
   const pose = (id) =>
     sync(
       `const n=window.Konva.stages[0].findOne('#object-'+arguments[0]);

@@ -55,6 +55,8 @@ export async function selectionMenu() {
       [id],
     );
   const menu = async (id = 'a') => {
+    // The canvas ignores right-clicks while a save or animation is in flight.
+    await driver.idle(`canvas to accept a right-click on ${id}`);
     const p = await position(id);
     await driver.drag(p.x, p.y, 0, 0, 2);
     await driver.until(
