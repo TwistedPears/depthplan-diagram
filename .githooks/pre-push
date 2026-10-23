@@ -7,6 +7,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   case "$local_sha" in
     0000000000000000000000000000000000000000) continue ;;
   esac
+  # Only pushes to the integration and release branches are validated.
+  case "$remote_ref" in
+    refs/heads/integration | refs/heads/release) ;;
+    *) continue ;;
+  esac
   if [ "$(git rev-parse --verify "$local_sha^{commit}")" != "$checkout_head" ]; then
     echo "Push blocked: check out the commit being pushed so local checks validate that commit." >&2
     exit 1
@@ -14,7 +19,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   validate=true
 done
 
-# Deleting a remote ref or pushing nothing needs no build.
+# Other branches, tags, deletions and empty pushes need no build.
 [ "$validate" = true ] || exit 0
 
 checkout_status=$(git status --porcelain --untracked-files=normal)

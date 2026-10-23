@@ -105,18 +105,24 @@ configuration before replacing it. Git does not install hooks when cloning, and
 Git clients need Node, npm and the native toolchain available on their PATH.
 
 The pre-commit hook checks staged changes for whitespace errors and conflict
-markers, without changing files or interfering with partial staging. The
-pre-push hook runs `npm run check:local`: formatting, lint, types, hook tests,
-JavaScript/Rust tests, Clippy, native smoke, the ordinary build and license checks,
-automation exclusion, and both dependency audits. Install dependencies with
-`npm ci` after changing the lockfile; audits need network access. The full check
-can take several minutes and opens a disposable automation app.
+markers, without changing files or interfering with partial staging. Pushes to
+`integration` or `release` run `npm run check:local` from the pre-push hook:
+formatting, lint, types, hook tests, JavaScript/Rust tests, Clippy, native smoke,
+the ordinary build and license checks, automation exclusion, and both dependency
+audits. Pushes to `main`, feature branches and tags skip it. Install dependencies
+with `npm ci` after changing the lockfile; audits need network access. The full
+check can take several minutes and opens a disposable automation app.
+
+Git has no pre-PR hook. Open PRs into `integration` or `release` with
+`npm run pr -- --base integration` (or `--base release`), which runs the same
+check before calling `gh pr create`; other arguments pass through to `gh`. Any
+other base opens the PR without checks.
 
 Push validation requires a clean checkout of the commit being pushed, so it cannot
 accidentally approve a different branch or uncommitted changes. Deletion-only
 pushes skip validation. Any failing check blocks the push; changes to HEAD or the
 working tree during the check also block it. Run `npm run check:local` directly
-while editing or before opening a PR. Git has no native pre-PR hook.
+whenever you want the full check.
 
 These hooks are local guardrails: they can be bypassed with `--no-verify`, do not
 apply to web/API edits, and only validate the host platform. They do not certify
