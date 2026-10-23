@@ -8,7 +8,8 @@ Search existing issues first; a comment with another example can help.
 For code changes, follow [development setup](docs/development.md), including
 `npm run hooks:install`. Keep each pull request focused, explain the problem and
 the resulting behavior, and include how you checked it. Run relevant checks while
-editing and `npm run check:local` before pushing. The local run covers your host;
+editing and `npm run check:local` before opening a PR into `integration` or
+`release` (`npm run pr` does this for you). The local run covers your host;
 hosted CI provides the other configured platforms when available.
 
 For a substantial feature or behavior change, open an issue to discuss the use

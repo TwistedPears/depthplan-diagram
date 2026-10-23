@@ -24,7 +24,7 @@ After making the repository public, before inviting testers:
   enable private vulnerability reporting, and verify private receipt using the
   [reporting procedure](#security-and-support-proposal). Update SECURITY.md with
   the verified route and chosen preview support expectations.
-- Run the public Test and CodeQL workflows. After successful runs, protect main
+- Run the public Test, Build and CodeQL workflows. After successful runs, protect release
   under **Settings → Rules → Rulesets**: block deletion and force pushes and
   require PRs and the relevant passing checks. A sole maintainer can leave required
   approving reviews at zero.
