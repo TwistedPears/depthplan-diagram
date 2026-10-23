@@ -178,22 +178,33 @@ Development recovery uses `DepthPlan Development`, production uses `DepthPlan`,
 and automation uses a temporary profile. Test-only profile overrides are not
 ordinary release configuration.
 
-The Test workflow runs three independent suites on macOS, Windows and both Linux CPUs:
-`checks` (source checks, unit tests, Clippy and audits), `native` (instrumented
-application integration), and `release` (ordinary installer, associations/lifecycle, licenses and automation
-exclusion). All twelve jobs must pass; a native failure leaves the other results
-visible. Windows checks also stress concurrent native handle clone/drop and
-cleanup after the runtime exits; see the [runtime patch](../src-tauri/vendor/README.md#tauri-windows-runtime-ownership).
+Hosted CI is limited to the `integration` and `release` branches so everyday work
+on feature branches and `main` uses no Actions minutes:
+
+| Workflow      | Runs on                                       |
+| ------------- | --------------------------------------------- |
+| Test          | pushes (merges) to `integration` or `release` |
+| CodeQL        | pushes (merges) to `integration` or `release` |
+| Build         | pull requests into `release`                  |
+| Draft release | `v*` tag pushes                               |
+
+All workflows except Draft release can also be started from Actions → Run workflow.
+
+Test runs two suites on macOS, Windows and both Linux CPUs: `checks` (source
+checks, unit tests, Clippy and audits) and `native` (instrumented application
+integration). Build runs the `release` suite on the same four runners (ordinary
+installer, associations/lifecycle, licenses and automation exclusion). A native
+failure leaves the other results visible. Windows checks also stress concurrent
+native handle clone/drop and cleanup after the runtime exits; see the
+[runtime patch](../src-tauri/vendor/README.md#tauri-windows-runtime-ownership).
 Native failures retain screenshots and `failure.json` with process diagnostics.
 
-While the repository is private, it runs only via Actions → Test → Run workflow. Once public,
-it also runs on PRs targeting main and pushes to main; feature-branch pushes and
-tag pushes do not duplicate those runs. Superseded test runs are canceled.
-CodeQL remains public-only, including its weekly scan. The Draft release workflow
-still validates version tags and all three platforms before creating a draft.
-Local checks and private skipped jobs are not hosted CI completion. Do not require
-the private skipped Test check as evidence of validation; configure required PR
-checks after public automatic CI has passed. See [release](release.md).
+While the repository is private, Test and Build run only via Run workflow, and
+CodeQL is skipped. Superseded runs are canceled. The Draft release workflow still
+validates version tags and all three platforms before creating a draft. Local
+checks and private skipped jobs are not hosted CI completion. Configure required
+PR checks on `release` (Build) after public automatic CI has passed. See
+[release](release.md).
 
 ## Dependency audits and notices
 
