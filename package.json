@@ -108,7 +108,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@modelcontextprotocol/server": "2.3.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/cli": "2.11.5",
     "@testing-library/dom": "^10.4.2",
@@ -120,6 +120,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "esbuild": "^0.25.12",
     "eslint": "^10.10.0",
     "eslint-plugin-jsx-a11y-x": "^0.2.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -144,9 +145,8 @@
     "ts-jest": "^29.4.12",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vite": "^7.3.6",
-    "zod": "4.3.6",
-    "esbuild": "^0.25.12"
+    "vite": "^7.3.7",
+    "zod": "4.3.6"
   },
   "overrides": {
     "@istanbuljs/load-nyc-config": {
