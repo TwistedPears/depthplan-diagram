@@ -66,8 +66,11 @@ function fixture(t) {
       encoding: 'utf8',
     });
   }
-  const push = () =>
-    hook('pre-push', `refs/heads/main ${head} refs/heads/main ${zero}\n`);
+  const push = (branch = 'integration') =>
+    hook(
+      'pre-push',
+      `refs/heads/${branch} ${head} refs/heads/${branch} ${zero}\n`,
+    );
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim() : '');
   return { cwd, env, git, head, hook, push, calls };
 }
@@ -89,16 +92,26 @@ test('pre-commit blocks staged conflict markers', (t) => {
   assert.notEqual(f.hook('pre-commit').status, 0);
 });
 
-test('pre-push runs validation once for a branch and annotated tag at HEAD', (t) => {
+test('pre-push runs validation once for integration and release at HEAD', (t) => {
+  const f = fixture(t);
+  const result = f.hook(
+    'pre-push',
+    `refs/heads/main ${f.head} refs/heads/integration ${zero}\nrefs/heads/main ${f.head} refs/heads/release ${zero}\n`,
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(f.calls(), 'run check:local');
+});
+
+test('pre-push skips other branches and tags', (t) => {
   const f = fixture(t);
   f.git('-c', 'tag.gpgsign=false', 'tag', '-a', 'v0.1.0', '-m', 'Candidate');
   const tag = f.git('rev-parse', 'v0.1.0');
   const result = f.hook(
     'pre-push',
-    `refs/heads/main ${f.head} refs/heads/main ${zero}\nrefs/tags/v0.1.0 ${tag} refs/tags/v0.1.0 ${zero}\n`,
+    `refs/heads/main ${f.head} refs/heads/main ${zero}\nrefs/heads/main ${f.head} refs/heads/feature/x ${zero}\nrefs/tags/v0.1.0 ${tag} refs/tags/v0.1.0 ${zero}\n`,
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(f.calls(), 'run check:local');
+  assert.equal(f.calls(), '');
 });
 
 test('pre-push propagates a failing validation command', (t) => {
@@ -112,7 +125,8 @@ test('pre-push skips no-op and deletion-only pushes', (t) => {
   const f = fixture(t);
   assert.equal(f.hook('pre-push').status, 0);
   assert.equal(
-    f.hook('pre-push', `(delete) ${zero} refs/heads/old ${f.head}\n`).status,
+    f.hook('pre-push', `(delete) ${zero} refs/heads/release ${f.head}\n`)
+      .status,
     0,
   );
   assert.equal(f.calls(), '');

@@ -1,11 +1,9 @@
 name: CodeQL
+# Scan only when code lands on integration or release.
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: '44 16 * * 4'
+    branches: [integration, release]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
