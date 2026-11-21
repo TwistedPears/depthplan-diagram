@@ -237,6 +237,7 @@ from every object, connection and pending repair in the same Undo step.
 
 Tagged objects show colored pills in one row at the lower left of their text area,
 which is reserved below the body text; pills that do not fit collapse into `+N`.
+The row is reserved whenever `tags` is non-empty, even if no ID is defined.
 Connection pills sit under the label, or on the path middle without one. A tag's
 line style applies to a connection that has no `strokeStyle` of its own; choosing
 any stroke style in Style overrides it.
@@ -278,7 +279,9 @@ prose wraps. Font families use local fallbacks and are not embedded in exports.
 edit that changes its text, name, tags, shape, width or fit, in that edit's Undo
 step. Growth never shrinks an object, keeps its top edge fixed, and lets parents
 and neighbors make room with the auto-arrange rules. Other depths keep their saved
-size until the object is edited while they are active. Painting never creates
+size until the object is edited while they are active, or until that depth's
+layout is first created for it. Resize and drag previews do not grow; their commit
+does. Painting never creates
 edits. `shrink-text` scales the body text uniformly while painting, down to 60%,
 and clips below that. Horizontal overflow of unwrapped code is not measured.
 

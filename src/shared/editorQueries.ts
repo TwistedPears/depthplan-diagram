@@ -401,10 +401,15 @@ export function createEditorQueries(owner: {
             'INVALID_REQUEST',
             'Overflow filters apply to objects',
           );
+        if (args.overflow !== undefined) {
+          const overflowing = overflowingObjects(doc, ids);
+          ids = ids.filter((id) => overflowing.has(id) === args.overflow);
+        }
+        // Lay out text only for the returned page.
         const overflowing =
-          args.collection === 'objects' ? overflowingObjects(doc) : null;
-        if (args.overflow !== undefined)
-          ids = ids.filter((id) => overflowing!.has(id) === args.overflow);
+          args.collection === 'objects'
+            ? overflowingObjects(doc, ids.slice(offset, offset + args.pageSize))
+            : null;
         const world =
           args.collection === 'objects' ? activeWorldGeometry(doc) : null;
         const hierarchy =

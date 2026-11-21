@@ -75,9 +75,10 @@ export function bodyFit(
   };
 }
 
-/** Active-layout overflow for each visible object whose body is painted. */
+/** Active-layout overflow for visible objects whose body is painted (all, or only `ids`). */
 export function overflowingObjects(
   document: RecursiveDocument,
+  ids?: Iterable<string>,
   measure: Measure = measureText,
 ) {
   const hierarchy = indexHierarchy(document.objects);
@@ -86,7 +87,8 @@ export function overflowingObjects(
     ? legendContent(document)
     : undefined;
   const result = new Set<string>();
-  for (const id of visible) {
+  for (const id of ids ?? visible) {
+    if (!visible.has(id)) continue;
     const object = document.objects[id];
     const { root } = hierarchy.entries.get(id)!;
     const geometry = document.layouts[root][document.rootDepths[root]][id];
