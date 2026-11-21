@@ -93,6 +93,27 @@ test('scopes map to world regions and the scale fits pixel and side caps', () =>
     width: payments.width + 32,
     height: payments.height + 32,
   });
+  // whole/objects fill maxPixels, enlarging a small region up to 4x so details
+  // are readable; camera views keep the on-screen zoom (asserted above).
+  const crop = planSnapshot(
+    parse({ scope: 'objects', ids: ['payments'] }),
+    view(),
+  );
+  expect(crop.scale).toBeGreaterThan(1);
+  expect(crop.scale).toBeLessThanOrEqual(4);
+  expect(crop.width * crop.height).toBeLessThanOrEqual(1_500_000);
+  expect(crop.width).toBe(Math.floor(crop.region.width * crop.scale));
+  const small = planSnapshot(
+    parse({ scope: 'objects', ids: ['payments'], maxPixels: 10_000 }),
+    view(),
+  );
+  expect(small.width * small.height).toBeLessThanOrEqual(10_000);
+  expect(planSnapshot(parse({ scope: 'whole' }), view()).scale).toBe(
+    Math.min(
+      4,
+      Math.sqrt(1_500_000 / (whole.region.width * whole.region.height)),
+    ),
+  );
   // endpoint is hidden at depth 1; objects never reveal hidden content.
   expect(() =>
     snapshotRegion(parse({ scope: 'objects', ids: ['endpoint'] }), view()),

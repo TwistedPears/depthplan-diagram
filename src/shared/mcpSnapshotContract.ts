@@ -5,6 +5,8 @@ import { handleSchema, resultSchema } from './depthApiContract';
 export const SNAPSHOT_MAX_PIXELS = 4_000_000;
 export const SNAPSHOT_DEFAULT_PIXELS = 1_500_000;
 export const SNAPSHOT_MAX_SIDE = 4096;
+/** `whole` and `objects` enlarge a small region up to this factor so details stay readable. */
+export const SNAPSHOT_MAX_ZOOM = 4;
 /** Base64 PNG budget; the native transport allows this tool 8 MiB in total. */
 export const SNAPSHOT_MAX_BASE64 = 7 * 1024 * 1024;
 export const snapshotInput = z.strictObject({
@@ -42,6 +44,6 @@ export const snapshotTools = {
     output: resultSchema(snapshotData),
     readOnly: true,
     description:
-      'Return a PNG of the rendered canvas as image content plus metadata (pixel size, scale, world region, revisions). scope viewport = what the board shows now; whole = all revealed content at the active depths and folds; objects = the frames of visible ids plus 16 units with everything drawn there (overflow past the padding is cut off). bookmarkId renders that bookmark’s camera view only when its depths, folds and layout already match the live board; otherwise apply it first. Drawing layer only: no selection handles, minimap or drafts. Scaled down to maxPixels (default 1.5 MP, max 4 MP, 4096 px per side). Needs no folder grant, writes nothing and changes no document, history, selection, camera or revision. The board must be active and idle.',
+      'Return a PNG of the rendered canvas as image content plus metadata (pixel size, scale, world region, revisions). scope viewport = what the board shows now; whole = all revealed content at the active depths and folds; objects = the frames of visible ids plus 16 units with everything drawn there (overflow past the padding is cut off). bookmarkId renders that bookmark’s camera view only when its depths, folds and layout already match the live board; otherwise apply it first. Drawing layer only: no selection handles, minimap or drafts. viewport and bookmark views keep the on-screen zoom unless that exceeds maxPixels; whole and objects are scaled to fill maxPixels, enlarging a small region up to 4x, so snapshot a few objects to zoom in on a detail (default 1.5 MP, max 4 MP, 4096 px per side; data.scale is pixels per world unit). Needs no folder grant, writes nothing and changes no document, history, selection, camera or revision. The board must be active and idle.',
   },
 };

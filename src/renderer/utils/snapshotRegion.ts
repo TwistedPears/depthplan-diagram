@@ -11,6 +11,7 @@ import { editNamedView, resolveNamedViewCamera } from '../../shared/namedViews';
 import { EditorError } from '../../shared/editorQueries';
 import {
   SNAPSHOT_MAX_SIDE,
+  SNAPSHOT_MAX_ZOOM,
   type snapshotInput,
 } from '../../shared/mcpSnapshotContract';
 
@@ -55,7 +56,10 @@ const drawn = (document: RecursiveDocument) => {
       .sort(([a], [b]) => (String(a) < String(b) ? -1 : 1)),
   ]);
 };
-/** World region and natural pixel scale for a request, before the size cap. */
+/**
+ * World region and natural pixel scale for a request, before the size cap. Camera views
+ * use the on-screen zoom; `whole` and `objects` may be enlarged so a small region is readable.
+ */
 export function snapshotRegion(
   request: Request,
   { document, camera, viewport }: View,
@@ -100,14 +104,18 @@ export function snapshotRegion(
         );
       return box;
     });
-    return { scope: 'objects', region: pad(unionBounds(boxes)!), natural: 1 };
+    return {
+      scope: 'objects',
+      region: pad(unionBounds(boxes)!),
+      natural: SNAPSHOT_MAX_ZOOM,
+    };
   }
   if (!bounds.bounds)
     throw new EditorError('INVALID_REQUEST', 'Nothing is visible to render');
   return {
     scope: request.bookmarkId === undefined ? 'whole' : 'bookmark',
     region: pad(bounds.bounds),
-    natural: 1,
+    natural: SNAPSHOT_MAX_ZOOM,
   };
 }
 /** Largest scale at or below the natural one that fits the pixel and side caps. */
@@ -140,5 +148,9 @@ export function widenPlan(
   maxPixels: number,
 ): SnapshotPlan {
   const region = unionBounds([plan.region, pad(painted)])!;
-  return { ...plan, region, ...snapshotScale(region, 1, maxPixels) };
+  return {
+    ...plan,
+    region,
+    ...snapshotScale(region, SNAPSHOT_MAX_ZOOM, maxPixels),
+  };
 }
