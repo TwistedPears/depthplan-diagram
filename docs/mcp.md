@@ -204,6 +204,17 @@ their descendants) to order rows (`direction: "down"`, default) or columns
 hidden `id` rejects the batch; no visible children is a no-op. Combine it with
 creation and depth actions in one batch to build and arrange a level atomically.
 
+Tags use two `edit` actions. `tag_definition` creates (name and color required),
+updates or deletes a tag by ID; `strokeStyle: null` clears its line style, and
+delete strips the tag from everything in the same transaction. `tags` adds, removes
+or sets `tagIds` on `objects` and `connections`, including ones created earlier in
+the batch. `edit_object` with `style.legend: true` turns an object into a legend.
+`get_state` returns `tagDefinitions`; query items carry `value.tags`, and search
+items carry `tags` (known IDs only). `query` and `search` accept `tag` as an ID or a
+case-insensitive name, filtered before paging; an unknown tag is `NOT_FOUND`. A
+tagged search with an empty `query` returns every tagged object and connection.
+See [tags and legends](document-and-editing.md#tags-and-legends).
+
 For large content, `content_transfer` begins a buffer with an ID and JSON string
 `totalLength`, appends at exact UTF-16 offsets (at most 8,192 characters each), then
 supplies `contentTransfer` to `edit_object` for atomic validation/publication.

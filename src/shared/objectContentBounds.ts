@@ -1,4 +1,5 @@
 import type { DiagramObject } from './recursiveDocument';
+import { PILL_ROW } from './tags';
 
 export const CHILD_CONTROL_SPACE = 40;
 
@@ -30,6 +31,8 @@ export function objectContentBounds(
   const textX = Math.max(6, width * inset);
   const textY = Math.max(4, height * inset);
   const titleHeight = object.name ? 24 : 0;
+  // Tag pills occupy a row below the body text.
+  const tagHeight = object.tags?.length ? PILL_ROW : 0;
   const textWidth = Math.max(0, width - 2 * textX);
   const textHeight = Math.max(0, height - 2 * textY);
   return {
@@ -43,7 +46,13 @@ export function objectContentBounds(
       x: -width / 2 + textX,
       y: -height / 2 + textY + titleHeight,
       width: textWidth,
-      height: Math.max(0, textHeight - titleHeight),
+      height: Math.max(0, textHeight - titleHeight - tagHeight),
+    },
+    tags: {
+      x: -width / 2 + textX,
+      y: -height / 2 + textY + Math.max(0, textHeight - tagHeight) + 2,
+      width: textWidth,
+      height: tagHeight && Math.min(tagHeight, textHeight),
     },
   };
 }

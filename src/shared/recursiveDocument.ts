@@ -79,6 +79,8 @@ export interface DiagramObject {
   style?: Record<string, Json>;
   boundaryPoints?: Record<string, BoundaryPoint>;
   projectLink?: ProjectLink;
+  /** Tag definition IDs; IDs without a definition are ignored. */
+  tags?: string[];
 }
 export type Endpoint =
   | { kind: 'free'; x: number; y: number }
@@ -101,6 +103,15 @@ export interface DiagramConnection {
   points?: { x: number; y: number }[];
   label?: string;
   style?: Record<string, Json>;
+  tags?: string[];
+}
+export const strokeStyles = ['solid', 'dashed', 'dotted'] as const;
+export interface TagDefinition {
+  id: string;
+  name: string;
+  color: string;
+  /** Line style for tagged connections that do not set their own strokeStyle. */
+  strokeStyle?: (typeof strokeStyles)[number];
 }
 export interface ConnectionRepair {
   connection: DiagramConnection;
@@ -140,6 +151,7 @@ export interface RecursiveDocument {
   connections: Record<string, DiagramConnection>;
   connectionRepairs?: Record<string, ConnectionRepair>;
   namedViews?: Record<string, NamedView>;
+  tagDefinitions?: Record<string, TagDefinition>;
   extensions?: Record<string, Json>;
 }
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -339,6 +351,10 @@ function boundary(
     path,
   );
 }
+function tagList(value: unknown, path: string) {
+  if (value !== undefined)
+    requireValue(Array.isArray(value) && value.every(validId), path);
+}
 function validateConnection(
   connection: unknown,
   id: string,
@@ -370,6 +386,7 @@ function validateConnection(
     );
   if (connection.style !== undefined)
     map(connection.style, `connection style ${id}`);
+  tagList(connection.tags, `connection tags ${id}`);
   for (const end of [connection.start, connection.end]) {
     requireValue(isRecord(end), `endpoint ${id}`);
     if (end.kind === 'free')
@@ -415,6 +432,21 @@ export function validateRecursiveDocument(
   map(value.layouts, 'layouts');
   map(value.connections, 'connections');
   if (value.extensions !== undefined) map(value.extensions, 'extensions');
+  if (value.tagDefinitions !== undefined) {
+    map(value.tagDefinitions, 'tag definitions');
+    for (const [id, tag] of Object.entries(value.tagDefinitions))
+      requireValue(
+        isRecord(tag) &&
+          tag.id === id &&
+          typeof tag.name === 'string' &&
+          tag.name.trim().length > 0 &&
+          typeof tag.color === 'string' &&
+          tag.color.length > 0 &&
+          (tag.strokeStyle === undefined ||
+            strokeStyles.includes(tag.strokeStyle as 'solid')),
+        `tag definition ${id}`,
+      );
+  }
   if (value.namedViews !== undefined) {
     map(value.namedViews, 'named views');
     for (const [id, view] of Object.entries(value.namedViews)) {
@@ -495,6 +527,7 @@ export function validateRecursiveDocument(
     if (object.projectLink !== undefined)
       requireValue(validProjectLink(object.projectLink), `project link ${id}`);
     if (object.style !== undefined) map(object.style, `style ${id}`);
+    tagList(object.tags, `object tags ${id}`);
     if (object.boundaryPoints !== undefined) {
       map(object.boundaryPoints, `boundary points ${id}`);
       for (const point of Object.values(object.boundaryPoints))

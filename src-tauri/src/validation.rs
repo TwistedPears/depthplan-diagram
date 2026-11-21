@@ -179,6 +179,12 @@ fn content(v: &Value) -> Result<()> {
     }
     Ok(())
 }
+fn tags(v: &Value, field: &str) -> Result<()> {
+    match v.get("tags") {
+        Some(t) => require(t.as_array().is_some_and(|a| a.iter().all(id)), field),
+        None => Ok(()),
+    }
+}
 fn connection(c: &Value, key: &str) -> Result<()> {
     require(
         c.is_object()
@@ -201,6 +207,7 @@ fn connection(c: &Value, key: &str) -> Result<()> {
     if let Some(style) = c.get("style") {
         map(style, "connection style")?;
     }
+    tags(c, "connection tags")?;
     for end in [&c["start"], &c["end"]] {
         require(end.is_object(), "endpoint")?;
         match end["kind"].as_str() {
@@ -242,6 +249,20 @@ pub fn document(v: &Value) -> Result<()> {
     let connections = map(&v["connections"], "connections")?;
     if let Some(e) = v.get("extensions") {
         map(e, "extensions")?;
+    }
+    if let Some(defs) = v.get("tagDefinitions") {
+        for (key, tag) in map(defs, "tag definitions")? {
+            require(
+                tag.is_object()
+                    && tag["id"] == *key
+                    && tag["name"].as_str().is_some_and(|s| !s.trim().is_empty())
+                    && tag["color"].as_str().is_some_and(|s| !s.is_empty())
+                    && tag
+                        .get("strokeStyle")
+                        .is_none_or(|s| matches!(s.as_str(), Some("solid" | "dashed" | "dotted"))),
+                "tag definition",
+            )?;
+        }
     }
     if let Some(views) = v.get("namedViews") {
         for (key, view) in map(views, "named views")? {
@@ -322,6 +343,7 @@ pub fn document(v: &Value) -> Result<()> {
         if let Some(s) = o.get("style") {
             map(s, "style")?;
         }
+        tags(o, "object tags")?;
         if let Some(points) = o.get("boundaryPoints") {
             for p in map(points, "boundary points")?.values() {
                 boundary(p)?;

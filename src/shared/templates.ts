@@ -1,3 +1,4 @@
+import { adoptTagDefinitions } from './tags';
 import { z } from 'zod';
 import {
   createRecursiveDocument,
@@ -114,6 +115,7 @@ export function validateTemplate(value: unknown): asserts value is Template {
           'layouts',
           'connections',
           'namedViews',
+          'tagDefinitions',
           'extensions',
         ].includes(key),
     ) ||
@@ -144,6 +146,9 @@ function cleanDocument(source: RecursiveDocument): RecursiveDocument {
     layouts: clone(source.layouts),
     connections: clone(source.connections),
     ...(source.namedViews ? { namedViews: clone(source.namedViews) } : {}),
+    ...(source.tagDefinitions
+      ? { tagDefinitions: clone(source.tagDefinitions) }
+      : {}),
     extensions: {},
   };
   setCollapsedObjects(document, collapsedObjects(source));
@@ -312,6 +317,10 @@ export function insertTemplate(
           throw new Error('Duplicate instance ID.');
       Object.assign(draft[collection], clone(instance[collection]));
     }
+    adoptTagDefinitions(draft, source.tagDefinitions, [
+      ...Object.keys(instance.objects).map((id) => draft.objects[id]),
+      ...Object.keys(instance.connections).map((id) => draft.connections[id]),
+    ]);
     Object.assign(draft.rootDepths, clone(instance.rootDepths));
     Object.assign(draft.layouts, clone(instance.layouts));
     setCollapsedObjects(

@@ -1,10 +1,18 @@
 import ConnectionPaint from './ConnectionPaint';
-import { memo, type ReactNode } from 'react';
+import { memo, useMemo, type ReactNode } from 'react';
 import { Group, Text } from 'react-konva';
 import type {
   DiagramObject,
   RecursiveDocument,
+  RichBlock,
 } from '../../shared/recursiveDocument';
+import {
+  entityTags,
+  isLegend,
+  legendContent,
+  tagStyledConnection,
+} from '../../shared/tags';
+import { TagDefinitionsContext, TagPills } from './TagPills';
 import type { recursiveScene } from '../../shared/recursiveScene';
 import {
   visibleEndpoint,
@@ -27,6 +35,8 @@ const ObjectContent = memo(function ObjectContent({
   hasChildren,
   exclusion,
   editingText,
+  tagDefinitions,
+  legend,
   onError,
 }: {
   object: DiagramObject;
@@ -36,9 +46,14 @@ const ObjectContent = memo(function ObjectContent({
   hasChildren: boolean;
   exclusion?: TextExclusion;
   editingText: boolean;
+  tagDefinitions: RecursiveDocument['tagDefinitions'];
+  /** Generated legend body that replaces the object's own content. */
+  legend?: RichBlock[];
   onError: (message: string) => void;
 }) {
   const style = object.style;
+  const content = legend ?? object.content;
+  const tags = entityTags(tagDefinitions, object);
   const geometry = { width, height };
   const paint = {
     fill: typeof style?.fill === 'string' ? style.fill : '#ffffff',
@@ -58,12 +73,11 @@ const ObjectContent = memo(function ObjectContent({
           ? [2, 4]
           : [],
   };
-  const { title, body } = objectContentBounds(
-    object,
-    width,
-    height,
-    hasChildren,
-  );
+  const {
+    title,
+    body,
+    tags: tagBox,
+  } = objectContentBounds(object, width, height, hasChildren);
   return (
     <>
       <ObjectOutline object={object} geometry={geometry} {...shapeProps} />
@@ -80,18 +94,21 @@ const ObjectContent = memo(function ObjectContent({
         />
       )}
       {!expanded &&
-        object.content.length > 0 &&
+        content.length > 0 &&
         body.width > 0 &&
         body.height > 10 &&
         !editingText && (
           <RecursiveRichContent
             {...body}
             exclusion={exclusion}
-            content={object.content}
+            content={content}
             verticalAlign={textVerticalAlignment(object)}
             onError={onError}
           />
         )}
+      {tags.length > 0 && tagBox.height > 0 && (
+        <TagPills tags={tags} {...tagBox} />
+      )}
     </>
   );
 });
@@ -120,6 +137,14 @@ export default memo(function RecursiveScene({
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
 }) {
+  const definitions = document.tagDefinitions;
+  const legend = useMemo(
+    () =>
+      Object.values(document.objects).some(isLegend)
+        ? legendContent(document)
+        : undefined,
+    [document],
+  );
   const liftedConnections = new Map<string, ConnectionRoute>();
   if (liftedIds?.size)
     for (const [ownerId, routes] of scene.connections)
@@ -152,7 +177,7 @@ export default memo(function RecursiveScene({
   const renderConnection = (id: string, route: ConnectionRoute) => (
     <ConnectionPaint
       key={`connection-${id}`}
-      connection={document.connections[id]}
+      connection={tagStyledConnection(document.connections[id], definitions)}
       route={route}
       scale={scale}
       editingLabel={editingConnectionLabel === id}
@@ -199,6 +224,8 @@ export default memo(function RecursiveScene({
           hasChildren={scene.hierarchy.children.has(id)}
           exclusion={textExclusions?.get(id)}
           editingText={editingTextId === id}
+          tagDefinitions={definitions}
+          legend={isLegend(object) ? legend : undefined}
           onError={onError}
         />
         <Group
@@ -219,7 +246,7 @@ export default memo(function RecursiveScene({
     );
   };
   return (
-    <>
+    <TagDefinitionsContext.Provider value={definitions}>
       {renderScope(null)}
       {[...(liftedIds ?? [])].map((id) => renderObject(id, true))}
       {[...liftedConnections].map(([id, route]) => {
@@ -237,6 +264,6 @@ export default memo(function RecursiveScene({
           </Group>
         );
       })}
-    </>
+    </TagDefinitionsContext.Provider>
   );
 });

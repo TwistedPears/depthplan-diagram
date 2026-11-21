@@ -5,6 +5,7 @@ import {
   labelSize,
   type ConnectionRoute,
 } from '../../shared/connectionGeometry';
+import { ConnectionTagPills } from './TagPills';
 
 let paintContext: CanvasRenderingContext2D | null = null;
 
@@ -158,6 +159,11 @@ function ConnectionPaint({
           />
         </Group>
       )}
+      <ConnectionTagPills
+        connection={c}
+        at={route.label}
+        labelHeight={c.label ? size.height : 0}
+      />
       {(['Start', 'End'] as const).map((end) => {
         const tip = end === 'Start' ? route.route[0] : route.route.at(-1)!;
         const previous =

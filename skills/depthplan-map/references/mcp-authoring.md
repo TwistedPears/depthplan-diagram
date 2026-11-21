@@ -52,6 +52,14 @@ target and physical segment IDs together; do not weaken hierarchy to bypass the
 boundary rule. Boundary segments may be neutral lines while the outer arrow shows
 dependency direction. Verify all segments after authoring.
 
+Record a confidence or lifecycle status (Seen, Inferred, To confirm, Planned…) as a
+tag, not as colored text. Define it once with `tag_definition` (`id`, `name`,
+`color`, optional `strokeStyle` for tagged connectors), then add it with a `tags`
+action listing `objects` and `connections`; it can follow the creates in the same
+batch. For an automatic legend, set `style.legend: true` on one shape. Read the tag
+set from `get_state.tagDefinitions` and find tagged entities with `query` or
+`search` using `tag` (ID or name).
+
 Large content uses `depthplan_content_transfer`: begin with total UTF-16 length,
 append at exact offsets in chunks no larger than 8,192 code units (smaller if JSON
 escaping exceeds transport size), then use `contentTransfer` in `edit_object`.

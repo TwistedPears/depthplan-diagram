@@ -24,7 +24,8 @@ the current document. Finish an active gesture before retrying an open request.
 Only `formatVersion: 2` is accepted. Missing/unsupported versions and malformed
 input fail without replacing the current document or modifying the source file.
 The document contains `id`, `metadata`, `objects`, `rootDepths`, `layouts` and
-`connections`, with optional `namedViews`, `connectionRepairs` and `extensions`.
+`connections`, with optional `namedViews`, `connectionRepairs`, `tagDefinitions`
+and `extensions`.
 
 Objects form an acyclic forest. Each has one `parentId`, or null for a root.
 Rectangles, ellipses, diamonds and frames can contain children. Lines/arrows are
@@ -224,6 +225,38 @@ through world space. Cross-container moves keep their arrows connected. Legacy
 inherit the original ID, label, kind, style and order. Resolving removes only that
 repair in one transaction. Pending repairs persist across save/reopen and never
 draw or export.
+
+## Tags and legends
+
+Optional `tagDefinitions` maps a stable tag ID to `{ id, name, color, strokeStyle? }`
+(`solid`, `dashed` or `dotted`). Objects and connections carry an optional `tags`
+array of those IDs. Validation checks both shapes but ignores IDs without a
+definition, so pasted or hand-edited files still load; rendering, queries and the
+legend skip them. Names are unique ignoring case. Deleting a definition removes it
+from every object, connection and pending repair in the same Undo step.
+
+Tagged objects show colored pills in one row at the lower left of their text area,
+which is reserved below the body text; pills that do not fit collapse into `+N`.
+Connection pills sit under the label, or on the path middle without one. A tag's
+line style applies to a connection that has no `strokeStyle` of its own; choosing
+any stroke style in Style overrides it.
+
+Any object with `style.legend: true` replaces its body with a legend derived while
+painting: the tags in use (name, color, line style, count), then up to 12 explicit
+object fill colors and connection stroke/style pairs, most used first. Legend
+objects are excluded from the counts. The legend is ordinary rich text, so it
+exports to SVG/PNG, fits and clips like other content and never goes stale.
+
+Select shapes or connectors to add, create or remove tags under **Tags** in Style;
+**Manage tags** renames, recolors, sets line styles and deletes definitions, and
+**Show tag legend** marks a single selected object. Board search accepts
+`tag:Name` or `tag:"Two words"` terms; with no other words it lists every object
+with that tag.
+
+Duplicate keeps tag IDs. Copy carries the definitions it uses. Pasting or inserting
+a template into another board keeps a definition with the same ID, reuses a tag
+with the same name, and otherwise adds the source definition. Templates retain
+their `tagDefinitions`.
 
 ## Rich text and code
 

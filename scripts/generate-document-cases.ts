@@ -156,6 +156,84 @@ mutate('missing repair geometry', (v) => {
     },
   };
 });
+const tagged = structuredClone(base);
+tagged.tagDefinitions = {
+  confirm: { id: 'confirm', name: 'To confirm', color: '#d97706' },
+  planned: {
+    id: 'planned',
+    name: 'Planned',
+    color: '#2563eb',
+    strokeStyle: 'dashed',
+  },
+};
+tagged.objects.app.tags = ['confirm', 'planned'];
+tagged.connections.edge.tags = ['planned'];
+record('tags', tagged);
+// Unknown tag IDs are ignored rather than rejected, so pasted or hand-edited files load.
+mutate(
+  'dangling tag reference',
+  (v) => {
+    v.objects.api.tags = ['missing'];
+    v.connections.edge.tags = ['missing', 'confirm'];
+  },
+  tagged,
+);
+for (const location of [
+  'tagDefinitions',
+  'tagDefinitions.confirm',
+  'tagDefinitions.confirm.id',
+  'tagDefinitions.confirm.name',
+  'tagDefinitions.confirm.color',
+  'tagDefinitions.planned.strokeStyle',
+  'objects.app.tags',
+  'objects.app.tags.0',
+  'connections.edge.tags',
+]) {
+  for (const value of [null, 'bad', '', ' ', 'dotted', 1, {}, [], ['ok']])
+    mutate(
+      location + '=' + JSON.stringify(value),
+      (v) => {
+        const keys = location.split('.');
+        let p = v;
+        for (const k of keys.slice(0, -1)) p = p[k];
+        p[keys.at(-1)!] = value;
+      },
+      tagged,
+    );
+  mutate(
+    'missing ' + location,
+    (v) => {
+      const keys = location.split('.');
+      let p = v;
+      for (const k of keys.slice(0, -1)) p = p[k];
+      delete p[keys.at(-1)!];
+    },
+    tagged,
+  );
+}
+mutate(
+  'repair connection tags',
+  (v) => {
+    v.connectionRepairs = {
+      gone: {
+        connection: { ...v.connections.edge, id: 'gone', tags: 'planned' },
+        ownerGeometry: null,
+        start: { x: 0, y: 0 },
+        end: { x: 2, y: 2 },
+        reason: 'missing',
+      },
+    };
+  },
+  tagged,
+);
+mutate(
+  'tag key mismatch and reserved key',
+  (v) => {
+    v.tagDefinitions.other = { ...v.tagDefinitions.confirm };
+    v.objects.app.tags = ['__proto__'];
+  },
+  tagged,
+);
 record('null', null);
 record('array', []);
 

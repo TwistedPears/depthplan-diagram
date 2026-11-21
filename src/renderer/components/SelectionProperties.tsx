@@ -6,6 +6,7 @@ import type { DocumentEdit } from '../../shared/documentTransactions';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import { stackSelection } from '../../shared/recursiveArrangement';
 import PropertyColorPalette from './PropertyColorPalette';
+import TagProperties from './TagProperties';
 import './SelectionProperties.css';
 
 const markerIcons: Record<(typeof arrowheads)[number], string> = {
@@ -253,6 +254,11 @@ export default function SelectionProperties({
               ['dotted', 'Dotted stroke', 'stroke-dotted'],
             ]}
             onChange={(value) => setStyle('strokeStyle', value)}
+          />
+          <TagProperties
+            document={document}
+            selection={selection}
+            onEdit={onEdit}
           />
         </>
       )}
