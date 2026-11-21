@@ -15,3 +15,4 @@
 - MCP Details: copyable Claude Code configuration (`.mcp.json`) next to the Codex one.
 - Legend fill swatches are outlined and legend rows show counts; object and whole-scene snapshots enlarge small regions.
 - Fix: a project board resized while hidden now remeasures its canvas when shown.
+- Fix: shape-avoiding routes glide to the final layout when a view opens or closes instead of flipping between paths.

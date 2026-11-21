@@ -34,7 +34,14 @@ export function contentText(blocks: RichBlock[]): string {
     .join('\n');
 }
 
-export function recursiveScene(document: RecursiveDocument) {
+/**
+ * `avoided` replaces shape-avoiding routing with given routes: animation frames
+ * glide between two routed layouts instead of routing each frame.
+ */
+export function recursiveScene(
+  document: RecursiveDocument,
+  avoided?: ReadonlyMap<string, ConnectionRoute>,
+) {
   const hierarchy = indexHierarchy(document.objects);
   const { visible, expanded } = recursiveVisibility(document, hierarchy);
   const world = activeWorldGeometry(document, hierarchy);
@@ -71,8 +78,9 @@ export function recursiveScene(document: RecursiveDocument) {
     const route = connectionRoute(document, c, world);
     if (route) routes.set(c.id, route);
   }
-  for (const [id, route] of avoidingRoutes(document, world, displayed, routes))
-    routes.set(id, route);
+  for (const [id, route] of avoided ??
+    avoidingRoutes(document, world, displayed, routes))
+    if (routes.has(id)) routes.set(id, route);
   for (const connection of Object.values(document.connections).sort(
     (a, b) => a.z - b.z || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   )) {

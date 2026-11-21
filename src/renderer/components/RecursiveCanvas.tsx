@@ -244,10 +244,11 @@ export default memo(function RecursiveCanvas({
     base: RecursiveDocument;
     value: RecursiveDocument;
   } | null>(null);
-  const { document: animated, finish: finishAnimation } = useExpansionAnimation(
-    document,
-    preview?.base === document,
-  );
+  const {
+    document: animated,
+    routes: animatedRoutes,
+    finish: finishAnimation,
+  } = useExpansionAnimation(document, preview?.base === document);
   const animating = animated !== document;
   // Native integration tests wait on the same guards that drop canvas gestures.
   useEffect(() => {
@@ -259,7 +260,14 @@ export default memo(function RecursiveCanvas({
     };
   }, [isBusy, animating]);
   const displayed = preview?.base === document ? preview.value : animated;
-  const scene = useMemo(() => recursiveScene(displayed), [displayed]);
+  const scene = useMemo(
+    () =>
+      recursiveScene(
+        displayed,
+        displayed === animated ? animatedRoutes : undefined,
+      ),
+    [displayed, animated, animatedRoutes],
+  );
   const bounds = useMemo(() => sceneBounds(document, scene), [document, scene]);
   const toggleChildren = (
     id: string,

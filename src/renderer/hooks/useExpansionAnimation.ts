@@ -3,6 +3,9 @@ import Konva from 'konva';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import { recursiveScene } from '../../shared/recursiveScene';
 import { recursiveVisibility } from '../../shared/recursiveVisibility';
+import { avoidsShapes } from '../../shared/connectionAvoidance';
+import type { ConnectionRoute } from '../../shared/connectionGeometry';
+import { boundsRemap, transitionRoute } from '../../shared/routeTransition';
 
 const geometryFields = ['x', 'y', 'width', 'height'] as const;
 
@@ -13,10 +16,15 @@ export default function useExpansionAnimation(
 ) {
   const previous = useRef(document);
   const painted = useRef(document);
+  // Shape-avoiding routes shown for the painted frame, when one is animating.
+  const paintedRoutes = useRef<Map<string, ConnectionRoute> | undefined>(
+    undefined,
+  );
   const finishAnimation = useRef(() => {});
   const [frame, setFrame] = useState<{
     target: RecursiveDocument;
     value: RecursiveDocument;
+    routes?: Map<string, ConnectionRoute>;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -27,6 +35,7 @@ export default function useExpansionAnimation(
     const finish = () => {
       cancelAnimationFrame(request);
       painted.current = document;
+      paintedRoutes.current = undefined;
       setFrame(null);
     };
     finishAnimation.current = finish;
@@ -57,8 +66,18 @@ export default function useExpansionAnimation(
       return;
     }
 
-    const from = recursiveScene(painted.current).local;
+    const fromScene = recursiveScene(painted.current, paintedRoutes.current);
+    const from = fromScene.local;
     const to = recursiveScene(document);
+    // Route once for the final layout; frames glide there from what is painted.
+    const startRoutes = new Map(
+      [...fromScene.connections.values()].flat().map((r) => [r.id, r]),
+    );
+    const targetRoutes = [...to.connections].flatMap(([ownerId, list]) =>
+      list
+        .filter((route) => avoidsShapes(document.connections[route.id]))
+        .map((route) => ({ ownerId, route })),
+    );
     const moving = [...to.local].flatMap(([id, end]) => {
       const start = from.get(id) ?? {
         ...end,
@@ -104,7 +123,31 @@ export default function useExpansionAnimation(
         layouts[root][depth][id] = geometry;
       }
       painted.current = { ...document, layouts };
-      setFrame({ target: document, value: painted.current });
+      let routes: Map<string, ConnectionRoute> | undefined;
+      if (targetRoutes.length) {
+        routes = new Map();
+        const remaps = new Map<string | null, ReturnType<typeof boundsRemap>>();
+        for (const { ownerId, route } of targetRoutes) {
+          let remap = remaps.get(ownerId);
+          if (!remap) {
+            const ids = to.children.get(ownerId) ?? [];
+            remap = boundsRemap(
+              ids.map((id) => to.local.get(id)!),
+              ids.map((id) => {
+                const root = to.hierarchy.entries.get(id)!.root;
+                return layouts[root][document.rootDepths[root]][id];
+              }),
+            );
+            remaps.set(ownerId, remap);
+          }
+          routes.set(
+            route.id,
+            transitionRoute(startRoutes.get(route.id), route, amount, remap),
+          );
+        }
+      }
+      paintedRoutes.current = routes;
+      setFrame({ target: document, value: painted.current, routes });
       request = requestAnimationFrame(paint);
     };
     const reduceMotion = () => {
@@ -121,6 +164,8 @@ export default function useExpansionAnimation(
   return {
     document:
       !previewing && frame?.target === document ? frame.value : document,
+    routes:
+      !previewing && frame?.target === document ? frame.routes : undefined,
     finish: () => finishAnimation.current(),
   };
 }
