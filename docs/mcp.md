@@ -16,8 +16,11 @@ exact fields; this guide describes their semantics.
 2. Use the displayed **MCP executable** as the client's stdio command, followed
    by `--descriptor` and the displayed **Descriptor** as separate arguments.
    For Codex, copy **Codex configuration** into its `config.toml`, replacing an
-   existing `mcp_servers.depthplan` table rather than duplicating it. Enable or
-   restart that server in the client after a configuration change.
+   existing `mcp_servers.depthplan` table rather than duplicating it. For Claude
+   Code, copy **Claude Code configuration** into `.mcp.json` in the folder where
+   you run it, or merge its `depthplan` entry into an existing `mcpServers`
+   block. Enable or restart that server in the client after a configuration
+   change.
 3. Query `depthplan_get_state({})` and verify the selected app/document. Discovery
    alone works while disconnected and does not prove a live connection.
 4. For disk operations, choose **Approve folder…** locally in MCP Details. There
@@ -313,10 +316,11 @@ was rendered from. Scopes:
 
 It rasterizes the export pipeline's committed drawing layer: culled offscreen
 shapes are restored, while selection handles, stack/boundary controls, the minimap
-and unapplied drafts are not drawn. The scale starts at the on-screen zoom for
-`viewport`/bookmark views and 1 for `whole`/`objects`, and is lowered to fit
-`maxPixels` (default 1.5 MP, maximum 4 MP; larger values are rejected as
-invalid) and 4,096 pixels per side; it is never raised. Encoded
+and unapplied drafts are not drawn. `viewport`/bookmark views use the on-screen
+zoom, lowered when needed to fit `maxPixels` (default 1.5 MP, maximum 4 MP; larger
+values are rejected as invalid) and 4,096 pixels per side. `whole` and `objects`
+are scaled to fill `maxPixels`, enlarging a small region up to 4×, so a snapshot
+of a few objects is a zoomed-in view; `data.scale` is pixels per world unit. Encoded
 PNGs over 7 MiB return RESPONSE_TOO_LARGE rather than a truncated image; request
 a smaller `maxPixels` or region. It waits up to two seconds for the exact
 session/document/view render, needs no folder grant, writes nothing and changes

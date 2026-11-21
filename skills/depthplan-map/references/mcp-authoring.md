@@ -106,6 +106,7 @@ checks alone cannot prove label readability. Report any unverified visual behavi
 
 `depthplan_snapshot` returns a PNG of the rendered canvas inline, with no folder
 grant: `scope` `viewport`, `whole` or `objects` (with `ids`), scaled to `maxPixels`.
+A few `ids` come back enlarged (up to 4×), so use `objects` to zoom in on a detail.
 Use it after each authoring pass to look for overlapping labels, clipped text and
 arrows crossing shapes. A `bookmarkId` snapshot works only while that bookmark's
 depths and layout are the live view, so apply the bookmark first.
