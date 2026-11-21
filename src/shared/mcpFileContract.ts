@@ -68,7 +68,7 @@ export const fileTools = {
     output: editorResult,
     readOnly: true,
     description:
-      'Read approved folders for this app run. File access can only be granted or revoked through the local MCP Server controls.',
+      'Read approved folders for this app run, with appInstanceId, per-folder writable/reason (an open project folder is write-locked) and a note when none are approved. File access can only be granted or revoked through the local MCP Server controls.',
   },
   depthplan_files: {
     input: fileInput,

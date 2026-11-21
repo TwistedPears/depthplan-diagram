@@ -69,6 +69,7 @@ export async function searchProbe(probe) {
     snippet:
       'Aliases: people crm_members engines/admin/app/models/person.rb Admin::Person.find(id)',
     snippetTruncated: false,
+    tags: [],
     rootId: 'app',
     ancestorIds: ['app', 'api'],
     visible: false,

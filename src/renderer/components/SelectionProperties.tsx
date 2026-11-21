@@ -1,11 +1,16 @@
 import { arrowheads, markerLabel } from '../../shared/connectionGeometry';
-import { patchSelectionStyle } from '../../shared/editorProperties';
+import {
+  patchConnection,
+  patchSelectionStyle,
+} from '../../shared/editorProperties';
+import { activeDepthRoute, routeKey } from '../../shared/connectionRoutes';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import Icon from './Icon';
 import type { DocumentEdit } from '../../shared/documentTransactions';
 import type { RecursiveDocument } from '../../shared/recursiveDocument';
 import { stackSelection } from '../../shared/recursiveArrangement';
 import PropertyColorPalette from './PropertyColorPalette';
+import TagProperties from './TagProperties';
 import './SelectionProperties.css';
 
 const markerIcons: Record<(typeof arrowheads)[number], string> = {
@@ -132,6 +137,14 @@ export default function SelectionProperties({
   const selectionKey = selection.join(',');
   useEffect(() => setOpacityDraft(opacity), [opacity, selectionKey]);
   if (!items.length) return null;
+  // A single connection with a route root can keep its own route per depth.
+  const routeId =
+    selection.length === 1 && selection[0].startsWith('connection-')
+      ? selection[0].slice(11)
+      : '';
+  const routeDepth = routeId
+    ? routeKey(document, document.connections[routeId])
+    : null;
   const color = (key: string, fallback: string) =>
     typeof style[key] === 'string' ? (style[key] as string) : fallback;
   const setStyle = (key: string, value: string | number) =>
@@ -147,14 +160,54 @@ export default function SelectionProperties({
             <>
               <IconChoices
                 label="Path"
-                value={String(style.lineType ?? 'sharp')}
+                value={
+                  style.lineType === 'elbow' && style.avoidShapes === true
+                    ? 'avoid'
+                    : String(style.lineType ?? 'sharp')
+                }
                 options={[
                   ['sharp', 'Straight path', 'path-straight'],
                   ['curved', 'Curved path', 'path-curved'],
                   ['elbow', 'Elbow path', 'path-elbow'],
+                  ['avoid', 'Elbow path around shapes', 'path-elbow-avoid'],
                 ]}
-                onChange={(value) => setStyle('lineType', value)}
+                onChange={(value) =>
+                  onEdit(
+                    patchSelectionStyle(
+                      selection,
+                      value === 'avoid'
+                        ? { lineType: 'elbow', avoidShapes: true }
+                        : {
+                            lineType: value,
+                            ...(style.avoidShapes === true && {
+                              avoidShapes: false,
+                            }),
+                          },
+                    ),
+                  )
+                }
               />
+              {routeDepth !== null && (
+                <IconChoices
+                  label="Route"
+                  value={
+                    activeDepthRoute(document, document.connections[routeId])
+                      ? 'depth'
+                      : 'shared'
+                  }
+                  options={[
+                    ['shared', 'Same route at every depth', 'link'],
+                    ['depth', `Own route at D${routeDepth}`, 'layer-group'],
+                  ]}
+                  onChange={(value) =>
+                    onEdit(
+                      patchConnection(routeId, {
+                        depthRoute: value === 'depth' ? 'set' : 'clear',
+                      }),
+                    )
+                  }
+                />
+              )}
               <div className="marker-controls">
                 {(['Start', 'End'] as const).map((end) => (
                   <IconChoices
@@ -214,6 +267,19 @@ export default function SelectionProperties({
                 ]}
                 onChange={(value) => setStyle('fillType', value)}
               />
+              <fieldset className="property-group">
+                <legend>Text fit</legend>
+                <select
+                  aria-label="Text fit"
+                  className="property-select"
+                  value={String(style.fit ?? 'clip')}
+                  onChange={(event) => setStyle('fit', event.target.value)}
+                >
+                  <option value="clip">Clip overflow</option>
+                  <option value="grow-height">Grow height</option>
+                  <option value="shrink-text">Shrink text</option>
+                </select>
+              </fieldset>
             </>
           )}
           <IconChoices
@@ -253,6 +319,11 @@ export default function SelectionProperties({
               ['dotted', 'Dotted stroke', 'stroke-dotted'],
             ]}
             onChange={(value) => setStyle('strokeStyle', value)}
+          />
+          <TagProperties
+            document={document}
+            selection={selection}
+            onEdit={onEdit}
           />
         </>
       )}

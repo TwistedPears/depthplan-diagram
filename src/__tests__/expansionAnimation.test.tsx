@@ -1,6 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import useExpansionAnimation from '../renderer/hooks/useExpansionAnimation';
 import { recursiveFixture } from './recursiveFixtures';
+import { recursiveScene } from '../shared/recursiveScene';
+import { boundsRemap, transitionRoute } from '../shared/routeTransition';
 import {
   transactDocument,
   editActiveGeometry,
@@ -157,4 +159,80 @@ it('can settle synchronously before capturing an export', () => {
   act(() => result.current.finish());
   expect(result.current.document).toBe(opened);
   expect(jest.getTimerCount()).toBe(0);
+});
+
+// A shape-avoiding connector between the two roots; `app` moves when it opens.
+const linked = () => {
+  const document = collapsed();
+  document.connections.link = {
+    id: 'link',
+    ownerId: null,
+    kind: 'arrow',
+    z: 0,
+    start: { kind: 'object', objectId: 'app', side: 'right', offset: 0.5 },
+    end: { kind: 'object', objectId: 'payments', side: 'left', offset: 0.5 },
+    style: { lineType: 'elbow', avoidShapes: true },
+  };
+  return document;
+};
+const routeOf = (scene: ReturnType<typeof recursiveScene>) =>
+  scene.connections.get(null)!.find((route) => route.id === 'link')!;
+
+it('glides shape-avoiding routes to the final layout instead of routing every frame', () => {
+  const document = linked();
+  const { result, rerender } = renderHook(
+    (d) => useExpansionAnimation(d, false),
+    { initialProps: document },
+  );
+  expect(result.current.routes).toBeUndefined();
+  const opened = expand(document);
+  const start = routeOf(recursiveScene(document));
+  const target = routeOf(recursiveScene(opened));
+  expect(target.route[0].x).not.toBe(start.route[0].x);
+  rerender(opened);
+  // The first frame paints the route that was on screen.
+  expect(result.current.routes!.get('link')!.route).toEqual(start.route);
+  const seen = [start.route[0].x];
+  for (let i = 0; i < 6; i++) {
+    act(() => jest.advanceTimersByTime(48));
+    const frame = result.current.routes!.get('link')!;
+    expect(frame.route).toHaveLength(target.route.length);
+    expect(frame.points).toEqual(frame.route.flatMap(({ x, y }) => [x, y]));
+    // The scene paints the given route as is.
+    expect(
+      routeOf(recursiveScene(result.current.document, result.current.routes))
+        .route,
+    ).toEqual(frame.route);
+    seen.push(frame.route[0].x);
+  }
+  // One direction, no flipping between alternatives, and never past the target.
+  const direction = Math.sign(target.route[0].x - start.route[0].x);
+  for (let i = 1; i < seen.length; i++)
+    expect((seen[i] - seen[i - 1]) * direction).toBeGreaterThan(0);
+  expect((target.route[0].x - seen.at(-1)!) * direction).toBeGreaterThan(0);
+  act(() => jest.advanceTimersByTime(400));
+  expect(result.current.document).toBe(opened);
+  expect(result.current.routes).toBeUndefined();
+  expect(routeOf(recursiveScene(result.current.document)).route).toEqual(
+    target.route,
+  );
+});
+
+it('follows the container when a route has no comparable start', () => {
+  const target = routeOf(recursiveScene(expand(linked())));
+  const box = { x: 0, y: 0, width: 100, height: 100 };
+  // Shapes at 80% of their final layout: the route shrinks with them.
+  const remap = boundsRemap([box], [{ x: 0, y: 0, width: 80, height: 80 }]);
+  expect(remap({ x: 50, y: -50 })).toEqual({ x: 40, y: -40 });
+  const frame = transitionRoute(undefined, target, 0.5, remap);
+  expect(frame.route).toEqual(target.route.map(remap));
+  expect(frame.label).toEqual(remap(target.label));
+  // A start with a different number of bends is not blended point by point.
+  const longer = { ...target, route: [...target.route, target.route[0]] };
+  expect(transitionRoute(longer, target, 0.5, remap).route).toEqual(
+    target.route.map(remap),
+  );
+  expect(transitionRoute(target, target, 0.5, remap).route).toEqual(
+    target.route,
+  );
 });

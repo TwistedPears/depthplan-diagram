@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import AutomationControl, {
+  claudeCodeConfiguration,
   codexConfiguration,
 } from '../renderer/components/AutomationControl';
 import useAutomation from '../renderer/hooks/useAutomation';
@@ -28,6 +29,30 @@ test('Flatpak client configuration launches the bundled adapter in its sandbox',
   expect(codexConfiguration(status)).toContain(
     `args = ${JSON.stringify(['--descriptor', status.descriptor])}`,
   );
+});
+test('Claude Code configuration is a .mcp.json document with paths as JSON data', () => {
+  expect(JSON.parse(claudeCodeConfiguration(status))).toEqual({
+    mcpServers: {
+      depthplan: {
+        type: 'stdio',
+        command: status.executable,
+        args: ['--descriptor', status.descriptor],
+      },
+    },
+  });
+  expect(
+    JSON.parse(
+      claudeCodeConfiguration({
+        ...status,
+        executable: 'flatpak',
+        launcherArgs: ['run', '--command=depthplan-mcp'],
+      }),
+    ).mcpServers.depthplan,
+  ).toEqual({
+    type: 'stdio',
+    command: 'flatpak',
+    args: ['run', '--command=depthplan-mcp', '--descriptor', status.descriptor],
+  });
 });
 const handlers = {
   depthplan_get_context: jest.fn(() => ({ ok: true })),
@@ -92,6 +117,13 @@ test('enables one service, copies setup, revokes calls, and reconnects without a
   fireEvent.click(screen.getByText('Copy Codex configuration'));
   await screen.findByText('Configuration copied.');
   expect(writeText).toHaveBeenCalledWith(codexConfiguration(status));
+  expect(screen.getByLabelText('Claude Code configuration')).toHaveValue(
+    claudeCodeConfiguration(status),
+  );
+  fireEvent.click(screen.getByText('Copy Claude Code configuration'));
+  await screen.findByText('Configuration copied.');
+  expect(writeText).toHaveBeenLastCalledWith(claudeCodeConfiguration(status));
+  expect(screen.getAllByRole('status')).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'MCP Server' }));

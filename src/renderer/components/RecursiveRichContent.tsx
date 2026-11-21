@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 import { Group, Text, Line } from 'react-konva';
 import { type RichBlock, validLink } from '../../shared/recursiveDocument';
-import { layoutRichContent, textFont } from '../../shared/richContentLayout';
+import { layoutRichContent } from '../../shared/richContentLayout';
+import { measureText } from '../../shared/textMeasure';
 import type {
   TextExclusion,
   VerticalAlignment,
 } from '../../shared/objectContentBounds';
 import { fontFamily } from '../../shared/textFont';
-let context: CanvasRenderingContext2D | null = null;
 export default memo(function RecursiveRichContent({
   content,
   x,
@@ -34,14 +34,10 @@ export default memo(function RecursiveRichContent({
     bottom = 0,
   } = exclusion ?? {};
   const layout = useMemo(() => {
-    context ??= document.createElement('canvas').getContext('2d')!;
     return layoutRichContent(
       content,
       width,
-      (text, style) => {
-        context!.font = textFont(style);
-        return context!.measureText(text).width;
-      },
+      measureText,
       height,
       side ? { side, width: exclusionWidth, top, bottom } : undefined,
       verticalAlign,
@@ -92,6 +88,9 @@ export default memo(function RecursiveRichContent({
             .filter(Boolean)
             .join(' ')}
           fill={piece.style.color}
+          stroke={piece.style.outline}
+          strokeWidth={piece.style.outline ? 1 : 0}
+          fillAfterStrokeEnabled={!!piece.style.outline}
           listening={!!piece.style.link}
           onMouseDown={(event) => {
             if (event.evt.metaKey || event.evt.ctrlKey)

@@ -486,13 +486,26 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let expected = string(arg(args, 1))?;
             let candidate = crate::projects::manifest(arg(args, 2))?;
             host.projects.lock().unwrap().get(id)?.check(expected)?;
-            let Some(path) = select(app, "project-save", string(arg(args, 3))?)? else {
-                return Ok(json!({"status":"canceled"}));
+            // MCP names an approved destination instead of the native dialog.
+            let lease = arg(args, 6);
+            let path = if lease.is_null() {
+                let Some(path) = select(app, "project-save", string(arg(args, 3))?)? else {
+                    return Ok(json!({"status":"canceled"}));
+                };
+                path
+            } else {
+                mcp_path(&host, string(arg(args, 5))?, lease)?
             };
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(id)?;
             let documents = arg(args, 4).as_array().ok_or("Expected board snapshots")?;
-            project.save(&path, expected, candidate, documents, &|_| Ok(()))?;
+            let target = path.to_string_lossy();
+            project.save(&path, expected, candidate, documents, &|_| {
+                if !lease.is_null() {
+                    mcp_path(&host, &target, lease)?;
+                }
+                Ok(())
+            })?;
             Ok(json!({"status":"success","project":project.snapshot(id)}))
         }
         "project:create" => {
@@ -631,7 +644,19 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             let action: Action =
                 serde_json::from_value(arg(args, 2).clone()).map_err(|e| e.to_string())?;
             // Reject forged/stale handles before showing an import dialog.
-            host.projects.lock().unwrap().get(id)?;
+            let location = host.projects.lock().unwrap().get(id)?.location();
+            let lease = arg(args, 3);
+            // MCP writes to a saved project need a grant covering its manifest.
+            let guard = || -> Result<()> {
+                if let (false, Some(location)) = (lease.is_null(), &location) {
+                    mcp_path(&host, &location.to_string_lossy(), lease)?;
+                }
+                Ok(())
+            };
+            if !lease.is_null() && matches!(action, Action::ImportBoard { .. }) {
+                return Err("MCP cannot import boards through a native dialog".into());
+            }
+            guard()?;
             let imported = if matches!(action, Action::ImportBoard { .. }) {
                 let Some(path) = select(app, "open", "")? else {
                     return Ok(json!({"status":"canceled"}));
@@ -653,17 +678,17 @@ fn project_operation(app: &AppHandle, method: &str, args: &[Value]) -> Result<Va
             };
             let mut projects = host.projects.lock().unwrap();
             let project = projects.get(id)?;
-            project.apply(expected, action, imported, &|_| Ok(()))?;
+            if project.location() != location {
+                return Err(crate::projects::CONFLICT.into());
+            }
+            project.apply(expected, action, imported, &|_| guard())?;
             Ok(json!({"status":"success", "project":project.snapshot(id)}))
         }
         _ => Err("Unknown project operation".into()),
     }
 }
 fn mcp_path(host: &Host, path: &str, lease: &Value) -> Result<PathBuf> {
-    host.service.lock().unwrap().check(lease)?;
-    let target = host.folders.resolve(path)?;
-    host.service.lock().unwrap().check(lease)?;
-    Ok(target)
+    automation::mcp_target(&host.service, &host.folders, path, lease)
 }
 fn io_command(
     app: &AppHandle,

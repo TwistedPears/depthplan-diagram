@@ -14,6 +14,7 @@ import {
   recursiveVisibility,
 } from './recursiveVisibility';
 import { copyScope, duplicateSelection } from './recursiveDuplication';
+import { adoptTagDefinitions, pruneTagDefinitions } from './tags';
 
 const prefix = 'DepthPlan clipboard v1\n';
 
@@ -74,6 +75,7 @@ export function copySelection(
     };
     delete draft.namedViews;
     delete draft.connectionRepairs;
+    pruneTagDefinitions(draft);
     draft.metadata = createRecursiveDocument(document.id, 'Clipboard').metadata;
     setCollapsedObjects(draft, folds);
   });
@@ -103,7 +105,17 @@ export function pasteSelection(source: RecursiveDocument, offset: number) {
     selection: copy.selection,
     edit: (draft: RecursiveDocument) => {
       const expanded = recursiveVisibility(draft).expanded;
+      const objects = new Set(Object.keys(draft.objects));
+      const connections = new Set(Object.keys(draft.connections));
       copy.edit(draft);
+      adoptTagDefinitions(draft, source.tagDefinitions, [
+        ...Object.keys(draft.objects)
+          .filter((id) => !objects.has(id))
+          .map((id) => draft.objects[id]),
+        ...Object.keys(draft.connections)
+          .filter((id) => !connections.has(id))
+          .map((id) => draft.connections[id]),
+      ]);
       const owners = source.extensions?.clipboardParents;
       if (source.id !== draft.id || !isRecord(owners)) return;
       const parents = new Map<string, string>();

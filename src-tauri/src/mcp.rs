@@ -105,23 +105,46 @@ impl Adapter {
         socket.write_all(&wire).await?;
         #[cfg(unix)]
         socket.shutdown().await?;
+        let limit = crate::automation::response_limit(name);
         let mut response = Vec::new();
         socket
-            .take(1024 * 1024 + 1)
+            .take(limit as u64 + 1)
             .read_to_end(&mut response)
             .await?;
-        if response.len() > 1024 * 1024 {
+        if response.len() > limit {
             return Ok(failure(
                 "RESPONSE_TOO_LARGE",
                 "Response exceeds the size limit.",
             ));
         }
-        let result: Value = serde_json::from_slice(&response)?;
+        let mut result: Value = serde_json::from_slice(&response)?;
+        let Ok(image) = crate::automation::take_image(name, &mut result) else {
+            return Ok(failure("INTERNAL_ERROR", "Invalid application response."));
+        };
         if !output_schema.is_valid(&result) {
             return Ok(failure("INTERNAL_ERROR", "Invalid application response."));
         }
+        if let Some(png) = image {
+            result["data"]["png"] = png.into();
+        }
         Ok(result)
     }
+}
+/// Map a validated reply to MCP content; a snapshot PNG becomes an image block
+/// instead of megabytes of JSON text or structured content.
+fn tool_result(name: &str, mut value: Value) -> CallToolResult {
+    let image = crate::automation::take_image(name, &mut value)
+        .ok()
+        .flatten();
+    let mut result = if value["ok"] == true {
+        CallToolResult::structured(value)
+    } else {
+        CallToolResult::structured_error(value)
+    };
+    if let Some(png) = image {
+        result.content.push(ContentBlock::image(png, "image/png"));
+    }
+    result
 }
 impl ServerHandler for Adapter {
     fn get_info(&self) -> ServerConfig {
@@ -158,12 +181,7 @@ impl ServerHandler for Adapter {
                 unavailable()
             }
         };
-        Ok(if result["ok"] == true {
-            CallToolResult::structured(result)
-        } else {
-            CallToolResult::structured_error(result)
-        }
-        .into())
+        Ok(tool_result(&request.name, result).into())
     }
 }
 pub async fn serve() -> Result<(), Box<dyn std::error::Error>> {
@@ -204,5 +222,71 @@ fn expected_endpoint(parent: &Path, instance: &uuid::Uuid) -> PathBuf {
     {
         let _ = parent;
         PathBuf::from(format!("\\\\.\\pipe\\depthplan-{instance}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn snapshot_png_becomes_image_content_outside_structured_metadata() {
+        let tools: Vec<Value> =
+            serde_json::from_str(include_str!("../generated/mcp-tools.json")).unwrap();
+        let schema = &tools
+            .iter()
+            .find(|t| t["name"] == crate::automation::SNAPSHOT_TOOL)
+            .unwrap()["outputSchema"];
+        let output = jsonschema::validator_for(schema).unwrap();
+        let reply = json!({"ok":true,"state":null,"data":{"scope":"whole","width":2,"height":1,"scale":0.5,"region":{"x":-16.0,"y":-16.0,"width":4.0,"height":2.0},"revision":3,"viewRevision":4,"bytes":3,"png":"iVBO"}});
+        let mut carved = reply.clone();
+        let png = crate::automation::take_image(crate::automation::SNAPSHOT_TOOL, &mut carved)
+            .unwrap()
+            .unwrap();
+        assert_eq!(png, "iVBO");
+        assert!(output.is_valid(&carved));
+        assert!(
+            !output.is_valid(&reply),
+            "the advertised schema excludes png"
+        );
+        let result = tool_result(crate::automation::SNAPSHOT_TOOL, reply);
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.structured_content.as_ref(), Some(&carved));
+        assert_eq!(result.content.len(), 2);
+        let encoded = serde_json::to_value(&result.content).unwrap();
+        assert!(!encoded[0]["text"].as_str().unwrap().contains("iVBO"));
+        assert_eq!(
+            encoded[1],
+            json!({"type":"image","data":"iVBO","mimeType":"image/png"})
+        );
+        for bad in [json!(null), json!(""), json!("not base64!"), json!(5)] {
+            let mut value = carved.clone();
+            value["data"]["png"] = bad;
+            assert!(
+                crate::automation::take_image(crate::automation::SNAPSHOT_TOOL, &mut value)
+                    .is_err()
+            );
+        }
+        let mut missing = carved.clone();
+        assert!(
+            crate::automation::take_image(crate::automation::SNAPSHOT_TOOL, &mut missing).is_err()
+        );
+        let error = failure("RESPONSE_TOO_LARGE", "Request a smaller maxPixels.");
+        let result = tool_result(crate::automation::SNAPSHOT_TOOL, error.clone());
+        assert_eq!(result.is_error, Some(true));
+        assert_eq!(result.content.len(), 1);
+        assert!(output.is_valid(&error));
+        let ordinary = tool_result(
+            "depthplan_get_state",
+            json!({"ok":true,"state":null,"data":{"png":"iVBO"}}),
+        );
+        assert_eq!(ordinary.content.len(), 1);
+        assert_eq!(
+            crate::automation::response_limit("depthplan_query"),
+            1024 * 1024
+        );
+        assert_eq!(
+            crate::automation::response_limit(crate::automation::SNAPSHOT_TOOL),
+            8 * 1024 * 1024
+        );
     }
 }

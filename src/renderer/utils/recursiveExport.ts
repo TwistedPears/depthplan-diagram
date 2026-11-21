@@ -214,6 +214,38 @@ export async function streamPng(scene: Konva.Group, bounds: Box) {
     await window.desktop.export.abortPng(id);
   }
 }
+/** Conservative painted bounds of every drawn shape in a captured scene. */
+export const paintedSceneBounds = (scene: Konva.Group) =>
+  unionBounds(candidates(scene).map(({ box }) => box));
+/** One bounded raster of a world region on white, encoded as PNG; destroys the scene. */
+export async function rasterizeRegion(
+  scene: Konva.Group,
+  plan: { region: Box; scale: number; width: number; height: number },
+) {
+  const canvas = document.createElement('canvas');
+  let raster: HTMLCanvasElement | null = null;
+  try {
+    raster = scene.toCanvas({ ...plan.region, pixelRatio: plan.scale });
+    canvas.width = plan.width;
+    canvas.height = plan.height;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, plan.width, plan.height);
+    context.drawImage(raster, 0, 0, plan.width, plan.height);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (value) =>
+          value ? resolve(value) : reject(new Error('PNG encoding failed')),
+        'image/png',
+      ),
+    );
+    return new Uint8Array(await blob.arrayBuffer());
+  } finally {
+    if (raster) raster.width = raster.height = 0;
+    canvas.width = canvas.height = 0;
+    scene.destroy();
+  }
+}
 export async function encodeRecursiveExport(
   scene: Konva.Group,
   format: 'svg' | 'png',

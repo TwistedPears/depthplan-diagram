@@ -44,6 +44,7 @@ import {
   type AlignmentAction,
   type StackingAction,
 } from './recursiveArrangement';
+import { layoutChildren } from './autoLayout';
 import { deleteSelection } from './recursiveDeletion';
 import { editBoundaryPoint } from './recursiveBoundary';
 import { createInwardBridge, reattachInwardBridge } from './recursiveBridges';
@@ -52,6 +53,7 @@ import {
   resolveConnectionRepair,
 } from './recursiveConnectionRepair';
 import type { RichBlock } from './recursiveDocument';
+import { editTagDefinition, setEntityTags } from './tags';
 
 type Owner = {
   snapshot: () => EditorSnapshot;
@@ -132,6 +134,11 @@ export function compileEdits(
           else
             alignObjects(action.ids, action.action as AlignmentAction)(draft);
           break;
+        case 'layout': {
+          const { type: _type, id, ...options } = action;
+          layoutChildren(id, options)(draft);
+          break;
+        }
         case 'boundary':
           if (action.action === 'delete')
             deleteBoundaryPoint(action.objectId, action.pointId)(draft);
@@ -197,6 +204,19 @@ export function compileEdits(
         case 'children':
           setChildrenExpanded(action.id, action.expanded)(draft);
           break;
+        case 'tag_definition': {
+          const { type: _type, action: kind, id, ...patch } = action;
+          editTagDefinition(kind, id, patch)(draft);
+          break;
+        }
+        case 'tags':
+          setEntityTags(
+            action.mode,
+            action.tagIds,
+            action.objects,
+            action.connections,
+          )(draft);
+          break;
         case 'bookmark': {
           const command = action.action;
           editNamedView(
@@ -221,7 +241,8 @@ export function compileEdits(
   const createdIds = input.actions.flatMap((action) =>
     action.type === 'create_object' ||
     action.type === 'create_connection' ||
-    action.type === 'bridge'
+    action.type === 'bridge' ||
+    (action.type === 'tag_definition' && action.action === 'create')
       ? [action.id]
       : action.type === 'boundary' && action.action === 'create'
         ? [action.pointId]

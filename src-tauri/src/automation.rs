@@ -17,6 +17,39 @@ pub fn failure(code: &str, message: &str) -> Value {
 pub fn unavailable() -> Value {
     failure("APP_UNAVAILABLE","The app is unavailable. Query current state before retrying an interrupted command with the same request ID.")
 }
+pub const SNAPSHOT_TOOL: &str = "depthplan_snapshot";
+/// Only the inline PNG snapshot may exceed the ordinary 1 MiB response limit.
+pub fn response_limit(tool: &str) -> usize {
+    if tool == SNAPSHOT_TOOL {
+        8 * 1024 * 1024
+    } else {
+        1024 * 1024
+    }
+}
+/// Detach a snapshot's base64 PNG so output schemas validate only its metadata.
+pub fn take_image(tool: &str, value: &mut Value) -> std::result::Result<Option<String>, ()> {
+    if tool != SNAPSHOT_TOOL || value["ok"] != true {
+        return Ok(None);
+    }
+    let png = value
+        .get_mut("data")
+        .and_then(Value::as_object_mut)
+        .and_then(|data| data.remove("png"))
+        .ok_or(())?;
+    match png.as_str() {
+        Some(png)
+            if !png.is_empty()
+                && png.len() % 4 == 0
+                && png.len() <= response_limit(tool)
+                && png
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'=')) =>
+        {
+            Ok(Some(png.to_owned()))
+        }
+        _ => Err(()),
+    }
+}
 pub fn is_flatpak() -> bool {
     cfg!(target_os = "linux")
         && std::env::var("FLATPAK_ID").as_deref() == Ok("com.twistedpears.depthplan")
@@ -366,16 +399,34 @@ async fn answer(app: AppHandle, generation: u64, bytes: &[u8]) -> Value {
     if generation != service.generation {
         return failure("DISABLED", "Automation is disabled.");
     }
-    let Ok(Ok(value)) = result else {
+    let Ok(Ok(mut value)) = result else {
         return unavailable();
+    };
+    let Ok(image) = take_image(&tool, &mut value) else {
+        return failure("INTERNAL_ERROR", "Invalid application response.");
     };
     if !service.schemas[&tool].1.is_valid(&value) {
         return failure("INTERNAL_ERROR", "Invalid application response.");
     }
-    if serde_json::to_vec(&value).map_or(true, |b| b.len() > 1024 * 1024) {
+    if let Some(png) = image {
+        value["data"]["png"] = png.into();
+    }
+    if serde_json::to_vec(&value).map_or(true, |b| b.len() > response_limit(&tool)) {
         return failure("RESPONSE_TOO_LARGE", "Response exceeds the size limit.");
     }
     value
+}
+/// Resolve an MCP target inside an approved folder while the lease stays valid.
+pub fn mcp_target(
+    service: &Mutex<Service>,
+    folders: &Folders,
+    path: &str,
+    lease: &Value,
+) -> Result<PathBuf> {
+    service.lock().unwrap().check(lease)?;
+    let target = folders.resolve(path)?;
+    service.lock().unwrap().check(lease)?;
+    Ok(target)
 }
 struct Grant {
     path: PathBuf,
@@ -509,5 +560,52 @@ mod tests {
             .is_err());
         service.disable().unwrap();
         assert!(service.check(&lease).is_err());
+    }
+    #[test]
+    fn mcp_project_writes_stay_inside_grants_and_stop_on_revocation() {
+        use crate::projects::{Action, Project};
+        let root = tempfile::tempdir().unwrap();
+        let approved = root.path().join("approved");
+        std::fs::create_dir(&approved).unwrap();
+        let folders = Folders::default();
+        folders.add(&approved).unwrap();
+        let service = Mutex::new(Service::new(Uuid::new_v4().to_string()).unwrap());
+        service.lock().unwrap().token = Some("a".repeat(64));
+        let lease = service.lock().unwrap().lease().unwrap();
+        let outside = root.path().join("outside.depthproject");
+        assert!(mcp_target(&service, &folders, outside.to_str().unwrap(), &lease).is_err());
+        let target = approved.join("plan.depthproject");
+        let path = mcp_target(&service, &folders, target.to_str().unwrap(), &lease).unwrap();
+        let guard =
+            |_: &str| mcp_target(&service, &folders, &path.to_string_lossy(), &lease).map(|_| ());
+        let mut project = Project::new(None, "Overview", "overview.depthplan").unwrap();
+        let manifest = project.manifest.clone();
+        let expected = project.fingerprint.clone();
+        project
+            .save(&path, &expected, manifest, &[], &guard)
+            .unwrap();
+        assert_eq!(project.location().unwrap(), path);
+        let create = |name: &str, path: &str| -> Action {
+            serde_json::from_value(json!({"kind":"createBoard","name":name,"path":path})).unwrap()
+        };
+        let expected = project.fingerprint.clone();
+        project
+            .apply(&expected, create("API", "api.depthplan"), None, &guard)
+            .unwrap();
+        assert_eq!(project.manifest.boards.len(), 2);
+        // Revocation between phases stops publication and keeps the manifest.
+        let before = project.manifest.clone();
+        let expected = project.fingerprint.clone();
+        let revoked = |phase: &str| {
+            if phase == "board-published" {
+                service.lock().unwrap().disable().unwrap();
+            }
+            guard(phase)
+        };
+        assert!(project
+            .apply(&expected, create("Data", "data.depthplan"), None, &revoked)
+            .is_err());
+        assert_eq!(project.manifest, before);
+        assert!(guard("manifest-publish").is_err());
     }
 }

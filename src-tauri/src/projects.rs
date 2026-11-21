@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 const MAX_BYTES: u64 = 1024 * 1024;
 const LOCK: &str = ".depthproject.lock";
-const CONFLICT: &str = "Project manifest changed; reopen/reconcile before retrying.";
+pub const CONFLICT: &str = "Project manifest changed; reopen/reconcile before retrying.";
 static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
     jsonschema::validator_for(
         &serde_json::from_str(include_str!("../generated/project-schema.json")).unwrap(),
@@ -254,6 +254,10 @@ impl Project {
     }
     pub fn is_draft(&self) -> bool {
         self.disk.is_none()
+    }
+    /// Canonical manifest path of a saved project.
+    pub fn location(&self) -> Option<PathBuf> {
+        self.disk.as_ref().map(|disk| disk.path.clone())
     }
     pub fn new(document: Option<Value>, name: &str, path: &str) -> Result<Self> {
         let document = document.unwrap_or_else(|| blank(name));

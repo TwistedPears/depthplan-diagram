@@ -24,7 +24,8 @@ the current document. Finish an active gesture before retrying an open request.
 Only `formatVersion: 2` is accepted. Missing/unsupported versions and malformed
 input fail without replacing the current document or modifying the source file.
 The document contains `id`, `metadata`, `objects`, `rootDepths`, `layouts` and
-`connections`, with optional `namedViews`, `connectionRepairs` and `extensions`.
+`connections`, with optional `namedViews`, `connectionRepairs`, `tagDefinitions`
+and `extensions`.
 
 Objects form an acyclic forest. Each has one `parentId`, or null for a root.
 Rectangles, ellipses, diamonds and frames can contain children. Lines/arrows are
@@ -151,6 +152,26 @@ otherwise roots retain their world pose. Copied external endpoints become free;
 explicit Duplicate can retain outside bindings. Both create one undo entry.
 Inside text editors, clipboard shortcuts continue to operate on text.
 
+### Automatic layout
+
+The MCP `layout` edit action arranges a container's visible direct children in
+the active layout of its root's current depth. Children hidden by depth or a fold
+are skipped (so a folded or leaf container is a no-op), and other depths are not
+written. Each child keeps its size, rotation, Z and local subtree; spacing uses its
+stroked footprint including visible descendants. `row`/`column` order children by
+current position; `grid` uses uniform cells of the largest footprint. `layered`
+ranks children by connector direction (start to end, attached to the child or any
+descendant): every connector outside a cycle points to a later row/column, and
+members of a cycle share one. A barycentre pass orders each rank to reduce
+crossings; ties use current position, then ID. `gap` separates neighbors and ranks.
+
+The block is centered horizontally and starts `padding` below the top edge (at
+least 44 units, clearing the title and stack control). The parent grows to fit
+with `padding` on the other sides, then ordinary expansion fitting grows
+ancestors and pushes colliding neighbors as disclosure does. Ellipse and diamond
+parents can grow further to inscribe the block. Layout is one atomic edit and Undo
+step. It is not a persistent constraint: later edits do not rerun it.
+
 ## Connections and repairs
 
 Connections have an ID, `ownerId` (container or null for canvas), kind, Z, style,
@@ -174,8 +195,38 @@ point faces the connection again. Neither sliding nor moving shapes changes the
 saved preferred point. Both modes leave an eight-unit outline gap, inside the
 border for container endpoints. An absent mode uses the authored attachment
 without an added gap. Straight routes join vertices, curved routes use cubic
-Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
+Beziers, and elbows use orthogonal segments. Labels follow arc-length centers,
+or `style.labelPosition` (0–1, a fraction of the displayed path length).
+
+`style.avoidShapes: true` on an elbow connector without bends (Style: **Elbow
+path around shapes**) routes it around the visible shapes and frames in its
+container, including siblings of nested endpoint ancestors. The router picks the
+side facing the other end and spreads connectors sharing a side; `fixed`
+bindings, boundary points and rotated targets keep their attachment. Connectors
+sharing a corridor get parallel lanes, and labels without `labelPosition` slide
+along the path away from shapes and other labels in the same container. These
+routes are derived for canvas, hit testing and SVG/PNG export, deterministic
+(ordered by connection ID) and never saved; authored bends always win. Curved
+and straight connectors are unaffected.
 Creation uses world points; endpoint/point edits use owner-local points.
+
+Optional `depthRoutes` lets one connection keep a different route per depth:
+`depthRoutes[depth]` may hold `points`, `start` and/or `end`, and each present
+field replaces the shared value at that depth. The depth is the active depth of
+the connection's **route root**: the owner's root, or for an unowned connection
+the single root of its bound endpoints. Free-free lines and canvas connections
+between two roots have no route root and always use the shared route. Override
+endpoints keep the shared endpoint's target object (or stay free), so changing
+which object an endpoint binds to always edits the shared endpoint and drops
+that endpoint's overrides. Switching depth or applying a bookmark shows the
+matching route; folds do not change the key. In Style, **Route** switches a
+single connection between the shared route and its own route at the current
+depth. Dragging points, segments or endpoints edits whichever route is shown;
+moving an overridden route into another container requires the shared route.
+Deleting endpoint objects or boundary points prunes affected overrides.
+Reparenting or pasting shifts owned overrides with the owner's layouts
+(`d - g + h`); changing a connection's owner, or an unowned route root, drops
+them. Duplicate keeps them, and switching to a straight path clears their bends.
 
 The Style panel no longer adds or repositions custom boundary points. Existing
 named points remain stored for compatibility and inward bridges, and their canvas
@@ -205,6 +256,39 @@ inherit the original ID, label, kind, style and order. Resolving removes only th
 repair in one transaction. Pending repairs persist across save/reopen and never
 draw or export.
 
+## Tags and legends
+
+Optional `tagDefinitions` maps a stable tag ID to `{ id, name, color, strokeStyle? }`
+(`solid`, `dashed` or `dotted`). Objects and connections carry an optional `tags`
+array of those IDs. Validation checks both shapes but ignores IDs without a
+definition, so pasted or hand-edited files still load; rendering, queries and the
+legend skip them. Names are unique ignoring case. Deleting a definition removes it
+from every object, connection and pending repair in the same Undo step.
+
+Tagged objects show colored pills in one row at the lower left of their text area,
+which is reserved below the body text; pills that do not fit collapse into `+N`.
+The row is reserved whenever `tags` is non-empty, even if no ID is defined.
+Connection pills sit under the label, or on the path middle without one. A tag's
+line style applies to a connection that has no `strokeStyle` of its own; choosing
+any stroke style in Style overrides it.
+
+Any object with `style.legend: true` replaces its body with a legend derived while
+painting: the tags in use (name, color, line style, count), then up to 12 explicit
+object fill colors and connection stroke/style pairs, most used first. Legend
+objects are excluded from the counts. The legend is ordinary rich text, so it
+exports to SVG/PNG, fits and clips like other content and never goes stale.
+
+Select shapes or connectors to add, create or remove tags under **Tags** in Style;
+**Manage tags** renames, recolors, sets line styles and deletes definitions, and
+**Show tag legend** marks a single selected object. Board search accepts
+`tag:Name` or `tag:"Two words"` terms; with no other words it lists every object
+with that tag.
+
+Duplicate keeps tag IDs. Copy carries the definitions it uses. Pasting or inserting
+a template into another board keeps a definition with the same ID, reuses a tag
+with the same name, and otherwise adds the source definition. Templates retain
+their `tagDefinitions`.
+
 ## Rich text and code
 
 The native content model uses paragraphs, headings (levels 1–6), nested ordered or
@@ -217,8 +301,25 @@ Whitespace and Unicode remain intact. Code preserves tabs, CRLF and final
 newlines; tabs display at four-column stops. Syntax highlighting is derived, not
 saved. Languages are `javascript`, `typescript`, `json`, `yaml`, `python`, `sql`,
 `bash`, `csharp`, `java`, `html`, `css` and `plaintext`. Code wrapping defaults off;
-prose wraps. Body content clips vertically rather than automatically resizing the
-object. Font families use local fallbacks and are not embedded in exports.
+prose wraps. Font families use local fallbacks and are not embedded in exports.
+
+`style.fit` chooses what happens when body text is taller than its box (Style →
+**Text fit**). `clip` (the default) clips vertically and leaves the object alone.
+`grow-height` grows the object's height in the active layout during any accepted
+edit that changes its text, name, tags, shape, width or fit, in that edit's Undo
+step. Growth never shrinks an object, keeps its top edge fixed, and lets parents
+and neighbors make room with the auto-arrange rules. Other depths keep their saved
+size until the object is edited while they are active, or until that depth's
+layout is first created for it. Resize and drag previews do not grow; their commit
+does. Painting never creates
+edits. `shrink-text` scales the body text uniformly while painting, down to 60%,
+and clips below that. Horizontal overflow of unwrapped code is not measured.
+
+Clipped bodies show a small red `…` marker in the lower-right corner, also in
+SVG/PNG exports. A body too short to paint (10 units or less) with content counts
+as clipped. Expanded parents, whose bodies are not painted, never count. Overflow
+uses the renderer's text metric and bounds, which include the tag-pill row but not
+the zoom-dependent space beside a child-stack control.
 
 Object `style.link` and rich-text links accept absolute HTTP, HTTPS and mailto
 URLs; controls, embedded credentials and executable/file schemes are rejected at
@@ -236,7 +337,9 @@ offers explicit apply/discard/cancel. Drafts are not recovery checkpoints.
 `namedViews` stores named depth maps with optional fold, geometry and camera data.
 New/reset bookmarks capture each root's active layout, including collapsed
 members: X/Y/width/height and parent identity, plus world camera focus and zoom.
-Application recomputes pixel offsets for the current viewport. Legacy bookmarks
+Application recomputes pixel offsets for the current viewport. Each canvas
+remeasures the window whenever its board is shown, so a project board that was
+hidden during a window resize reports and uses its real viewport. Legacy bookmarks
 without focus use raw offsets; bookmarks without geometry retain their narrower
 scope until reset. A missing camera leaves navigation unchanged.
 

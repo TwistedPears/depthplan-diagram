@@ -28,6 +28,13 @@ base.connections.edge = {
   z: 0,
   start: { kind: 'object', objectId: 'app', side: 'right', offset: 0.5 },
   end: { kind: 'free', x: 100, y: 100 },
+  depthRoutes: {
+    1: {
+      points: [{ x: 1, y: 2 }],
+      start: { kind: 'object', objectId: 'app', side: 'top', offset: 0.25 },
+      end: { kind: 'free', x: 5, y: 5 },
+    },
+  },
 };
 base.namedViews = {
   overview: {
@@ -92,6 +99,14 @@ for (const location of [
   'connections.edge.start.objectId',
   'connections.edge.start.offset',
   'connections.edge.end.x',
+  'connections.edge.depthRoutes',
+  'connections.edge.depthRoutes.1',
+  'connections.edge.depthRoutes.1.points',
+  'connections.edge.depthRoutes.1.points.0.x',
+  'connections.edge.depthRoutes.1.start',
+  'connections.edge.depthRoutes.1.start.objectId',
+  'connections.edge.depthRoutes.1.start.offset',
+  'connections.edge.depthRoutes.1.end',
   'namedViews.overview.layouts.app.app.parentId',
   'namedViews.overview.camera.scale',
 ]) {
@@ -155,6 +170,129 @@ mutate('missing repair geometry', (v) => {
       reason: 'missing',
     },
   };
+});
+const tagged = structuredClone(base);
+tagged.tagDefinitions = {
+  confirm: { id: 'confirm', name: 'To confirm', color: '#d97706' },
+  planned: {
+    id: 'planned',
+    name: 'Planned',
+    color: '#2563eb',
+    strokeStyle: 'dashed',
+  },
+};
+tagged.objects.app.tags = ['confirm', 'planned'];
+tagged.connections.edge.tags = ['planned'];
+record('tags', tagged);
+// Unknown tag IDs are ignored rather than rejected, so pasted or hand-edited files load.
+mutate(
+  'dangling tag reference',
+  (v) => {
+    v.objects.api.tags = ['missing'];
+    v.connections.edge.tags = ['missing', 'confirm'];
+  },
+  tagged,
+);
+for (const location of [
+  'tagDefinitions',
+  'tagDefinitions.confirm',
+  'tagDefinitions.confirm.id',
+  'tagDefinitions.confirm.name',
+  'tagDefinitions.confirm.color',
+  'tagDefinitions.planned.strokeStyle',
+  'objects.app.tags',
+  'objects.app.tags.0',
+  'connections.edge.tags',
+]) {
+  for (const value of [null, 'bad', '', ' ', 'dotted', 1, {}, [], ['ok']])
+    mutate(
+      location + '=' + JSON.stringify(value),
+      (v) => {
+        const keys = location.split('.');
+        let p = v;
+        for (const k of keys.slice(0, -1)) p = p[k];
+        p[keys.at(-1)!] = value;
+      },
+      tagged,
+    );
+  mutate(
+    'missing ' + location,
+    (v) => {
+      const keys = location.split('.');
+      let p = v;
+      for (const k of keys.slice(0, -1)) p = p[k];
+      delete p[keys.at(-1)!];
+    },
+    tagged,
+  );
+}
+mutate(
+  'repair connection tags',
+  (v) => {
+    v.connectionRepairs = {
+      gone: {
+        connection: { ...v.connections.edge, id: 'gone', tags: 'planned' },
+        ownerGeometry: null,
+        start: { x: 0, y: 0 },
+        end: { x: 2, y: 2 },
+        reason: 'missing',
+      },
+    };
+  },
+  tagged,
+);
+mutate(
+  'tag key mismatch and reserved key',
+  (v) => {
+    v.tagDefinitions.other = { ...v.tagDefinitions.confirm };
+    v.objects.app.tags = ['__proto__'];
+  },
+  tagged,
+);
+for (const key of ['0', '01', '-1', 'x', '1.5', '9007199254740992'])
+  mutate(`depth route key ${key}`, (v) => {
+    v.connections.edge.depthRoutes = { [key]: { points: [] } };
+  });
+const depthRoute = (name: string, route: unknown, fn?: (v: any) => void) =>
+  mutate(`depth route ${name}`, (v) => {
+    fn?.(v);
+    v.connections.edge.depthRoutes = { 1: route };
+  });
+depthRoute('empty', {});
+depthRoute('unknown only', { future: true });
+depthRoute('free start for bound shared', {
+  start: { kind: 'free', x: 0, y: 0 },
+});
+depthRoute('bound end for free shared', {
+  end: { kind: 'object', objectId: 'app', side: 'top', offset: 0 },
+});
+depthRoute('other target', {
+  start: { kind: 'object', objectId: 'payments', side: 'top', offset: 0 },
+});
+depthRoute('missing boundary', {
+  start: { kind: 'boundary', objectId: 'app', pointId: 'port' },
+});
+depthRoute(
+  'boundary',
+  { start: { kind: 'boundary', objectId: 'app', pointId: 'port' } },
+  (v) => {
+    v.objects.app.boundaryPoints = { port: { side: 'left', offset: 0.5 } };
+  },
+);
+depthRoute('free-free', { points: [] }, (v) => {
+  v.connections.edge.start = { kind: 'free', x: 0, y: 0 };
+});
+depthRoute('cross-root', { points: [] }, (v) => {
+  v.connections.edge.end = {
+    kind: 'object',
+    objectId: 'payments',
+    side: 'left',
+    offset: 0.5,
+  };
+});
+depthRoute('owned', { start: { kind: 'free', x: 0, y: 0 } }, (v) => {
+  v.connections.edge.ownerId = 'app';
+  v.connections.edge.start = { kind: 'free', x: 3, y: 3 };
 });
 record('null', null);
 record('array', []);

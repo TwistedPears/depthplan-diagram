@@ -1,3 +1,4 @@
+import { adoptTagDefinitions } from './tags';
 import { z } from 'zod';
 import {
   createRecursiveDocument,
@@ -13,6 +14,7 @@ import { reparentLayouts } from './recursiveReparent';
 import { ensureDepthLayout } from './recursiveLayouts';
 import { recursiveScene } from './recursiveScene';
 import { localPoint } from './connectionGeometry';
+import { reconcileConnectionRoutes } from './connectionRoutes';
 import { intersectsBounds, sceneBounds } from './recursiveCamera';
 import { collapsedObjects, setCollapsedObjects } from './recursiveVisibility';
 import type { DocumentEdit } from './documentTransactions';
@@ -114,6 +116,7 @@ export function validateTemplate(value: unknown): asserts value is Template {
           'layouts',
           'connections',
           'namedViews',
+          'tagDefinitions',
           'extensions',
         ].includes(key),
     ) ||
@@ -144,6 +147,9 @@ function cleanDocument(source: RecursiveDocument): RecursiveDocument {
     layouts: clone(source.layouts),
     connections: clone(source.connections),
     ...(source.namedViews ? { namedViews: clone(source.namedViews) } : {}),
+    ...(source.tagDefinitions
+      ? { tagDefinitions: clone(source.tagDefinitions) }
+      : {}),
     extensions: {},
   };
   setCollapsedObjects(document, collapsedObjects(source));
@@ -225,6 +231,7 @@ export function insertTemplate(
     instance.objects[frame].type !== 'frame' ||
     Object.values(instance.connections).some((c) => c.ownerId === null)
   ) {
+    const unwrapped = clone(instance);
     const depth = roots.length
       ? Math.max(...Object.values(instance.rootDepths)) + 1
       : 0;
@@ -266,6 +273,7 @@ export function insertTemplate(
           localPoint(p, geometry),
         );
     }
+    reconcileConnectionRoutes(unwrapped, instance, true);
   }
   instance.objects[frame].style = {
     ...instance.objects[frame].style,
@@ -312,6 +320,10 @@ export function insertTemplate(
           throw new Error('Duplicate instance ID.');
       Object.assign(draft[collection], clone(instance[collection]));
     }
+    adoptTagDefinitions(draft, source.tagDefinitions, [
+      ...Object.keys(instance.objects).map((id) => draft.objects[id]),
+      ...Object.keys(instance.connections).map((id) => draft.connections[id]),
+    ]);
     Object.assign(draft.rootDepths, clone(instance.rootDepths));
     Object.assign(draft.layouts, clone(instance.layouts));
     setCollapsedObjects(

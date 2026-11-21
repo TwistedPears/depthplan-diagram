@@ -61,6 +61,11 @@ export default function BoardSearch({
               ? 'Search all boards… Press Enter'
               : 'Search object text… Press Enter'
           }
+          title={
+            workspace?.project
+              ? undefined
+              : 'Filter by tag with tag:Name or tag:"Two words"'
+          }
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.stopPropagation();

@@ -591,6 +591,14 @@ kbd {
 .automation-folder button {
   flex-shrink: 0;
 }
+.automation-client {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.automation-client > button {
+  justify-self: start;
+}
 .form-dialog.recovery-dialog {
   width: 660px;
 }

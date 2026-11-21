@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   unavailable,
   type AutomationRequest,
@@ -7,11 +7,13 @@ import type { ApiResult } from '../../shared/depthApiContract';
 import { boundedResult, EditorError } from '../../shared/editorQueries';
 import { projectOpen, projectQuery } from '../../shared/mcpProjectContract';
 import { mcpTools } from '../../shared/mcpRegistry';
+import { describeAccess } from '../../shared/mcpAccess';
 import useAutomation, { type AutomationHandlers } from './useAutomation';
 import useDocumentSessions, {
   type SessionController,
 } from './useDocumentSessions';
 import useProjectWorkspace from './useProjectWorkspace';
+import { projectAutomation } from './projectAutomation';
 
 type Context = {
   appInstanceId: string | null;
@@ -25,7 +27,10 @@ export function workspaceRouter(current: () => Context) {
     { payload: string; result: Promise<ApiResult<unknown>> }
   >();
   // ponytail: retain at most 64 owner workflow readers; snapshot terminal receipts if memory warrants it.
-  const operations = new Map<string, NonNullable<SessionController['work']>>();
+  const operations = new Map<
+    string,
+    Pick<NonNullable<SessionController['work']>, 'read' | 'cancel' | 'decide'>
+  >();
   const snapshot = () => {
     const { registry, appInstanceId } = current();
     return (
@@ -40,6 +45,7 @@ export function workspaceRouter(current: () => Context) {
       }
     );
   };
+  const projects = projectAutomation(current, () => snapshot());
   const handle = (controller?: SessionController) => {
     const s = controller?.owner.snapshot();
     return s
@@ -62,9 +68,14 @@ export function workspaceRouter(current: () => Context) {
     )
       throw new EditorError('STALE_APP', 'Refresh state for the intended app');
     if (tool === 'depthplan_get_access')
-      return boundedResult(snapshot(), {
-        folders: await window.desktop.mcpFiles.folders(),
-      });
+      return boundedResult(
+        snapshot(),
+        describeAccess(
+          await window.desktop.mcpFiles.folders(),
+          appInstanceId,
+          workspace.project?.location ?? null,
+        ),
+      );
     if (tool === 'depthplan_get_project') {
       const { offset, pageSize } = projectQuery.parse(input);
       const project = workspace.project;
@@ -116,6 +127,16 @@ export function workspaceRouter(current: () => Context) {
         'BUSY',
         'Finish the project transition or dialog first',
       );
+    if (tool === 'depthplan_project') return projects.command(input);
+    if (tool === 'depthplan_create_project') {
+      const result = await projects.create(input);
+      if (result.ok) {
+        operations.set(result.data.operationId, projects.work);
+        if (operations.size > 64)
+          operations.delete(operations.keys().next().value!);
+      }
+      return result;
+    }
     if (tool === 'depthplan_open_board') {
       const args = projectOpen.parse(input),
         project = workspace.project;
@@ -180,7 +201,7 @@ export function workspaceRouter(current: () => Context) {
     }
     return result;
   };
-  return async (tool: AutomationRequest['tool'], raw: unknown) => {
+  const route = async (tool: AutomationRequest['tool'], raw: unknown) => {
     try {
       const input = mcpTools[tool].input.parse(raw) as any;
       if (!input.requestId) return await dispatch(tool, input);
@@ -216,6 +237,7 @@ export function workspaceRouter(current: () => Context) {
       );
     }
   };
+  return Object.assign(route, { cancelProjects: projects.cancelActive });
 }
 
 export default function useWorkspaceAutomation(appInstanceId: string | null) {
@@ -225,6 +247,10 @@ export default function useWorkspaceAutomation(appInstanceId: string | null) {
   current.current = { appInstanceId, registry, workspace };
   const router = useRef<ReturnType<typeof workspaceRouter> | null>(null);
   router.current ??= workspaceRouter(() => current.current);
+  useEffect(
+    () => window.desktop.mcpFiles?.onRevoked?.(router.current!.cancelProjects),
+    [],
+  );
   return useAutomation(
     Object.fromEntries(
       Object.keys(mcpTools).map((tool) => [

@@ -153,6 +153,7 @@ const desktopHandler = {
       expected: string,
       manifest: ProjectManifest,
       documents: RecursiveDocument[] = [],
+      target?: { path: string; lease: FileLease },
     ) =>
       projectCall(
         'project:save',
@@ -161,6 +162,8 @@ const desktopHandler = {
         manifest,
         projectFilename(manifest.name, [], '.depthproject'),
         documents,
+        target?.path,
+        target?.lease,
       ),
     recents: () =>
       native<FileResult<{ entries: RecentProject[] }>>('project:recents'),
@@ -213,8 +216,12 @@ const desktopHandler = {
       overwrite: boolean,
     ) =>
       projectCall('project:resolve-definition', sessionId, expected, overwrite),
-    apply: (sessionId: string, expected: string, action: ProjectAction) =>
-      projectCall('project:apply', sessionId, expected, action),
+    apply: (
+      sessionId: string,
+      expected: string,
+      action: ProjectAction,
+      lease?: FileLease,
+    ) => projectCall('project:apply', sessionId, expected, action, lease),
     close: (sessionId: string): Promise<FileResult<Record<string, never>>> =>
       native('project:close', sessionId),
     writeBoard: (

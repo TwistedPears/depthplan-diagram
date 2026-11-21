@@ -1,6 +1,8 @@
 import { Immer } from 'immer';
 import { indexHierarchy } from './recursiveHierarchy';
 import { reconcileExpansionLayouts } from './expansionLayouts';
+import { growFitHeights } from './objectFit';
+import { reconcileConnectionRoutes } from './connectionRoutes';
 import {
   type RecursiveDocument,
   type DiagramObject,
@@ -80,6 +82,8 @@ export function transactDocument(
     const draft = produce(document, (editable) => {
       edit(editable);
       reconcileExpansionLayouts(document, editable);
+      growFitHeights(document, editable);
+      reconcileConnectionRoutes(document, editable);
       if (editable.id !== document.id)
         throw new Error('An edit cannot replace document identity');
       // modified is derived, so touching it alone is not a document edit.

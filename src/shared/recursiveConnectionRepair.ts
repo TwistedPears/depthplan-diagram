@@ -13,6 +13,7 @@ import {
 import { worldAt } from './recursiveReparent';
 import { connectionRoute, worldPoint, localPoint } from './connectionGeometry';
 import { connectionOwner } from './recursiveOwnership';
+import { reconcileConnectionRoutes } from './connectionRoutes';
 import { recursiveVisibility } from './recursiveVisibility';
 
 /** Resolve retained hidden geometry using the same deterministic policy as reparenting. */
@@ -138,6 +139,7 @@ export function repairConnections(
       connection.ownerId = ownerId;
     }
   }
+  reconcileConnectionRoutes(before, draft, true);
 }
 export function deleteBoundaryPoint(
   objectId: string,
@@ -161,8 +163,12 @@ export function resolveConnectionRepair(
       replacement = draft.connections[replacementId];
     if (!repair || !replacement)
       throw new Error('Select an authored replacement connection.');
+    const { depthRoutes: _stale, ...original } = repair.connection;
     draft.connections[id] = {
-      ...repair.connection,
+      ...original,
+      ...(replacement.depthRoutes
+        ? { depthRoutes: replacement.depthRoutes }
+        : {}),
       ownerId: replacement.ownerId,
       start: replacement.start,
       end: replacement.end,

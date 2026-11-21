@@ -21,6 +21,14 @@ import type { SourceFile } from './fileContract';
 import type { RecursiveDocument } from './recursiveDocument';
 import { contentText, objectLabel } from './recursiveScene';
 import { matchesSearch, searchTerms } from './objectSearch';
+import { entityTags, hasTag, resolveTag } from './tags';
+import { overflowingObjects } from './objectFit';
+
+function queryTag(doc: RecursiveDocument, idOrName: string) {
+  const tag = resolveTag(doc, idOrName);
+  if (!tag) throw new EditorError('NOT_FOUND', `No tag ${idOrName}`);
+  return tag.id;
+}
 
 export type EditorSnapshot = QuerySnapshot & {
   camera: Camera;
@@ -133,7 +141,7 @@ export function* searchItems(
   doc: RecursiveDocument,
   args: Pick<
     z.infer<typeof searchInput>,
-    'query' | 'collection' | 'rootId' | 'subtreeId'
+    'query' | 'collection' | 'rootId' | 'subtreeId' | 'tag'
   >,
   offset = 0,
 ) {
@@ -165,13 +173,16 @@ export function* searchItems(
   const included = (id: string | null) =>
     id !== null && (scopeId === undefined || scope.has(id));
   const terms = searchTerms(args.query);
-  if (!terms.length) return;
+  const tag = args.tag === undefined ? undefined : queryTag(doc, args.tag);
+  if (!terms.length && !tag) return;
+  if (tag && args.collection === 'bookmarks')
+    throw new EditorError('INVALID_REQUEST', 'Bookmarks have no tags');
   const collections = args.collection
     ? [args.collection]
     : (['objects', 'connections', 'bookmarks'] as const);
   let position = 0;
   for (const collection of collections) {
-    if (collection === 'bookmarks' && scopeId !== undefined) continue;
+    if (collection === 'bookmarks' && (scopeId !== undefined || tag)) continue;
     const entities =
       collection === 'bookmarks' ? (doc.namedViews ?? {}) : doc[collection];
     for (const id of Object.keys(entities).sort()) {
@@ -196,7 +207,12 @@ export function* searchItems(
       const text = object
         ? contentText(object.content).replace(/\s+/g, ' ').trim()
         : '';
-      if (!matchesSearch(`${object ? object.name : label} ${text}`, terms))
+      const entity = object ?? connection;
+      if (tag && !(entity && hasTag(entity, tag))) continue;
+      if (
+        terms.length &&
+        !matchesSearch(`${object ? object.name : label} ${text}`, terms)
+      )
         continue;
       const lowerText = text.toLowerCase();
       const snippetText =
@@ -237,6 +253,13 @@ export function* searchItems(
           snippet,
           snippetTruncated:
             start > 0 || start + snippet.length < normalized.length,
+          ...(entity
+            ? {
+                tags: entityTags(doc.tagDefinitions, entity).map(
+                  (tag) => tag.id,
+                ),
+              }
+            : {}),
           ...(object
             ? {
                 rootId: hierarchy.entries.get(id)!.root,
@@ -281,6 +304,7 @@ export function createEditorQueries(owner: {
           revision: s.revision,
           viewRevision: s.viewRevision,
           title: s.document?.metadata.title ?? null,
+          tagDefinitions: Object.values(s.document?.tagDefinitions ?? {}),
           tools: Object.keys(mcpTools),
           bookmarkFields: [
             'rootDepths',
@@ -350,7 +374,7 @@ export function createEditorQueries(owner: {
             'STALE_CURSOR',
             'Restart this query without a cursor',
           );
-        const ids = args.ids ?? Object.keys(collection).sort();
+        let ids = args.ids ?? Object.keys(collection).sort();
         for (const id of ids)
           if (!Object.hasOwn(collection, id))
             throw new EditorError(
@@ -359,6 +383,33 @@ export function createEditorQueries(owner: {
             );
         const offset = previous?.offset ?? 0;
         const doc = recursiveDocument(s);
+        if (args.tag !== undefined) {
+          if (
+            args.collection !== 'objects' &&
+            args.collection !== 'connections'
+          )
+            throw new EditorError(
+              'INVALID_REQUEST',
+              'Tag filters apply to objects and connections',
+            );
+          const tag = queryTag(doc, args.tag);
+          const entities = doc[args.collection];
+          ids = ids.filter((id) => hasTag(entities[id], tag));
+        }
+        if (args.overflow !== undefined && args.collection !== 'objects')
+          throw new EditorError(
+            'INVALID_REQUEST',
+            'Overflow filters apply to objects',
+          );
+        if (args.overflow !== undefined) {
+          const overflowing = overflowingObjects(doc, ids);
+          ids = ids.filter((id) => overflowing.has(id) === args.overflow);
+        }
+        // Lay out text only for the returned page.
+        const overflowing =
+          args.collection === 'objects'
+            ? overflowingObjects(doc, ids.slice(offset, offset + args.pageSize))
+            : null;
         const world =
           args.collection === 'objects' ? activeWorldGeometry(doc) : null;
         const hierarchy =
@@ -380,6 +431,7 @@ export function createEditorQueries(owner: {
                     doc.layouts[entry.root][doc.rootDepths[entry.root]][id] ??
                     null,
                   worldGeometry: world!.get(id) ?? null,
+                  overflow: overflowing!.has(id),
                 }
               : {}),
           };

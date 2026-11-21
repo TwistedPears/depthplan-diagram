@@ -7,6 +7,7 @@ import { recursiveScene } from './recursiveScene';
 import { sceneBounds, unionBounds } from './recursiveCamera';
 import { localPoint, worldPoint } from './connectionGeometry';
 import { endpointWorld } from './recursiveConnectionRepair';
+import { displayedConnection, storeDisplayed } from './connectionRoutes';
 import type { Point } from './recursiveCreation';
 
 /** Mirror the active arrangement, keeping text readable and bindings attached. */
@@ -64,8 +65,10 @@ export function flipSelection(
       ))
         draft.objects[id].boundaryPoints![pointId] = placement(point);
     }
-    for (const connection of Object.values(document.connections)) {
-      const copy = draft.connections[connection.id];
+    for (const stored of Object.values(document.connections)) {
+      // Mirror the displayed route; an active depth override keeps its own copy.
+      const connection = displayedConnection(document, stored);
+      const copy = { ...connection };
       const flipPath =
         scope.connections.has(connection.id) &&
         (connection.ownerId === null || world.has(connection.ownerId));
@@ -96,6 +99,8 @@ export function flipSelection(
         copy.points = connection.points.map((p) =>
           localPoint(reflect(worldPoint(p, oldOwner)), newOwner),
         );
+      if (JSON.stringify(copy) !== JSON.stringify(connection))
+        draft.connections[stored.id] = storeDisplayed(document, stored, copy);
     }
   };
 }

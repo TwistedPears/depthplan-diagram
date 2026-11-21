@@ -1,7 +1,8 @@
 # Local MCP setup and tools
 
-DepthPlan exposes 28 tools for inspecting and editing the live document, navigating,
-managing history/bookmarks, approved file operations, recovery and export. The
+DepthPlan exposes 31 tools for inspecting and editing the live document, navigating,
+managing history/bookmarks and projects, approved file operations, recovery,
+export and inline canvas snapshots. The
 bundled Rust `depthplan-mcp` adapter uses stdio and needs no global Node runtime.
 The executable schemas are [mcpRegistry.ts](../src/shared/mcpRegistry.ts),
 [depthApiContract.ts](../src/shared/depthApiContract.ts) and
@@ -15,8 +16,11 @@ exact fields; this guide describes their semantics.
 2. Use the displayed **MCP executable** as the client's stdio command, followed
    by `--descriptor` and the displayed **Descriptor** as separate arguments.
    For Codex, copy **Codex configuration** into its `config.toml`, replacing an
-   existing `mcp_servers.depthplan` table rather than duplicating it. Enable or
-   restart that server in the client after a configuration change.
+   existing `mcp_servers.depthplan` table rather than duplicating it. For Claude
+   Code, copy **Claude Code configuration** into `.mcp.json` in the folder where
+   you run it, or merge its `depthplan` entry into an existing `mcpServers`
+   block. Enable or restart that server in the client after a configuration
+   change.
 3. Query `depthplan_get_state({})` and verify the selected app/document. Discovery
    alone works while disconnected and does not prove a live connection.
 4. For disk operations, choose **Approve folder…** locally in MCP Details. There
@@ -100,6 +104,35 @@ results; expiration requires reconciling current state. Identical accepted retri
 return the original result without repeating work. New commands using a closed or
 replaced handle fail; reopening the same file creates a new handle.
 
+`create_project({appInstanceId, requestId, name, path})` performs **New Project**
+(the active board travels with its content and Undo history), applies the name
+and saves to `path`, a new `.depthproject` file inside an approved folder; all
+boards are written beside it. The grant and a vacant destination are checked
+before the workspace changes. It returns an `operationId`. Replacing an open
+project requires `replaceProjectSessionId` from `get_project`; replacing one that
+was never saved offers a `discard`/`cancel` decision instead of the local prompt.
+(Saving it first is not offered; use the UI.) While that decision is pending the
+workspace is locked and other workspace tools return BUSY; `decide`,
+`cancel_operation`, revoking a folder or turning MCP Server off cancels it (the
+local **Cancel MCP operation** button covers board operations only). The folder
+containing `path` must already exist. A failed or canceled save keeps the new
+project in memory, as in the UI.
+
+`project({handle, requestId, action})` takes the project handle and one action:
+`create_board` (`name`; the filename is generated in snake_case and the board
+opens), `rename_board` (`boardId` plus `name` and/or `filename`; a name alone also
+regenerates the filename, as inline renaming does), `rename_project` (`name`) or
+`remove_board` (`boardId`). These run the drawer's own operations: open boards
+save accepted edits first and drafts, gestures or a running MCP operation on an
+affected board return BUSY (resolve drafts with `resolve_draft`). A saved project
+requires an approved folder covering its manifest location; an unsaved project
+changes only memory. Names may repeat; unsafe names and filename collisions are
+rejected without overwriting. Removal changes membership only: a saved board's
+file stays on disk and is reported as an unlisted diagnostic (`file:
+"retained-unlisted"`); an unsaved board is discarded (`"discarded"`). Results
+include the project summary and the affected board with its live handle. Both
+tools replay identical request IDs.
+
 Project `save` and `reload` use the existing native project owner, fingerprint
 checks and MCP folder grants. Saving a project board as an independent copy uses a
 new document ID and leaves the original association and dirty state intact.
@@ -123,11 +156,13 @@ All names below have the `depthplan_` prefix.
 | Tools                                                     | Purpose                                                                   |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `get_project`, `open_board`                               | Project members and explicit board sessions                               |
+| `create_project`, `project`                               | Create/save a project; create, rename and remove boards; rename project   |
 | `get_state`, `search`, `query`, `read_chunk`              | Live state, text discovery and native entity data                         |
 | `edit`, `delete_preview`, `history`, `content_transfer`   | Atomic authoring, deletion impact, Undo/Redo and large content transfer   |
 | `camera`, `selection`, `controls`, `bookmarks`            | View navigation, selection, editor controls and saved views               |
 | `get_drafts`, `resolve_draft`                             | Inspect and explicitly apply/discard a versioned UI draft                 |
 | `get_access`, `files`, `export`                           | Approved folders, document file workflows and SVG/PNG/JSON export         |
+| `snapshot`                                                | Inline PNG of the rendered canvas for visual checks                       |
 | `get_operation`, `decide`, `cancel_operation`             | Poll long operations, answer an offered decision and request cancellation |
 | `get_recovery`, `recovery`                                | List, preview, restore or discard app-owned recovery candidates           |
 | `get_context`, `get_hierarchy`, `set_depth`, `reveal_all` | Compact depth-navigation interface                                        |
@@ -191,7 +226,47 @@ connection creation, geometry/content/style, arrangement/stacking, containment,
 visibility, boundaries/bridges/repairs and bookmarks. Creation uses world-space
 object centers. Geometry edits default to parent-local space; `space: "world"`
 uses world centers. Connection creation points are world coordinates; edited free
-endpoints and bends use owner-local coordinates. See [document behavior](document-and-editing.md).
+endpoints and bends use owner-local coordinates. `edit_connection` route fields
+(`points`, `start`, `end`) edit the shared route by default; `depthRoute: "set"`
+writes them to an override for the active depth of the connection's route root
+instead (alone, it copies the shared route there) and `"clear"` removes that
+override. Query connections to read stored `depthRoutes`; label and style are
+always shared. For large maps, set `style: { lineType: "elbow", avoidShapes:
+true }` instead of hand-placing bends: those arrows route around shapes on
+separate lanes with automatically placed labels; `labelPosition` (0–1, or null
+for automatic) pins a label along the path. In this mode the router chooses
+attachment sides, so authored or per-depth sides only apply to endpoints with
+`binding: "fixed"` (or boundary points). See [document behavior](document-and-editing.md).
+
+`{type: "layout", id, algorithm, gap?, padding?, direction?, columns?}` arranges
+the visible direct children of object `id` at its root's active depth, keeping
+their sizes, rotation and Z; see [automatic layout](document-and-editing.md#automatic-layout).
+`algorithm` is `grid`, `layered`, `row` or `column`; `gap` defaults to 40 and
+`padding` to 24 canvas units. `layered` uses connectors between the children (or
+their descendants) to order rows (`direction: "down"`, default) or columns
+(`"right"`). `grid` fills rows (`"right"`, default) or columns (`"down"`) with
+`columns` defaulting to ⌈√n⌉. Roots cannot be arranged with `layout`. A missing or
+hidden `id` rejects the batch; no visible children is a no-op. Combine it with
+creation and depth actions in one batch to build and arrange a level atomically.
+
+Tags use two `edit` actions. `tag_definition` creates (name and color required),
+updates or deletes a tag by ID; `strokeStyle: null` clears its line style, and
+delete strips the tag from everything in the same transaction. `tags` adds, removes
+or sets `tagIds` on `objects` and `connections`, including ones created earlier in
+the batch. `edit_object` with `style.legend: true` turns an object into a legend.
+`get_state` returns `tagDefinitions`; query items carry `value.tags`, and search
+items carry `tags` (known IDs only). `query` and `search` accept `tag` as an ID or a
+case-insensitive name, filtered before paging; an unknown tag is `NOT_FOUND`. A
+tagged search with an empty `query` returns every tagged object and connection.
+See [tags and legends](document-and-editing.md#tags-and-legends).
+
+Object query items include `overflow`, which is true when the body text is clipped
+in the active layout ([text fit](document-and-editing.md#rich-text-and-code)).
+`query` with `collection: "objects", overflow: true` lists every clipped object in
+one paged result. Only painted bodies count: hidden objects and expanded parents
+report false until shown. Fix one by resizing it with
+`geometry`, or by setting `edit_object` `style.fit` to `"grow-height"` (it grows in
+the same Undo step) or `"shrink-text"`.
 
 For large content, `content_transfer` begins a buffer with an ID and JSON string
 `totalLength`, appends at exact UTF-16 offsets (at most 8,192 characters each), then
@@ -216,6 +291,43 @@ context succeeds with no roots. Depth must be in range and target a root; select
 the existing depth clears local folds when present. Exact depth-command replay
 reports the original applied revision but current state/selected depth.
 
+### Snapshots
+
+`snapshot({handle, scope, ids?, bookmarkId?, maxPixels?})` lets a vision-capable
+client see the canvas. The PNG arrives as an MCP image content block (`image/png`);
+the text/structured part carries `scope`, `width`, `height`, `scale` (output pixels
+per world unit), the world `region` covered and the `revision`/`viewRevision` it
+was rendered from. Scopes:
+
+- `viewport` (default): what the board shows now, from its camera and viewport,
+  at the on-screen zoom.
+- `whole`: all revealed content at the active depths and folds, including
+  offscreen objects, widened to painted ink such as overflowing text, with 16
+  units of padding.
+- `objects`: the frames of the visible `ids` plus 16 units of padding, with
+  everything drawn there (connectors, neighbours). Content overflowing an edge
+  object's frame by more than the padding is cut off; use `whole` or `viewport`
+  to see it. Hidden ids return NOT_FOUND.
+- `bookmarkId`: that bookmark's camera view (or whole content when it saved no
+  camera). Offscreen rendering of a different depth state is not available, so it
+  renders only when applying the bookmark would leave the visible geometry,
+  depths, folds and routes unchanged; otherwise it returns INVALID_REQUEST and you
+  apply the bookmark with `bookmarks` first.
+
+It rasterizes the export pipeline's committed drawing layer: culled offscreen
+shapes are restored, while selection handles, stack/boundary controls, the minimap
+and unapplied drafts are not drawn. `viewport`/bookmark views use the on-screen
+zoom, lowered when needed to fit `maxPixels` (default 1.5 MP, maximum 4 MP; larger
+values are rejected as invalid) and 4,096 pixels per side. `whole` and `objects`
+are scaled to fill `maxPixels`, enlarging a small region up to 4×, so a snapshot
+of a few objects is a zoomed-in view; `data.scale` is pixels per world unit. Encoded
+PNGs over 7 MiB return RESPONSE_TOO_LARGE rather than a truncated image; request
+a smaller `maxPixels` or region. It waits up to two seconds for the exact
+session/document/view render, needs no folder grant, writes nothing and changes
+no document, Undo history, selection, camera or revision. Like image export it
+requires MCP enabled, a current handle, the active board and no draft, gesture or
+running MCP operation (BUSY). A change during rendering returns STALE_REVISION.
+
 ## Files, drafts and decisions
 
 Folder grants permit reads/writes and reset each app run. Paths are canonicalized
@@ -224,6 +336,14 @@ symlink escapes, replaced grant directories and non-regular targets are rejected
 checks repeat before atomic writes. Existing source files also need grants. This
 is not protection against a malicious process with the same user's filesystem
 access; do not approve untrusted shared directories.
+
+`get_access({})` reads the instance's live grant list on every call and returns its
+`appInstanceId`. Each folder has `writable`; a grant inside the open project's
+folder is `writable: false` because the project writer lock rejects Save As copies
+and exports there, and a grant containing that folder carries a `reason`. An empty
+list adds a `note`. Grants are held by the app instance, not the client
+connection: re-enabling access keeps them, and they reset only when DepthPlan
+restarts or the user revokes them.
 
 `files` supports new/open/reload/save/save_as. `export` takes a path and svg/png/json;
 images use whole/selection scope and committed offscreen content. Capture waits
@@ -256,8 +376,8 @@ are 0700 and descriptors/sockets 0600; native permission checks fail closed. No
 TCP listener exists for ordinary MCP. Tokens stay outside the renderer. Only the
 trusted main frame can enable access or answer host bridge requests.
 
-Requests are limited to 64 KiB, responses to 1 MiB, and ordinary calls to five
-seconds. Long work uses operation receipts. Stdout carries MCP messages only;
+Requests are limited to 64 KiB, responses to 1 MiB (8 MiB for `snapshot`), and
+ordinary calls to five seconds. Long work uses operation receipts. Stdout carries MCP messages only;
 diagnostics use stderr. Same-user administrator/account compromise is outside
 this boundary.
 
@@ -270,7 +390,9 @@ this boundary.
 | BUSY                                                   | Finish or explicitly resolve the active draft, gesture or transition.                                    |
 | INVALID_REQUEST / NOT_FOUND / NOT_ROOT / INVALID_DEPTH | Inspect the schema/hierarchy and correct the request.                                                    |
 | REQUEST_ID_REUSED                                      | Keep identical payload for retry; use a new ID only for a new intended action.                           |
-| RESPONSE_TOO_LARGE                                     | Reduce page/chunk size; never truncate stable identity.                                                  |
+| RESPONSE_TOO_LARGE                                     | Reduce page/chunk size or snapshot `maxPixels`; never truncate stable identity.                          |
+| `get_access` lists no folders after approval           | Compare the client's `--descriptor` with MCP Details of that window; restart the client server.          |
+| Approved folder has `writable: false`                  | Write outside the open project folder, or close the project first.                                       |
 | Timeout, disconnect or internal error                  | Inspect state/files before retry; commit outcome may be unknown.                                         |
 | Tools missing or protocol error                        | Restart the client server and record app/client/protocol versions.                                       |
 

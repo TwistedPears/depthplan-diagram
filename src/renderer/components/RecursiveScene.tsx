@@ -1,10 +1,19 @@
 import ConnectionPaint from './ConnectionPaint';
-import { memo, type ReactNode } from 'react';
-import { Group, Text } from 'react-konva';
+import { memo, useMemo, type ReactNode } from 'react';
+import { Group, Rect, Text } from 'react-konva';
 import type {
   DiagramObject,
   RecursiveDocument,
+  RichBlock,
 } from '../../shared/recursiveDocument';
+import {
+  entityTags,
+  isLegend,
+  legendContent,
+  tagStyledConnection,
+} from '../../shared/tags';
+import { TagDefinitionsContext, TagPills } from './TagPills';
+import { bodyFit } from '../../shared/objectFit';
 import type { recursiveScene } from '../../shared/recursiveScene';
 import {
   visibleEndpoint,
@@ -27,6 +36,8 @@ const ObjectContent = memo(function ObjectContent({
   hasChildren,
   exclusion,
   editingText,
+  tagDefinitions,
+  legend,
   onError,
 }: {
   object: DiagramObject;
@@ -36,9 +47,14 @@ const ObjectContent = memo(function ObjectContent({
   hasChildren: boolean;
   exclusion?: TextExclusion;
   editingText: boolean;
+  tagDefinitions: RecursiveDocument['tagDefinitions'];
+  /** Generated legend body that replaces the object's own content. */
+  legend?: RichBlock[];
   onError: (message: string) => void;
 }) {
   const style = object.style;
+  const content = legend ?? object.content;
+  const tags = entityTags(tagDefinitions, object);
   const geometry = { width, height };
   const paint = {
     fill: typeof style?.fill === 'string' ? style.fill : '#ffffff',
@@ -58,11 +74,14 @@ const ObjectContent = memo(function ObjectContent({
           ? [2, 4]
           : [],
   };
-  const { title, body } = objectContentBounds(
-    object,
-    width,
-    height,
-    hasChildren,
+  const {
+    title,
+    body,
+    tags: tagBox,
+  } = objectContentBounds(object, width, height, hasChildren);
+  const { scale, overflow } = useMemo(
+    () => bodyFit(object, content, width, height, hasChildren, expanded),
+    [object, content, width, height, hasChildren, expanded],
   );
   return (
     <>
@@ -80,18 +99,72 @@ const ObjectContent = memo(function ObjectContent({
         />
       )}
       {!expanded &&
-        object.content.length > 0 &&
+        content.length > 0 &&
         body.width > 0 &&
         body.height > 10 &&
-        !editingText && (
+        !editingText &&
+        (scale === 1 ? (
           <RecursiveRichContent
             {...body}
             exclusion={exclusion}
-            content={object.content}
+            content={content}
             verticalAlign={textVerticalAlignment(object)}
             onError={onError}
           />
-        )}
+        ) : (
+          // shrink-text lays out at the unscaled size, then scales the body uniformly.
+          <Group
+            name="object-content"
+            x={body.x}
+            y={body.y}
+            scaleX={scale}
+            scaleY={scale}
+          >
+            <RecursiveRichContent
+              x={0}
+              y={0}
+              width={body.width / scale}
+              height={body.height / scale}
+              exclusion={
+                exclusion && {
+                  ...exclusion,
+                  width: exclusion.width / scale,
+                  top: exclusion.top / scale,
+                  bottom: exclusion.bottom / scale,
+                }
+              }
+              content={content}
+              verticalAlign={textVerticalAlignment(object)}
+              onError={onError}
+            />
+          </Group>
+        ))}
+      {tags.length > 0 && tagBox.height > 0 && (
+        <TagPills
+          tags={tags}
+          {...tagBox}
+          width={tagBox.width - (overflow ? 20 : 0)}
+        />
+      )}
+      {overflow && !editingText && (
+        <Group
+          name="object-content object-overflow"
+          x={width / 2 - 18}
+          y={height / 2 - 14}
+          listening={false}
+        >
+          <Rect width={14} height={10} cornerRadius={3} fill="#ac323b" />
+          <Text
+            width={14}
+            height={10}
+            text="…"
+            fontSize={10}
+            align="center"
+            verticalAlign="middle"
+            fill="#ffffff"
+          />
+        </Group>
+      )}
     </>
   );
 });
@@ -120,6 +193,14 @@ export default memo(function RecursiveScene({
   liftedIds?: ReadonlySet<string>;
   editingConnectionLabel?: string | null;
 }) {
+  const definitions = document.tagDefinitions;
+  const legend = useMemo(
+    () =>
+      Object.values(document.objects).some(isLegend)
+        ? legendContent(document)
+        : undefined,
+    [document],
+  );
   const liftedConnections = new Map<string, ConnectionRoute>();
   if (liftedIds?.size)
     for (const [ownerId, routes] of scene.connections)
@@ -149,23 +230,44 @@ export default memo(function RecursiveScene({
     }
     return opacity;
   };
-  const renderConnection = (id: string, route: ConnectionRoute) => (
+  const renderConnection = (
+    id: string,
+    route: ConnectionRoute,
+    part: 'all' | 'line' | 'label' = 'all',
+  ) => (
     <ConnectionPaint
-      key={`connection-${id}`}
-      connection={document.connections[id]}
+      key={`connection-${part === 'label' ? 'label-' : ''}${id}`}
+      connection={tagStyledConnection(document.connections[id], definitions)}
       route={route}
       scale={scale}
       editingLabel={editingConnectionLabel === id}
+      part={part}
     />
   );
-  const renderScope = (ownerId: string | null): ReactNode =>
-    (scene.paintOrder.get(ownerId) ?? []).map((item) =>
+  // Labels (with their knock-out and tag pills) paint above every line of
+  // their container, right after its last connection.
+  const renderScope = (ownerId: string | null): ReactNode => {
+    const items = (scene.paintOrder.get(ownerId) ?? []).filter(
+      (item) => item.kind === 'object' || !liftedConnections.has(item.id),
+    );
+    const labels = items.flatMap((item) => {
+      if (item.kind === 'object') return [];
+      const c = document.connections[item.id];
+      return c.label || c.tags?.length
+        ? [renderConnection(item.id, item.route, 'label')]
+        : [];
+    });
+    let last = -1;
+    items.forEach((item, i) => {
+      if (item.kind === 'connection') last = i;
+    });
+    return items.flatMap((item, i) => [
       item.kind === 'object'
         ? renderObject(item.id)
-        : liftedConnections.has(item.id)
-          ? null
-          : renderConnection(item.id, item.route),
-    );
+        : renderConnection(item.id, item.route, 'line'),
+      ...(i === last ? labels : []),
+    ]);
+  };
   const renderObject = (id: string, lifted = false): ReactNode => {
     if (liftedIds?.has(id) && !lifted) return null;
     const object = document.objects[id],
@@ -199,6 +301,8 @@ export default memo(function RecursiveScene({
           hasChildren={scene.hierarchy.children.has(id)}
           exclusion={textExclusions?.get(id)}
           editingText={editingTextId === id}
+          tagDefinitions={definitions}
+          legend={isLegend(object) ? legend : undefined}
           onError={onError}
         />
         <Group
@@ -219,7 +323,7 @@ export default memo(function RecursiveScene({
     );
   };
   return (
-    <>
+    <TagDefinitionsContext.Provider value={definitions}>
       {renderScope(null)}
       {[...(liftedIds ?? [])].map((id) => renderObject(id, true))}
       {[...liftedConnections].map(([id, route]) => {
@@ -237,6 +341,6 @@ export default memo(function RecursiveScene({
           </Group>
         );
       })}
-    </>
+    </TagDefinitionsContext.Provider>
   );
 });

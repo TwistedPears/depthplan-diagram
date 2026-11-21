@@ -179,6 +179,12 @@ fn content(v: &Value) -> Result<()> {
     }
     Ok(())
 }
+fn tags(v: &Value, field: &str) -> Result<()> {
+    match v.get("tags") {
+        Some(t) => require(t.as_array().is_some_and(|a| a.iter().all(id)), field),
+        None => Ok(()),
+    }
+}
 fn connection(c: &Value, key: &str) -> Result<()> {
     require(
         c.is_object()
@@ -189,11 +195,36 @@ fn connection(c: &Value, key: &str) -> Result<()> {
             && (c["ownerId"].is_null() || id(&c["ownerId"])),
         "connection",
     )?;
-    if let Some(points) = c.get("points") {
+    let points = |p: &Value| {
         require(
-            points.as_array().is_some_and(|a| a.iter().all(point)),
+            p.as_array().is_some_and(|a| a.iter().all(point)),
             "connection points",
-        )?;
+        )
+    };
+    if let Some(p) = c.get("points") {
+        points(p)?;
+    }
+    if let Some(routes) = c.get("depthRoutes") {
+        for (key, route) in map(routes, "depth routes")? {
+            let d = key.parse::<u64>().map_err(|_| "Invalid depth route")?;
+            require(
+                d <= 9007199254740991
+                    && d.to_string() == *key
+                    && route.is_object()
+                    && ["points", "start", "end"]
+                        .iter()
+                        .any(|f| route.get(*f).is_some()),
+                "depth route",
+            )?;
+            if let Some(p) = route.get("points") {
+                points(p)?;
+            }
+            for f in ["start", "end"] {
+                if let Some(end) = route.get(f) {
+                    endpoint(end)?;
+                }
+            }
+        }
     }
     if let Some(label) = c.get("label") {
         require(label.is_string(), "connection label")?;
@@ -201,27 +232,31 @@ fn connection(c: &Value, key: &str) -> Result<()> {
     if let Some(style) = c.get("style") {
         map(style, "connection style")?;
     }
+    tags(c, "connection tags")?;
     for end in [&c["start"], &c["end"]] {
-        require(end.is_object(), "endpoint")?;
-        match end["kind"].as_str() {
-            Some("free") => require(point(end), "free endpoint")?,
-            Some("object") => {
-                require(id(&end["objectId"]), "endpoint target")?;
-                boundary(end)?;
-                require(
-                    end.get("binding").is_none()
-                        || matches!(end["binding"].as_str(), Some("auto" | "fixed")),
-                    "binding",
-                )?;
-            }
-            Some("boundary") => require(
-                id(&end["objectId"]) && id(&end["pointId"]),
-                "boundary endpoint",
-            )?,
-            _ => return Err("Invalid endpoint kind".into()),
-        }
+        endpoint(end)?;
     }
     Ok(())
+}
+fn endpoint(end: &Value) -> Result<()> {
+    require(end.is_object(), "endpoint")?;
+    match end["kind"].as_str() {
+        Some("free") => require(point(end), "free endpoint"),
+        Some("object") => {
+            require(id(&end["objectId"]), "endpoint target")?;
+            boundary(end)?;
+            require(
+                end.get("binding").is_none()
+                    || matches!(end["binding"].as_str(), Some("auto" | "fixed")),
+                "binding",
+            )
+        }
+        Some("boundary") => require(
+            id(&end["objectId"]) && id(&end["pointId"]),
+            "boundary endpoint",
+        ),
+        _ => Err("Invalid endpoint kind".into()),
+    }
 }
 pub fn document(v: &Value) -> Result<()> {
     require(
@@ -242,6 +277,20 @@ pub fn document(v: &Value) -> Result<()> {
     let connections = map(&v["connections"], "connections")?;
     if let Some(e) = v.get("extensions") {
         map(e, "extensions")?;
+    }
+    if let Some(defs) = v.get("tagDefinitions") {
+        for (key, tag) in map(defs, "tag definitions")? {
+            require(
+                tag.is_object()
+                    && tag["id"] == *key
+                    && tag["name"].as_str().is_some_and(|s| !s.trim().is_empty())
+                    && tag["color"].as_str().is_some_and(|s| !s.is_empty())
+                    && tag
+                        .get("strokeStyle")
+                        .is_none_or(|s| matches!(s.as_str(), Some("solid" | "dashed" | "dotted"))),
+                "tag definition",
+            )?;
+        }
     }
     if let Some(views) = v.get("namedViews") {
         for (key, view) in map(views, "named views")? {
@@ -322,6 +371,7 @@ pub fn document(v: &Value) -> Result<()> {
         if let Some(s) = o.get("style") {
             map(s, "style")?;
         }
+        tags(o, "object tags")?;
         if let Some(points) = o.get("boundaryPoints") {
             for p in map(points, "boundary points")?.values() {
                 boundary(p)?;
@@ -445,6 +495,37 @@ pub fn document(v: &Value) -> Result<()> {
                     cursor = objects[key]["parentId"].as_str();
                 }
                 require(cursor == Some(owner), "endpoint outside owner")?;
+            }
+        }
+        let Some(routes) = c.get("depthRoutes").and_then(Value::as_object) else {
+            continue;
+        };
+        // Overrides need a route root and keep each shared endpoint's target.
+        let ends = [&c["start"], &c["end"]];
+        let roots: std::collections::HashSet<_> = ends
+            .iter()
+            .filter_map(|e| e["objectId"].as_str().filter(|_| e["kind"] != "free"))
+            .map(|t| forest[t].0)
+            .collect();
+        require(owner.is_some() || roots.len() == 1, "depth route root")?;
+        for route in routes.values() {
+            for (f, shared) in ["start", "end"].into_iter().zip(ends) {
+                let Some(end) = route.get(f) else { continue };
+                require(
+                    if end["kind"] == "free" {
+                        shared["kind"] == "free"
+                    } else {
+                        shared["kind"] != "free"
+                            && end["objectId"] == shared["objectId"]
+                            && (end["kind"] != "boundary"
+                                || end["pointId"].as_str().is_some_and(|p| {
+                                    objects[end["objectId"].as_str().unwrap()]["boundaryPoints"]
+                                        .get(p)
+                                        .is_some()
+                                }))
+                    },
+                    "depth route endpoint",
+                )?;
             }
         }
     }

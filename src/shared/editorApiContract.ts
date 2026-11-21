@@ -1,7 +1,13 @@
 import { arrowheads, lineTypes } from './connectionGeometry';
 import { z } from 'zod';
 import { handleSchema, resultSchema } from './depthApiContract';
-import { codeLanguages, validLink, type RichBlock } from './recursiveDocument';
+import { fitModes } from './objectFit';
+import {
+  codeLanguages,
+  strokeStyles,
+  validLink,
+  type RichBlock,
+} from './recursiveDocument';
 
 export const editorId = z
   .string()
@@ -60,6 +66,8 @@ export const queryInput = z.strictObject({
   ids: z.array(editorId).max(200).optional(),
   rootId: editorId.optional(),
   depth: version.optional(),
+  tag: z.string().min(1).max(256).optional(),
+  overflow: z.boolean().optional(),
   pageSize: z.number().int().min(1).max(200).default(50),
   cursor: z.string().uuid().optional(),
 });
@@ -69,6 +77,7 @@ export const searchInput = z.strictObject({
   collection: z.enum(['objects', 'connections', 'bookmarks']).optional(),
   rootId: editorId.optional(),
   subtreeId: editorId.optional(),
+  tag: z.string().min(1).max(256).optional(),
   pageSize: z.number().int().min(1).max(200).default(50),
   cursor: z.string().uuid().optional(),
 });
@@ -148,10 +157,27 @@ export const stylePatchSchema = z.strictObject({
   opacity: z.number().min(0).max(1).optional(),
   cornerRadius: z.number().nonnegative().optional(),
   clipToFrame: z.boolean().optional(),
+  legend: z.boolean().optional(),
+  fit: z.enum(fitModes).optional(),
   strokeStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   lineType: z.enum(lineTypes).optional(),
   arrowheadStart: z.enum(arrowheads).optional(),
   arrowheadEnd: z.enum(arrowheads).optional(),
+  avoidShapes: z
+    .boolean()
+    .optional()
+    .describe(
+      'Elbow connectors without bends route around shapes in their container, on separate lanes, with labels placed clear of shapes and other labels.',
+    ),
+  labelPosition: z
+    .number()
+    .min(0)
+    .max(1)
+    .nullable()
+    .optional()
+    .describe(
+      'Label position as a fraction of the path length; null restores automatic placement.',
+    ),
 });
 export const richBlockSchema: z.ZodType<RichBlock> = z.lazy(() =>
   z.discriminatedUnion('type', [
@@ -214,6 +240,12 @@ export const editAction = z.discriminatedUnion('type', [
     start: endpointSchema.optional(),
     end: endpointSchema.optional(),
     points: z.array(pointSchema).max(1000).optional(),
+    depthRoute: z
+      .enum(['set', 'clear'])
+      .optional()
+      .describe(
+        "Omit to edit the shared route. 'set' writes points/start/end to an override for the active depth of the connection's root (alone, it copies the shared route); 'clear' removes that override.",
+      ),
     label: z.string().optional(),
     style: stylePatchSchema.optional(),
   }),
@@ -252,6 +284,15 @@ export const editAction = z.discriminatedUnion('type', [
       'send-backward',
       'send-to-back',
     ]),
+  }),
+  z.strictObject({
+    type: z.literal('layout'),
+    id: editorId,
+    algorithm: z.enum(['grid', 'layered', 'row', 'column']),
+    gap: z.number().nonnegative().max(10000).default(40),
+    padding: z.number().nonnegative().max(10000).default(24),
+    direction: z.enum(['down', 'right']).optional(),
+    columns: z.number().int().positive().max(1000).optional(),
   }),
   z.strictObject({
     type: z.literal('boundary'),
@@ -320,6 +361,21 @@ export const editAction = z.discriminatedUnion('type', [
     type: z.literal('children'),
     id: editorId,
     expanded: z.boolean(),
+  }),
+  z.strictObject({
+    type: z.literal('tag_definition'),
+    action: z.enum(['create', 'update', 'delete']),
+    id: editorId,
+    name: z.string().trim().min(1).max(256).optional(),
+    color: color.optional(),
+    strokeStyle: z.enum(strokeStyles).nullable().optional(),
+  }),
+  z.strictObject({
+    type: z.literal('tags'),
+    mode: z.enum(['add', 'remove', 'set']).default('add'),
+    tagIds: z.array(editorId).max(100),
+    objects: z.array(editorId).max(1000).default([]),
+    connections: z.array(editorId).max(1000).default([]),
   }),
   z.strictObject({ type: z.literal('bookmark'), action: bookmarkAction }),
 ]);
@@ -443,7 +499,7 @@ export const editorTools = {
     readOnly: false,
     destructive: true,
     description:
-      'Apply up to 100 typed diagram actions atomically as one Undo entry. IDs are client-chosen stable identifiers. Creation coordinates are world-space centers; geometry patches specify local/world. Optional camera is captured by bookmark actions in the same batch. Reuse requestId only for an identical retry.',
+      'Apply up to 100 typed diagram actions atomically as one Undo entry. IDs are client-chosen stable identifiers. Creation coordinates are world-space centers; geometry patches specify local/world. Optional camera is captured by bookmark actions in the same batch. tag_definition creates/updates/deletes a document tag (deleting removes it everywhere); tags adds/removes/sets tag IDs on objects and connections, including ones created earlier in the batch; style.legend shows the tag legend in an object. Reuse requestId only for an identical retry.',
   },
   depthplan_bookmarks: {
     input: bookmarkInput,
@@ -487,14 +543,14 @@ export const editorTools = {
     output: editorResult,
     readOnly: true,
     description:
-      'Read paged objects (including hidden children), connections, bookmarks, layouts or pending repairs. Layout queries require rootId and depth. Cursors expire when document or view changes.',
+      'Read paged objects (including hidden children), connections, bookmarks, layouts or pending repairs. Layout queries require rootId and depth. tag (ID or name) keeps only objects/connections carrying that tag; get_state lists tag definitions. Object items report overflow: true when body text is clipped in the active layout; overflow: true/false filters on it (fix with a larger height or style.fit grow-height/shrink-text). Cursors expire when document or view changes.',
   },
   depthplan_search: {
     input: searchInput,
     output: editorResult,
     readOnly: true,
     description:
-      'Find objects by name/content, connections by label, or bookmarks by name. Literal case-insensitive all-term matching; whitespace-only queries return no results. Optional collection, rootId (a root) and subtreeId (inclusive descendants) filters include hidden objects. Scoped connections touch an included owner or endpoint; bookmarks are document-wide and excluded from scoped searches. Results sort by objects/connections/bookmarks then ID, with bounded labels/snippets and object ancestor/visibility context. Repeat identical filters and pageSize with nextCursor; document/view/session changes invalidate cursors. Read full entities with query/read_chunk; search never navigates or edits.',
+      'Find objects by name/content, connections by label, or bookmarks by name. Literal case-insensitive all-term matching; whitespace-only queries return no results. Optional collection, rootId (a root) and subtreeId (inclusive descendants) filters include hidden objects; tag (ID or name) keeps tagged objects/connections and, with an empty query, returns all of them. Scoped connections touch an included owner or endpoint; bookmarks are document-wide and excluded from scoped searches. Results sort by objects/connections/bookmarks then ID, with bounded labels/snippets and object ancestor/visibility context. Repeat identical filters and pageSize with nextCursor; document/view/session changes invalidate cursors. Read full entities with query/read_chunk; search never navigates or edits.',
   },
   depthplan_read_chunk: {
     input: chunkInput,

@@ -132,6 +132,7 @@ pub fn validate(value: &Value) -> Result<()> {
             "layouts",
             "connections",
             "namedViews",
+            "tagDefinitions",
             "extensions",
         ]
         .contains(&key.as_str())
