@@ -64,6 +64,19 @@ After writing content, query `collection: "objects", overflow: true` to find eve
 shape whose text is clipped, then resize it or set `style.fit: "grow-height"`
 (or `"shrink-text"`) with `edit_object`.
 
+Arrange a container's children with edit action `{"type":"layout","id":"…",
+"algorithm":"layered"}` (`grid`, `row` and `column` also exist; optional `gap`,
+`padding`, `direction`, `columns`) instead of computing positions. It moves the
+visible direct children at the active depth only, keeps their sizes and is part of
+the batch's single Undo entry. Switch depth and call it again for another level.
+
+For a connector that should route around shapes, set `style.lineType: "elbow"` and
+`style.avoidShapes: true` with `edit_connection` and author no `points`; leave the
+endpoint `binding` unset so the router can choose sides. `style.labelPosition`
+(0–1 along the path) pins a label. When one connection needs a different route in
+the overview and the detail level, switch to that depth and send `points`/`start`/
+`end` with `depthRoute: "set"`; `depthRoute: "clear"` returns to the shared route.
+
 Large content uses `depthplan_content_transfer`: begin with total UTF-16 length,
 append at exact offsets in chunks no larger than 8,192 code units (smaller if JSON
 escaping exceeds transport size), then use `contentTransfer` in `edit_object`.
@@ -90,6 +103,21 @@ Read saved bookmarks with query collection `bookmarks`. Apply each, check target
 object IDs and visible hierarchy, and verify their world geometry fits the viewport
 under the resulting camera. Take a visual look when the client supports it; geometry
 checks alone cannot prove label readability. Report any unverified visual behavior.
+
+`depthplan_snapshot` returns a PNG of the rendered canvas inline, with no folder
+grant: `scope` `viewport`, `whole` or `objects` (with `ids`), scaled to `maxPixels`.
+Use it after each authoring pass to look for overlapping labels, clipped text and
+arrows crossing shapes. A `bookmarkId` snapshot works only while that bookmark's
+depths and layout are the live view, so apply the bookmark first.
+
+## Projects and boards
+
+With an approved folder, `depthplan_create_project` (`name`, a new `.depthproject`
+`path` in an existing folder, `requestId`) creates and saves a project from the
+active board; poll its `operationId` like a file operation. `depthplan_project`
+then takes the project handle and one action: `create_board`, `rename_board`
+(`name` and/or `filename`), `rename_project` or `remove_board`. Removing a board
+only removes it from the project; a saved board's file stays on disk.
 
 ## File lifecycle
 
