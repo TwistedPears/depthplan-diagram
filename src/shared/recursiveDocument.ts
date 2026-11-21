@@ -101,6 +101,8 @@ export interface DiagramConnection {
   end: Endpoint;
   /** Interior vertices in owner-local coordinates; omit for a two-point path. */
   points?: { x: number; y: number }[];
+  /** Per-depth route overrides keyed by the route root's depth; see connectionRoutes.ts. */
+  depthRoutes?: Record<string, DepthRoute>;
   label?: string;
   style?: Record<string, Json>;
   tags?: string[];
@@ -112,6 +114,12 @@ export interface TagDefinition {
   color: string;
   /** Line style for tagged connections that do not set their own strokeStyle. */
   strokeStyle?: (typeof strokeStyles)[number];
+}
+/** Fields present replace the shared route; endpoints keep the shared target object. */
+export interface DepthRoute {
+  points?: { x: number; y: number }[];
+  start?: Endpoint;
+  end?: Endpoint;
 }
 export interface ConnectionRepair {
   connection: DiagramConnection;
@@ -370,15 +378,33 @@ function validateConnection(
     connection.ownerId === null || validId(connection.ownerId),
     `connection owner ${id}`,
   );
-  if (connection.points !== undefined)
+  const points = (value: unknown) =>
     requireValue(
-      Array.isArray(connection.points) &&
-        connection.points.every(
+      Array.isArray(value) &&
+        value.every(
           (point: unknown) =>
             isRecord(point) && finite(point.x) && finite(point.y),
         ),
       `connection points ${id}`,
     );
+  if (connection.points !== undefined) points(connection.points);
+  if (connection.depthRoutes !== undefined) {
+    map(connection.depthRoutes, `depth routes ${id}`);
+    for (const [key, route] of Object.entries(connection.depthRoutes)) {
+      requireValue(
+        /^(0|[1-9]\d*)$/.test(key) &&
+          Number.isSafeInteger(Number(key)) &&
+          isRecord(route) &&
+          ['points', 'start', 'end'].some(
+            (field) => route[field] !== undefined,
+          ),
+        `depth route ${id}/${key}`,
+      );
+      if (route.points !== undefined) points(route.points);
+      for (const end of [route.start, route.end])
+        if (end !== undefined) validateEndpoint(end, id);
+    }
+  }
   if (connection.label !== undefined)
     requireValue(
       typeof connection.label === 'string',
@@ -387,26 +413,28 @@ function validateConnection(
   if (connection.style !== undefined)
     map(connection.style, `connection style ${id}`);
   tagList(connection.tags, `connection tags ${id}`);
-  for (const end of [connection.start, connection.end]) {
-    requireValue(isRecord(end), `endpoint ${id}`);
-    if (end.kind === 'free')
-      requireValue(finite(end.x) && finite(end.y), `free endpoint ${id}`);
-    else {
-      requireValue(validId(end.objectId), `endpoint target ${id}`);
-      if (end.kind === 'object') {
-        boundary(end, `attachment ${id}`);
-        requireValue(
-          end.binding === undefined ||
-            end.binding === 'auto' ||
-            end.binding === 'fixed',
-          `binding ${id}`,
-        );
-      } else
-        requireValue(
-          end.kind === 'boundary' && validId(end.pointId),
-          `boundary endpoint ${id}`,
-        );
-    }
+  for (const end of [connection.start, connection.end])
+    validateEndpoint(end, id);
+}
+function validateEndpoint(end: unknown, id: string) {
+  requireValue(isRecord(end), `endpoint ${id}`);
+  if (end.kind === 'free')
+    requireValue(finite(end.x) && finite(end.y), `free endpoint ${id}`);
+  else {
+    requireValue(validId(end.objectId), `endpoint target ${id}`);
+    if (end.kind === 'object') {
+      boundary(end, `attachment ${id}`);
+      requireValue(
+        end.binding === undefined ||
+          end.binding === 'auto' ||
+          end.binding === 'fixed',
+        `binding ${id}`,
+      );
+    } else
+      requireValue(
+        end.kind === 'boundary' && validId(end.pointId),
+        `boundary endpoint ${id}`,
+      );
   }
 }
 /** Validate a flat forest iteratively, including hidden and inactive data. */
@@ -628,6 +656,36 @@ export function validateRecursiveDocument(
         );
       }
     }
+    if (connection.depthRoutes === undefined) continue;
+    // Overrides need a route root and keep each shared endpoint's target.
+    const roots = new Set(
+      [connection.start, connection.end].flatMap((end) =>
+        end.kind === 'free' ? [] : [forest.get(end.objectId)!.root],
+      ),
+    );
+    requireValue(
+      connection.ownerId !== null || roots.size === 1,
+      `depth route root ${id}`,
+    );
+    for (const route of Object.values(connection.depthRoutes))
+      for (const key of ['start', 'end'] as const) {
+        const end = route[key],
+          shared = connection[key];
+        if (end === undefined) continue;
+        requireValue(
+          end.kind === 'free'
+            ? shared.kind === 'free'
+            : shared.kind !== 'free' &&
+                end.objectId === shared.objectId &&
+                (end.kind !== 'boundary' ||
+                  Object.hasOwn(
+                    (objects[end.objectId] as unknown as DiagramObject)
+                      .boundaryPoints ?? {},
+                    end.pointId,
+                  )),
+          `depth route endpoint ${id}`,
+        );
+      }
   }
 }
 export function createRecursiveDocument(

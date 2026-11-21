@@ -225,6 +225,12 @@ export const editAction = z.discriminatedUnion('type', [
     start: endpointSchema.optional(),
     end: endpointSchema.optional(),
     points: z.array(pointSchema).max(1000).optional(),
+    depthRoute: z
+      .enum(['set', 'clear'])
+      .optional()
+      .describe(
+        "Omit to edit the shared route. 'set' writes points/start/end to an override for the active depth of the connection's root (alone, it copies the shared route); 'clear' removes that override.",
+      ),
     label: z.string().optional(),
     style: stylePatchSchema.optional(),
   }),

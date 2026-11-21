@@ -14,6 +14,7 @@ import { reparentLayouts } from './recursiveReparent';
 import { ensureDepthLayout } from './recursiveLayouts';
 import { recursiveScene } from './recursiveScene';
 import { localPoint } from './connectionGeometry';
+import { reconcileConnectionRoutes } from './connectionRoutes';
 import { intersectsBounds, sceneBounds } from './recursiveCamera';
 import { collapsedObjects, setCollapsedObjects } from './recursiveVisibility';
 import type { DocumentEdit } from './documentTransactions';
@@ -230,6 +231,7 @@ export function insertTemplate(
     instance.objects[frame].type !== 'frame' ||
     Object.values(instance.connections).some((c) => c.ownerId === null)
   ) {
+    const unwrapped = clone(instance);
     const depth = roots.length
       ? Math.max(...Object.values(instance.rootDepths)) + 1
       : 0;
@@ -271,6 +273,7 @@ export function insertTemplate(
           localPoint(p, geometry),
         );
     }
+    reconcileConnectionRoutes(unwrapped, instance, true);
   }
   instance.objects[frame].style = {
     ...instance.objects[frame].style,

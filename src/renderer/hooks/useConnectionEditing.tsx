@@ -38,6 +38,11 @@ import {
   worldPoint,
 } from '../../shared/connectionGeometry';
 import { patchConnection } from '../../shared/editorProperties';
+import {
+  activeDepthRoute,
+  displayedConnection,
+  storeDisplayed,
+} from '../../shared/connectionRoutes';
 import type { Camera } from '../../shared/recursiveCamera';
 import type { recursiveScene } from '../../shared/recursiveScene';
 import { ToolMode } from '../types/CanvasTools';
@@ -65,6 +70,8 @@ type Gesture = {
   base: RecursiveDocument;
   original: DiagramConnection;
   value: DiagramConnection;
+  /** The edited displayed route, stored back into its override or shared route. */
+  stored: DiagramConnection;
   start: Point;
   handle: Handle;
   moved: boolean;
@@ -131,7 +138,8 @@ export default function useConnectionEditing({
   const connection = selectedId
     ? paint?.id === selectedId
       ? paint
-      : document.connections[selectedId]
+      : document.connections[selectedId] &&
+        displayedConnection(document, document.connections[selectedId])
     : undefined;
   const route = useMemo(
     () => connection && connectionRoute(document, connection, scene.world),
@@ -365,14 +373,20 @@ export default function useConnectionEditing({
           points: shifted.slice(1, -1),
         };
       }
+      const stored = storeDisplayed(
+        active.base,
+        active.base.connections[value.id],
+        value,
+      );
       active.error = undefined;
       active.value = value;
+      active.stored = stored;
       setPaint(value);
       setPreview({
         base: active.base,
         value: {
           ...active.base,
-          connections: { ...active.base.connections, [value.id]: value },
+          connections: { ...active.base.connections, [value.id]: stored },
         },
       });
     } catch (error) {
@@ -393,6 +407,7 @@ export default function useConnectionEditing({
       base: document,
       original: c,
       value: c,
+      stored: document.connections[c.id],
       start: pointer(),
       handle,
       moved: false,
@@ -441,9 +456,9 @@ export default function useConnectionEditing({
     }
     const group = event.target.findAncestor('.recursive-connection', true);
     if (group) {
-      const id = group.id().slice(11),
-        c = document.connections[id];
-      if (!c) return false;
+      const id = group.id().slice(11);
+      if (!document.connections[id]) return false;
+      const c = displayedConnection(document, document.connections[id]);
       if (event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey)
         return false;
       onSelect(id);
@@ -496,7 +511,7 @@ export default function useConnectionEditing({
       if (active.error) onStatus(active.error);
       else if (active.moved)
         onEdit((draft) => {
-          draft.connections[active.value.id] = active.value;
+          draft.connections[active.value.id] = active.stored;
         });
       cancel();
       consumed.current = true;
@@ -641,6 +656,12 @@ export default function useConnectionEditing({
             end: pointsSelected.includes(route.vertices.length - 1)
               ? { kind: 'free', ...kept.at(-1)! }
               : connection.end,
+            depthRoute: activeDepthRoute(
+              document,
+              document.connections[connection.id],
+            )
+              ? 'set'
+              : undefined,
           }),
         );
       setPointsSelected([]);
@@ -686,7 +707,10 @@ export default function useConnectionEditing({
   const paintOwner = paint?.ownerId
     ? scene.world.get(paint.ownerId)
     : undefined;
-  const labelConnection = label && document.connections[label.id];
+  const labelConnection =
+    label &&
+    document.connections[label.id] &&
+    displayedConnection(document, document.connections[label.id]);
   const labelRoute =
     labelConnection && connectionRoute(document, labelConnection, scene.world);
   const labelPosition =

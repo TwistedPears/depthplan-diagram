@@ -11,6 +11,7 @@ import {
   type ConnectionRoute,
 } from './connectionGeometry';
 import { recursiveVisibility } from './recursiveVisibility';
+import { displayedConnection } from './connectionRoutes';
 
 export type SceneItem = { id: string; z: number } & (
   { kind: 'object' } | { kind: 'connection'; route: ConnectionRoute }
@@ -66,7 +67,11 @@ export function recursiveScene(document: RecursiveDocument) {
   )) {
     if (connection.ownerId !== null && !expanded.has(connection.ownerId))
       continue;
-    const route = connectionRoute(document, connection, world);
+    const route = connectionRoute(
+      document,
+      displayedConnection(document, connection),
+      world,
+    );
     if (!route) continue;
     if (!connections.has(connection.ownerId))
       connections.set(connection.ownerId, []);

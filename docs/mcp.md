@@ -223,7 +223,12 @@ connection creation, geometry/content/style, arrangement/stacking, containment,
 visibility, boundaries/bridges/repairs and bookmarks. Creation uses world-space
 object centers. Geometry edits default to parent-local space; `space: "world"`
 uses world centers. Connection creation points are world coordinates; edited free
-endpoints and bends use owner-local coordinates. See [document behavior](document-and-editing.md).
+endpoints and bends use owner-local coordinates. `edit_connection` route fields
+(`points`, `start`, `end`) edit the shared route by default; `depthRoute: "set"`
+writes them to an override for the active depth of the connection's route root
+instead (alone, it copies the shared route there) and `"clear"` removes that
+override. Query connections to read stored `depthRoutes`; label and style are
+always shared. See [document behavior](document-and-editing.md).
 
 `{type: "layout", id, algorithm, gap?, padding?, direction?, columns?}` arranges
 the visible direct children of object `id` at its root's active depth, keeping

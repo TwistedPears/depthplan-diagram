@@ -198,6 +198,24 @@ without an added gap. Straight routes join vertices, curved routes use cubic
 Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
 Creation uses world points; endpoint/point edits use owner-local points.
 
+Optional `depthRoutes` lets one connection keep a different route per depth:
+`depthRoutes[depth]` may hold `points`, `start` and/or `end`, and each present
+field replaces the shared value at that depth. The depth is the active depth of
+the connection's **route root**: the owner's root, or for an unowned connection
+the single root of its bound endpoints. Free-free lines and canvas connections
+between two roots have no route root and always use the shared route. Override
+endpoints keep the shared endpoint's target object (or stay free), so changing
+which object an endpoint binds to always edits the shared endpoint and drops
+that endpoint's overrides. Switching depth or applying a bookmark shows the
+matching route; folds do not change the key. In Style, **Route** switches a
+single connection between the shared route and its own route at the current
+depth. Dragging points, segments or endpoints edits whichever route is shown;
+moving an overridden route into another container requires the shared route.
+Deleting endpoint objects or boundary points prunes affected overrides.
+Reparenting or pasting shifts owned overrides with the owner's layouts
+(`d - g + h`); changing a connection's owner, or an unowned route root, drops
+them. Duplicate keeps them, and switching to a straight path clears their bends.
+
 The Style panel no longer adds or repositions custom boundary points. Existing
 named points remain stored for compatibility and inward bridges, and their canvas
 handles are stationary. Selected connector endpoints take priority over these

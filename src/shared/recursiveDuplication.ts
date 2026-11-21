@@ -128,16 +128,45 @@ export function duplicateSelection(
         source.ownerId !== null && objects.has(source.ownerId)
           ? { x: 0, y: 0 }
           : translation(source.ownerId);
-      const endpoint = (end: Endpoint): Endpoint =>
+      const move = <T extends { x: number; y: number }>(
+        p: T,
+        offset = connectionOffset,
+      ): T => ({
+        ...p,
+        x: p.x + offset.x,
+        y: p.y + offset.y,
+      });
+      const endpoint = (end: Endpoint, offset = connectionOffset): Endpoint =>
         end.kind === 'free'
-          ? {
-              ...end,
-              x: end.x + connectionOffset.x,
-              y: end.y + connectionOffset.y,
-            }
+          ? move(end, offset)
           : { ...end, objectId: objects.get(end.objectId) ?? end.objectId };
+      // Each depth override moves with its owner's geometry at that depth.
+      const depthRoutes =
+        source.depthRoutes &&
+        Object.fromEntries(
+          Object.entries(source.depthRoutes).map(([depth, route]) => {
+            const offset =
+              source.ownerId !== null && objects.has(source.ownerId)
+                ? connectionOffset
+                : translation(source.ownerId, Number(depth));
+            return [
+              depth,
+              {
+                ...route,
+                ...(route.points
+                  ? { points: route.points.map((p) => move(p, offset)) }
+                  : {}),
+                ...(route.start
+                  ? { start: endpoint(route.start, offset) }
+                  : {}),
+                ...(route.end ? { end: endpoint(route.end, offset) } : {}),
+              },
+            ];
+          }),
+        );
       draft.connections[copyId] = {
         ...JSON.parse(JSON.stringify(source)),
+        ...(depthRoutes ? { depthRoutes } : {}),
         id: copyId,
         ownerId:
           source.ownerId === null

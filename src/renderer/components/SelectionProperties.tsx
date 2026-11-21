@@ -1,5 +1,9 @@
 import { arrowheads, markerLabel } from '../../shared/connectionGeometry';
-import { patchSelectionStyle } from '../../shared/editorProperties';
+import {
+  patchConnection,
+  patchSelectionStyle,
+} from '../../shared/editorProperties';
+import { activeDepthRoute, routeKey } from '../../shared/connectionRoutes';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import Icon from './Icon';
 import type { DocumentEdit } from '../../shared/documentTransactions';
@@ -133,6 +137,14 @@ export default function SelectionProperties({
   const selectionKey = selection.join(',');
   useEffect(() => setOpacityDraft(opacity), [opacity, selectionKey]);
   if (!items.length) return null;
+  // A single connection with a route root can keep its own route per depth.
+  const routeId =
+    selection.length === 1 && selection[0].startsWith('connection-')
+      ? selection[0].slice(11)
+      : '';
+  const routeDepth = routeId
+    ? routeKey(document, document.connections[routeId])
+    : null;
   const color = (key: string, fallback: string) =>
     typeof style[key] === 'string' ? (style[key] as string) : fallback;
   const setStyle = (key: string, value: string | number) =>
@@ -156,6 +168,27 @@ export default function SelectionProperties({
                 ]}
                 onChange={(value) => setStyle('lineType', value)}
               />
+              {routeDepth !== null && (
+                <IconChoices
+                  label="Route"
+                  value={
+                    activeDepthRoute(document, document.connections[routeId])
+                      ? 'depth'
+                      : 'shared'
+                  }
+                  options={[
+                    ['shared', 'Same route at every depth', 'link'],
+                    ['depth', `Own route at D${routeDepth}`, 'layer-group'],
+                  ]}
+                  onChange={(value) =>
+                    onEdit(
+                      patchConnection(routeId, {
+                        depthRoute: value === 'depth' ? 'set' : 'clear',
+                      }),
+                    )
+                  }
+                />
+              )}
               <div className="marker-controls">
                 {(['Start', 'End'] as const).map((end) => (
                   <IconChoices
