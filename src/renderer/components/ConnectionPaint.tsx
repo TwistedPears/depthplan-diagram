@@ -74,11 +74,14 @@ function ConnectionPaint({
   route,
   scale = 1,
   editingLabel = false,
+  part = 'all',
 }: {
   connection: DiagramConnection;
   route: ConnectionRoute;
   scale?: number;
   editingLabel?: boolean;
+  /** Scenes paint every line of a container first, then every label above. */
+  part?: 'all' | 'line' | 'label';
 }) {
   const stroke =
     typeof c.style?.stroke === 'string' ? c.style.stroke : '#475569';
@@ -117,24 +120,26 @@ function ConnectionPaint({
       name="recursive-connection"
       opacity={typeof c.style?.opacity === 'number' ? c.style.opacity : 1}
     >
-      <Line
-        name="connection-path"
-        points={points}
-        bezier={bezier}
-        stroke={stroke}
-        strokeWidth={width}
-        lineCap="round"
-        lineJoin="round"
-        hitStrokeWidth={Math.max(10 / scale, width)}
-        dash={
-          c.style?.strokeStyle === 'dashed'
-            ? [8, 6]
-            : c.style?.strokeStyle === 'dotted'
-              ? [2, 4]
-              : []
-        }
-      />
-      {c.label && !editingLabel && (
+      {part !== 'label' && (
+        <Line
+          name="connection-path"
+          points={points}
+          bezier={bezier}
+          stroke={stroke}
+          strokeWidth={width}
+          lineCap="round"
+          lineJoin="round"
+          hitStrokeWidth={Math.max(10 / scale, width)}
+          dash={
+            c.style?.strokeStyle === 'dashed'
+              ? [8, 6]
+              : c.style?.strokeStyle === 'dotted'
+                ? [2, 4]
+                : []
+          }
+        />
+      )}
+      {part !== 'line' && c.label && !editingLabel && (
         <Group
           x={route.label.x - size.width / 2}
           y={route.label.y - size.height / 2}
@@ -159,47 +164,50 @@ function ConnectionPaint({
           />
         </Group>
       )}
-      <ConnectionTagPills
-        connection={c}
-        at={route.label}
-        labelHeight={c.label ? size.height : 0}
-      />
-      {(['Start', 'End'] as const).map((end) => {
-        const tip = end === 'Start' ? route.route[0] : route.route.at(-1)!;
-        const previous =
-          end === 'Start'
-            ? route.route.find((p) => p.x !== tip.x || p.y !== tip.y)
-            : [...route.route]
-                .reverse()
-                .find((p) => p.x !== tip.x || p.y !== tip.y);
-        const value =
-          c.style?.[`arrowhead${end}`] ??
-          (end === 'End' && c.kind === 'arrow' ? 'arrow' : 'none');
-        return (
-          <Group
-            key={end}
-            name={`connection-marker-${end.toLowerCase()}`}
-            markerType={value}
-            x={tip.x}
-            y={tip.y}
-            rotation={
-              previous
-                ? (Math.atan2(tip.y - previous.y, tip.x - previous.x) * 180) /
-                  Math.PI
-                : 0
-            }
-            scaleX={Math.max(1, width / 2)}
-            scaleY={Math.max(1, width / 2)}
-          >
-            <Marker
-              background={background}
-              value={String(value)}
-              stroke={stroke}
-              width={Math.min(2, width)}
-            />
-          </Group>
-        );
-      })}
+      {part !== 'line' && (
+        <ConnectionTagPills
+          connection={c}
+          at={route.label}
+          labelHeight={c.label ? size.height : 0}
+        />
+      )}
+      {part !== 'label' &&
+        (['Start', 'End'] as const).map((end) => {
+          const tip = end === 'Start' ? route.route[0] : route.route.at(-1)!;
+          const previous =
+            end === 'Start'
+              ? route.route.find((p) => p.x !== tip.x || p.y !== tip.y)
+              : [...route.route]
+                  .reverse()
+                  .find((p) => p.x !== tip.x || p.y !== tip.y);
+          const value =
+            c.style?.[`arrowhead${end}`] ??
+            (end === 'End' && c.kind === 'arrow' ? 'arrow' : 'none');
+          return (
+            <Group
+              key={end}
+              name={`connection-marker-${end.toLowerCase()}`}
+              markerType={value}
+              x={tip.x}
+              y={tip.y}
+              rotation={
+                previous
+                  ? (Math.atan2(tip.y - previous.y, tip.x - previous.x) * 180) /
+                    Math.PI
+                  : 0
+              }
+              scaleX={Math.max(1, width / 2)}
+              scaleY={Math.max(1, width / 2)}
+            >
+              <Marker
+                background={background}
+                value={String(value)}
+                stroke={stroke}
+                width={Math.min(2, width)}
+              />
+            </Group>
+          );
+        })}
     </Group>
   );
 }
@@ -210,6 +218,7 @@ export default memo(
     before.connection === after.connection &&
     before.scale === after.scale &&
     before.editingLabel === after.editingLabel &&
+    before.part === after.part &&
     // Scene construction creates fresh, plain-data routes for stationary edges too.
     JSON.stringify(before.route) === JSON.stringify(after.route),
 );

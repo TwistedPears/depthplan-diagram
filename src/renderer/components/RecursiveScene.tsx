@@ -230,23 +230,44 @@ export default memo(function RecursiveScene({
     }
     return opacity;
   };
-  const renderConnection = (id: string, route: ConnectionRoute) => (
+  const renderConnection = (
+    id: string,
+    route: ConnectionRoute,
+    part: 'all' | 'line' | 'label' = 'all',
+  ) => (
     <ConnectionPaint
-      key={`connection-${id}`}
+      key={`connection-${part === 'label' ? 'label-' : ''}${id}`}
       connection={tagStyledConnection(document.connections[id], definitions)}
       route={route}
       scale={scale}
       editingLabel={editingConnectionLabel === id}
+      part={part}
     />
   );
-  const renderScope = (ownerId: string | null): ReactNode =>
-    (scene.paintOrder.get(ownerId) ?? []).map((item) =>
+  // Labels (with their knock-out and tag pills) paint above every line of
+  // their container, right after its last connection.
+  const renderScope = (ownerId: string | null): ReactNode => {
+    const items = (scene.paintOrder.get(ownerId) ?? []).filter(
+      (item) => item.kind === 'object' || !liftedConnections.has(item.id),
+    );
+    const labels = items.flatMap((item) => {
+      if (item.kind === 'object') return [];
+      const c = document.connections[item.id];
+      return c.label || c.tags?.length
+        ? [renderConnection(item.id, item.route, 'label')]
+        : [];
+    });
+    let last = -1;
+    items.forEach((item, i) => {
+      if (item.kind === 'connection') last = i;
+    });
+    return items.flatMap((item, i) => [
       item.kind === 'object'
         ? renderObject(item.id)
-        : liftedConnections.has(item.id)
-          ? null
-          : renderConnection(item.id, item.route),
-    );
+        : renderConnection(item.id, item.route, 'line'),
+      ...(i === last ? labels : []),
+    ]);
+  };
   const renderObject = (id: string, lifted = false): ReactNode => {
     if (liftedIds?.has(id) && !lifted) return null;
     const object = document.objects[id],

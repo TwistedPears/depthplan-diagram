@@ -79,10 +79,12 @@ it('paints object and connection pills, the tag line style and a derived legend'
     payments.querySelector('[data-name="object-content object-tags"]')
       ?.textContent,
   ).toBe('To confirm');
-  const wire = container.querySelector('#connection-wire')!;
-  expect(wire.querySelector('[data-name="connection-tags"]')?.textContent).toBe(
-    'To confirm',
-  );
+  // The line paints in z order; its label and pills paint in a later pass.
+  const [wire, wireLabel] = container.querySelectorAll('#connection-wire');
+  expect(
+    wireLabel.querySelector('[data-name="connection-tags"]')?.textContent,
+  ).toBe('To confirm');
+  expect(wire.querySelector('[data-name="connection-tags"]')).toBeNull();
   expect(
     wire
       .querySelector('[data-name="connection-path"]')
@@ -116,4 +118,38 @@ it('marks clipped bodies on the canvas and leaves fitting ones unmarked', () => 
   const marker = '[data-name="object-content object-overflow"]';
   expect(container.querySelector(`#object-api ${marker}`)).not.toBeNull();
   expect(container.querySelector(`#object-payments ${marker}`)).toBeNull();
+});
+
+it('paints connection labels above every connection line of their container', () => {
+  const result = transactDocument(recursiveFixture(), (draft) => {
+    for (const [id, y] of [
+      ['across', 300],
+      ['down', 250],
+    ] as const)
+      draft.connections[id] = {
+        id,
+        ownerId: null,
+        kind: 'arrow',
+        z: 0,
+        label: id,
+        start: { kind: 'free', x: id === 'down' ? 100 : 0, y },
+        end: { kind: 'free', x: id === 'down' ? 100 : 200, y: y + 100 },
+      };
+  });
+  const { container } = render(
+    <RecursiveScene
+      document={result.document}
+      scene={recursiveScene(result.document)}
+      onError={jest.fn()}
+    />,
+  );
+  const order = [
+    ...container.querySelectorAll(
+      '[data-name="connection-path"], [data-name="connection-label"]',
+    ),
+  ].map((node) => node.getAttribute('data-name'));
+  expect(order.filter((name) => name === 'connection-label')).toHaveLength(2);
+  expect(order.lastIndexOf('connection-path')).toBeLessThan(
+    order.indexOf('connection-label'),
+  );
 });

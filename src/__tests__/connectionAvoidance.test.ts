@@ -10,6 +10,7 @@ import { connectionRoute, pointAlong } from '../shared/connectionGeometry';
 import {
   boxOf,
   boxesIntersect,
+  connectionLabelBox,
   labelBox,
   type Box,
 } from '../shared/connectionAvoidance';
@@ -31,6 +32,7 @@ function grid(
   style: Record<string, string | number | boolean> = {},
   dx = 220,
   dy = 180,
+  card = { width: 120, height: 60 },
 ): RecursiveDocument {
   const document = createRecursiveDocument('grid', 'Grid', '2026-11-20');
   const width = cols * dx + 200,
@@ -53,8 +55,8 @@ function grid(
     const geometry = g(
       (n % cols) * dx - ((cols - 1) * dx) / 2,
       Math.floor(n / cols) * dy - ((rows - 1) * dy) / 2,
-      120,
-      60,
+      card.width,
+      card.height,
     );
     document.objects[id(n)] = {
       id: id(n),
@@ -133,8 +135,19 @@ const crosses = (a: Point, b: Point, box: Box) =>
   Math.min(a.x, b.x) < box.right &&
   Math.max(a.y, b.y) > box.top &&
   Math.min(a.y, b.y) < box.bottom;
-/** Every geometric rule the router promises, as readable failures. */
-function problems(document: RecursiveDocument, result: Routes) {
+/** Shortest distance between an axis-aligned segment and a box. */
+const gap = (a: Point, b: Point, box: Box) =>
+  Math.hypot(
+    Math.max(0, box.left - Math.max(a.x, b.x), Math.min(a.x, b.x) - box.right),
+    Math.max(0, box.top - Math.max(a.y, b.y), Math.min(a.y, b.y) - box.bottom),
+  );
+const length = (a: Point, b: Point) =>
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+/** Every geometric rule the router promises, as readable failures. `roomy`
+ * adds the rules that hold wherever corridors are wide: comfortable shape
+ * clearance, a visible lane gap, no short jogs, room for arrowheads and labels
+ * clear of other connectors' lines. */
+function problems(document: RecursiveDocument, result: Routes, roomy = false) {
   const boxes = shapes(document);
   const found: string[] = [];
   const segments: { id: string; a: Point; b: Point }[] = [];
@@ -147,11 +160,20 @@ function problems(document: RecursiveDocument, result: Routes) {
       const [a, b] = [route[i], route[i + 1]];
       if (a.x !== b.x && a.y !== b.y) found.push(`${id} diagonal`);
       segments.push({ id, a, b });
-      for (const [shape, box] of boxes)
-        if (!own.includes(shape) && crosses(a, b, box))
-          found.push(`${id} crosses ${shape}`);
+      const end = i === 0 || i === route.length - 2;
+      if (roomy && end && length(a, b) < 20)
+        found.push(`${id} end segment ${length(a, b)}`);
+      if (roomy && !end && length(a, b) < 12)
+        found.push(`${id} jog ${length(a, b)}`);
+      for (const [shape, box] of boxes) {
+        if (own.includes(shape)) continue;
+        if (crosses(a, b, box)) found.push(`${id} crosses ${shape}`);
+        else if (roomy && gap(a, b, box) < 14)
+          found.push(`${id} ${gap(a, b, box).toFixed(1)} from ${shape}`);
+      }
     }
   }
+  const lane = roomy ? 10 : 3;
   for (const s of segments)
     for (const t of segments) {
       if (s.id >= t.id) continue;
@@ -159,8 +181,8 @@ function problems(document: RecursiveDocument, result: Routes) {
       if (horizontal !== (t.a.y === t.b.y)) continue;
       const at = (p: Point) => (horizontal ? p.y : p.x);
       const along = (p: Point) => (horizontal ? p.x : p.y);
-      // Collinear, or parallel lanes squeezed closer than 3 units.
-      if (Math.abs(at(s.a) - at(t.a)) >= 3) continue;
+      // Collinear, or parallel lanes squeezed closer than a lane gap.
+      if (Math.abs(at(s.a) - at(t.a)) >= lane) continue;
       const overlap =
         Math.min(
           Math.max(along(s.a), along(s.b)),
@@ -174,7 +196,7 @@ function problems(document: RecursiveDocument, result: Routes) {
     }
   const labels = [...result].map(([id, { label }]) => ({
     id,
-    box: labelBox(label, document.connections[id].label!),
+    box: connectionLabelBox(document, document.connections[id], label),
   }));
   for (const { id, box } of labels) {
     for (const [shape, shapeBox] of boxes)
@@ -182,8 +204,30 @@ function problems(document: RecursiveDocument, result: Routes) {
     for (const other of labels)
       if (other.id > id && boxesIntersect(box, other.box))
         found.push(`${id} label on ${other.id} label`);
+    // Under another connector's line only when no spot on the path is clear
+    // of shapes, labels and lines.
+    const under = (box: Box) =>
+      segments.filter((s) => s.id !== id && crosses(s.a, s.b, box));
+    const route = result.get(id)!.route;
+    if (
+      roomy &&
+      under(box).length &&
+      Array.from({ length: 73 }, (_, k) =>
+        connectionLabelBox(
+          document,
+          document.connections[id],
+          pointAlong(route, 0.05 + k * 0.0125),
+        ),
+      ).some(
+        (spot) =>
+          !under(spot).length &&
+          ![...boxes.values()].some((shape) => boxesIntersect(spot, shape)) &&
+          !labels.some((o) => o.id !== id && boxesIntersect(spot, o.box)),
+      )
+    )
+      found.push(`${id} label under ${under(box)[0].id}`);
   }
-  return found;
+  return [...new Set(found)];
 }
 
 it('routes 26 arrows between 4 rows around unrelated shapes, on separate lanes, with clear labels', () => {
@@ -201,6 +245,72 @@ it('routes 26 arrows between 4 rows around unrelated shapes, on separate lanes, 
   };
   expect(routes(shuffled)).toEqual(result);
   expect(document.connections.c000.points).toBeUndefined();
+});
+
+it('keeps clearance, lane gaps, arrowhead room and clear labels on a roomy map', () => {
+  // 170 x 70 cards with 150 px gaps, as in a typical architecture map.
+  const document = grid(4, 4, pairs, {}, 320, 220, { width: 170, height: 70 });
+  // Every third connector carries tag pills under its label.
+  document.tagDefinitions = {
+    confirm: { id: 'confirm', name: 'To confirm', color: '#dc2626' },
+    inferred: { id: 'inferred', name: 'Inferred', color: '#d97706' },
+  };
+  Object.values(document.connections).forEach((c, n) => {
+    if (n % 3 === 0) c.tags = n % 2 ? ['confirm'] : ['confirm', 'inferred'];
+  });
+  const result = routes(document);
+  expect(result.size).toBe(pairs.length);
+  expect(problems(document, result, true)).toEqual([]);
+});
+
+it('counts the tag pill row under a label as part of the label', () => {
+  const document = grid(2, 2, [[0, 3]], {}, 320, 220);
+  const c = document.connections.c000;
+  const bare = connectionLabelBox(document, c, { x: 0, y: 0 });
+  expect(bare).toEqual(labelBox({ x: 0, y: 0 }, 'L0'));
+  document.tagDefinitions = {
+    confirm: { id: 'confirm', name: 'To confirm', color: '#dc2626' },
+    inferred: { id: 'inferred', name: 'Inferred', color: '#d97706' },
+  };
+  c.tags = ['confirm', 'inferred'];
+  const tagged = connectionLabelBox(document, c, { x: 0, y: 0 });
+  // The pill row hangs 3 px below the label and is wider than "L0".
+  expect(tagged.top).toBe(bare.top);
+  expect(tagged.bottom).toBe(bare.bottom + 3 + 14);
+  expect(tagged.right - tagged.left).toBeGreaterThan(bare.right - bare.left);
+  // Pills without a label sit centred on the path.
+  c.label = undefined;
+  const pills = connectionLabelBox(document, c, { x: 0, y: 0 });
+  expect([pills.top, pills.bottom]).toEqual([-7, 7]);
+});
+
+it('keeps port segments of neighbouring layers apart in a tight pipeline', () => {
+  // Two columns with 40 px gaps, as a layered pipeline: a connector leaving
+  // the bottom of one card must not run along the last segment of a connector
+  // arriving at the card below it.
+  const document = grid(
+    5,
+    2,
+    [
+      [0, 2],
+      [1, 3],
+      [3, 4],
+      [3, 5],
+      [2, 8],
+      [4, 6],
+      [5, 6],
+      [6, 9],
+    ],
+    {},
+    190,
+    100,
+    { width: 150, height: 60 },
+  );
+  const result = routes(document);
+  const found = problems(document, result, true).filter((p) =>
+    /shares|jog|end segment|crosses|diagonal/.test(p),
+  );
+  expect(found).toEqual([]);
 });
 
 it('also keeps a wide three-row layout clean', () => {
