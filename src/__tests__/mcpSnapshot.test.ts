@@ -166,7 +166,12 @@ test('the handler renders the planned region inline and leaves the board untouch
     })),
   );
   const png = new Uint8Array([137, 80, 78, 71, 1, 2, 3]);
-  const render = jest.fn(async () => png);
+  type Request = Parameters<RecursiveExportHandle['snapshot']>[0];
+  // The canvas reports ink beyond document frames (e.g. overflowing text).
+  const render = jest.fn(async (request: Request) => ({
+    png,
+    plan: request.refit({ x: -500, y: -40, width: 40, height: 20 }),
+  }));
   result.current.exportRef.current = Object.assign(() => {}, {
     capture: jest.fn(),
     snapshot: render,
@@ -193,13 +198,11 @@ test('the handler renders the planned region inline and leaves the board untouch
     png: base64(png),
   });
   expect(reply.data.width * reply.data.height).toBeLessThanOrEqual(10_000);
-  expect(render).toHaveBeenCalledWith(
-    expect.objectContaining({
-      plan: expect.objectContaining({
-        width: reply.data.width,
-        region: reply.data.region,
-      }),
-    }),
+  const planned = render.mock.calls[0][0].plan;
+  expect(reply.data.region.x).toBe(-516);
+  expect(reply.data.region.x).toBeLessThan(planned.region.x);
+  expect(reply.data.region.x + reply.data.region.width).toBe(
+    planned.region.x + planned.region.width,
   );
   const after = result.current.owner.snapshot();
   expect(after.revision).toBe(before.revision);
@@ -221,14 +224,25 @@ test('the handler renders the planned region inline and leaves the board untouch
   active = false;
   expect(await code({})).toBe('BUSY');
   active = true;
-  render.mockResolvedValueOnce(
-    new Uint8Array(Math.ceil((SNAPSHOT_MAX_BASE64 * 3) / 4) + 3),
-  );
+  render.mockImplementationOnce(async (request) => ({
+    png: new Uint8Array(Math.ceil((SNAPSHOT_MAX_BASE64 * 3) / 4) + 3),
+    plan: request.plan,
+  }));
   expect(await code({})).toBe('RESPONSE_TOO_LARGE');
-  render.mockImplementationOnce(async () => {
+  render.mockImplementationOnce(async (request) => {
     act(() => result.current.owner.setCamera({ x: 5, y: 0, scale: 1 }));
-    return png;
+    return { png, plan: request.plan };
   });
   expect(await code({})).toBe('STALE_REVISION');
-  expect(render).toHaveBeenCalledTimes(3);
+  render.mockRejectedValueOnce(
+    new Error('Canvas has not rendered the requested revision'),
+  );
+  const own2 = {
+    appInstanceId: 'app',
+    sessionId: result.current.owner.snapshot().sessionId,
+  };
+  expect(((await act(() => handler({ handle: own2 }))) as any).error.code).toBe(
+    'BUSY',
+  );
+  expect(render).toHaveBeenCalledTimes(4);
 });

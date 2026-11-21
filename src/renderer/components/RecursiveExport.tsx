@@ -16,10 +16,12 @@ import {
 import {
   captureRecursiveScene,
   encodeRecursiveExport,
+  paintedSceneBounds,
   rasterizeRegion,
   restrictExportScene,
 } from '../utils/recursiveExport';
 import type { SnapshotPlan } from '../utils/snapshotRegion';
+import type { Bounds } from '../../shared/recursiveCamera';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import FormDialog from './FormDialog';
 import Icon from './Icon';
@@ -36,8 +38,9 @@ export type RecursiveExportHandle = (() => void) & {
   snapshot: (request: {
     stamp: string;
     plan: SnapshotPlan;
+    refit: (painted: Bounds) => SnapshotPlan;
     permit: () => boolean;
-  }) => Promise<Uint8Array>;
+  }) => Promise<{ png: Uint8Array; plan: SnapshotPlan }>;
 };
 export default function RecursiveExport({
   ref,
@@ -116,7 +119,13 @@ export default function RecursiveExport({
     Object.assign(openDialog, {
       snapshot: async (
         request: Parameters<RecursiveExportHandle['snapshot']>[0],
-      ) => rasterizeRegion(await rendering(request, 2000), request.plan),
+      ) => {
+        const scene = await rendering(request, 2000);
+        const painted =
+          request.plan.scope === 'whole' ? paintedSceneBounds(scene) : null;
+        const plan = painted ? request.refit(painted) : request.plan;
+        return { png: await rasterizeRegion(scene, plan), plan };
+      },
       capture: async (
         request: Parameters<RecursiveExportHandle['capture']>[0],
       ) => {

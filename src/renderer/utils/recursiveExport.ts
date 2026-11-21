@@ -214,6 +214,9 @@ export async function streamPng(scene: Konva.Group, bounds: Box) {
     await window.desktop.export.abortPng(id);
   }
 }
+/** Conservative painted bounds of every drawn shape in a captured scene. */
+export const paintedSceneBounds = (scene: Konva.Group) =>
+  unionBounds(candidates(scene).map(({ box }) => box));
 /** One bounded raster of a world region on white, encoded as PNG; destroys the scene. */
 export async function rasterizeRegion(
   scene: Konva.Group,

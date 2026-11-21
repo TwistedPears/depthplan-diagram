@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   unavailable,
   type AutomationRequest,
@@ -201,7 +201,7 @@ export function workspaceRouter(current: () => Context) {
     }
     return result;
   };
-  return async (tool: AutomationRequest['tool'], raw: unknown) => {
+  const route = async (tool: AutomationRequest['tool'], raw: unknown) => {
     try {
       const input = mcpTools[tool].input.parse(raw) as any;
       if (!input.requestId) return await dispatch(tool, input);
@@ -237,6 +237,7 @@ export function workspaceRouter(current: () => Context) {
       );
     }
   };
+  return Object.assign(route, { cancelProjects: projects.cancelActive });
 }
 
 export default function useWorkspaceAutomation(appInstanceId: string | null) {
@@ -246,6 +247,10 @@ export default function useWorkspaceAutomation(appInstanceId: string | null) {
   current.current = { appInstanceId, registry, workspace };
   const router = useRef<ReturnType<typeof workspaceRouter> | null>(null);
   router.current ??= workspaceRouter(() => current.current);
+  useEffect(
+    () => window.desktop.mcpFiles?.onRevoked?.(router.current!.cancelProjects),
+    [],
+  );
   return useAutomation(
     Object.fromEntries(
       Object.keys(mcpTools).map((tool) => [

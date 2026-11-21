@@ -28,6 +28,8 @@ let project: ProjectSnapshot;
 let documents: Record<string, ReturnType<typeof createRecursiveDocument>>;
 let granted: boolean;
 let request!: (value: unknown) => unknown;
+const revoked = new Set<() => void>();
+const revoke = () => revoked.forEach((callback) => callback());
 const response = () => ({
   status: 'success' as const,
   project: clone(project),
@@ -66,7 +68,10 @@ beforeEach(() => {
     },
     fileSystem: { onOpenRequested: noop },
     mcpFiles: {
-      onRevoked: noop,
+      onRevoked: (callback: () => void) => {
+        revoked.add(callback);
+        return () => revoked.delete(callback);
+      },
       folders: jest.fn().mockResolvedValue([]),
       lease: jest.fn().mockResolvedValue(lease),
       check: jest.fn().mockResolvedValue(undefined),
@@ -490,4 +495,46 @@ test('replacing an unsaved project offers a discard decision bound to fresh stat
   expect((await settle(retry.data.operationId)).status).toBe('completed');
   expect(window.desktop.projects.new).toHaveBeenCalledTimes(2);
   expect(project.location).toBe('/approved/second.depthproject');
+});
+
+test('revoking MCP access cancels a pending decision and releases the workspace', async () => {
+  await setup();
+  const first = await call('depthplan_create_project', create);
+  const { result } = await settle(first.data.operationId);
+  project.location = null;
+  const handle = result.project.handle;
+  await call('depthplan_project', {
+    handle,
+    requestId: 'extra',
+    action: { type: 'create_board', name: 'Extra' },
+  });
+  const pending = await call('depthplan_create_project', {
+    ...create,
+    requestId: 'replace',
+    path: '/approved/second.depthproject',
+    replaceProjectSessionId: handle.projectSessionId,
+  });
+  expect((await settle(pending.data.operationId)).status).toBe(
+    'needs-decision',
+  );
+  expect(
+    (
+      await call('depthplan_project', {
+        handle,
+        requestId: 'while-pending',
+        action: { type: 'rename_project', name: 'Blocked' },
+      })
+    ).error.code,
+  ).toBe('BUSY');
+  await act(async () => revoke());
+  expect((await settle(pending.data.operationId)).status).toBe('canceled');
+  expect(
+    (
+      await call('depthplan_project', {
+        handle,
+        requestId: 'after-cancel',
+        action: { type: 'rename_project', name: 'Released' },
+      })
+    ).data.project.name,
+  ).toBe('Released');
 });

@@ -223,9 +223,14 @@ export function projectAutomation(
         choices: ['discard', 'cancel'],
         state: decisionState(),
       };
+      // The workspace stays locked meanwhile; say why and how to leave locally.
+      current().workspace.setError(
+        'MCP create_project awaits a decision. Turn MCP Server off to cancel it.',
+      );
       const reply = await new Promise<Reply | null>((resolve) => {
         op.reply = resolve;
       });
+      current().workspace.setError('');
       delete op.reply;
       delete op.decision;
       op.status = 'running';
@@ -392,5 +397,11 @@ export function projectAutomation(
       }
     },
   };
-  return { command, create, work };
+  /** Revocation or disabling MCP cancels a pending create_project. */
+  const cancelActive = () => {
+    if (!active) return;
+    active.cancelRequested = true;
+    active.reply?.(null);
+  };
+  return { command, create, work, cancelActive };
 }

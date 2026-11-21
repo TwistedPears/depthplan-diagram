@@ -133,3 +133,12 @@ export function planSnapshot(request: Request, view: View): SnapshotPlan {
     ...snapshotScale(region, natural, request.maxPixels),
   };
 }
+/** Widen a whole-scene plan to painted ink (text overflow, markers) found after capture. */
+export function widenPlan(
+  plan: SnapshotPlan,
+  painted: Bounds,
+  maxPixels: number,
+): SnapshotPlan {
+  const region = unionBounds([plan.region, pad(painted)])!;
+  return { ...plan, region, ...snapshotScale(region, 1, maxPixels) };
+}

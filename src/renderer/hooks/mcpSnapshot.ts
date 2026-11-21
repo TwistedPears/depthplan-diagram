@@ -13,7 +13,7 @@ import {
   SNAPSHOT_MAX_BASE64,
   snapshotInput,
 } from '../../shared/mcpSnapshotContract';
-import { planSnapshot } from '../utils/snapshotRegion';
+import { planSnapshot, widenPlan } from '../utils/snapshotRegion';
 
 export function base64(bytes: Uint8Array) {
   let text = '';
@@ -44,7 +44,7 @@ export function mcpSnapshot(
           'BUSY',
           'Finish the active edit, draft or operation first',
         );
-      const plan = planSnapshot(args, {
+      const planned = planSnapshot(args, {
         document: s.document,
         camera: s.camera,
         viewport: s.canvas.viewport,
@@ -52,10 +52,17 @@ export function mcpSnapshot(
       const render = exportRef.current?.snapshot;
       if (!render) throw new EditorError('BUSY', 'Canvas is not ready');
       const stamp = editorStamp(s);
-      const png = await render({
+      const { png, plan } = await render({
         stamp,
-        plan,
+        plan: planned,
+        refit: (painted) => widenPlan(planned, painted, args.maxPixels),
         permit: () => editorStamp(snapshot()) === stamp,
+      }).catch((error: unknown) => {
+        // A pending render or an open export dialog is transient, not a bad request.
+        throw new EditorError(
+          editorStamp(snapshot()) === stamp ? 'BUSY' : 'STALE_REVISION',
+          error instanceof Error ? error.message : 'Snapshot failed',
+        );
       });
       if (editorStamp(snapshot()) !== stamp)
         throw new EditorError(

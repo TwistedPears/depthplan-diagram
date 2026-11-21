@@ -108,7 +108,12 @@ boards are written beside it. The grant and a vacant destination are checked
 before the workspace changes. It returns an `operationId`. Replacing an open
 project requires `replaceProjectSessionId` from `get_project`; replacing one that
 was never saved offers a `discard`/`cancel` decision instead of the local prompt.
-A failed or canceled save keeps the new project in memory, as in the UI.
+(Saving it first is not offered; use the UI.) While that decision is pending the
+workspace is locked and other workspace tools return BUSY; `decide`,
+`cancel_operation`, revoking a folder or turning MCP Server off cancels it (the
+local **Cancel MCP operation** button covers board operations only). The folder
+containing `path` must already exist. A failed or canceled save keeps the new
+project in memory, as in the UI.
 
 `project({handle, requestId, action})` takes the project handle and one action:
 `create_board` (`name`; the filename is generated in snake_case and the board
@@ -284,9 +289,12 @@ was rendered from. Scopes:
 - `viewport` (default): what the board shows now, from its camera and viewport,
   at the on-screen zoom.
 - `whole`: all revealed content at the active depths and folds, including
-  offscreen objects, with 16 units of padding.
-- `objects`: the region around the visible `ids` plus padding, with everything
-  drawn there (connectors, neighbours). Hidden ids return NOT_FOUND.
+  offscreen objects, widened to painted ink such as overflowing text, with 16
+  units of padding.
+- `objects`: the frames of the visible `ids` plus 16 units of padding, with
+  everything drawn there (connectors, neighbours). Content overflowing an edge
+  object's frame by more than the padding is cut off; use `whole` or `viewport`
+  to see it. Hidden ids return NOT_FOUND.
 - `bookmarkId`: that bookmark's camera view (or whole content when it saved no
   camera). Offscreen rendering of a different depth state is not available, so it
   renders only when applying the bookmark would leave the visible geometry,
