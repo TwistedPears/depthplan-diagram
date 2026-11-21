@@ -236,6 +236,14 @@ checks repeat before atomic writes. Existing source files also need grants. This
 is not protection against a malicious process with the same user's filesystem
 access; do not approve untrusted shared directories.
 
+`get_access({})` reads the instance's live grant list on every call and returns its
+`appInstanceId`. Each folder has `writable`; a grant inside the open project's
+folder is `writable: false` because the project writer lock rejects Save As copies
+and exports there, and a grant containing that folder carries a `reason`. An empty
+list adds a `note`. Grants are held by the app instance, not the client
+connection: re-enabling access keeps them, and they reset only when DepthPlan
+restarts or the user revokes them.
+
 `files` supports new/open/reload/save/save_as. `export` takes a path and svg/png/json;
 images use whole/selection scope and committed offscreen content. Capture waits
 for the exact session/document/view render and fails if superseded. PNG follows
@@ -282,6 +290,8 @@ this boundary.
 | INVALID_REQUEST / NOT_FOUND / NOT_ROOT / INVALID_DEPTH | Inspect the schema/hierarchy and correct the request.                                                    |
 | REQUEST_ID_REUSED                                      | Keep identical payload for retry; use a new ID only for a new intended action.                           |
 | RESPONSE_TOO_LARGE                                     | Reduce page/chunk size; never truncate stable identity.                                                  |
+| `get_access` lists no folders after approval           | Compare the client's `--descriptor` with MCP Details of that window; restart the client server.          |
+| Approved folder has `writable: false`                  | Write outside the open project folder, or close the project first.                                       |
 | Timeout, disconnect or internal error                  | Inspect state/files before retry; commit outcome may be unknown.                                         |
 | Tools missing or protocol error                        | Restart the client server and record app/client/protocol versions.                                       |
 

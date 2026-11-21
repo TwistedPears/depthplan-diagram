@@ -7,6 +7,7 @@ import type { ApiResult } from '../../shared/depthApiContract';
 import { boundedResult, EditorError } from '../../shared/editorQueries';
 import { projectOpen, projectQuery } from '../../shared/mcpProjectContract';
 import { mcpTools } from '../../shared/mcpRegistry';
+import { describeAccess } from '../../shared/mcpAccess';
 import useAutomation, { type AutomationHandlers } from './useAutomation';
 import useDocumentSessions, {
   type SessionController,
@@ -62,9 +63,14 @@ export function workspaceRouter(current: () => Context) {
     )
       throw new EditorError('STALE_APP', 'Refresh state for the intended app');
     if (tool === 'depthplan_get_access')
-      return boundedResult(snapshot(), {
-        folders: await window.desktop.mcpFiles.folders(),
-      });
+      return boundedResult(
+        snapshot(),
+        describeAccess(
+          await window.desktop.mcpFiles.folders(),
+          appInstanceId,
+          workspace.project?.location ?? null,
+        ),
+      );
     if (tool === 'depthplan_get_project') {
       const { offset, pageSize } = projectQuery.parse(input);
       const project = workspace.project;
