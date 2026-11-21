@@ -1,6 +1,7 @@
 import { arrowheads, lineTypes } from './connectionGeometry';
 import { z } from 'zod';
 import { handleSchema, resultSchema } from './depthApiContract';
+import { fitModes } from './objectFit';
 import {
   codeLanguages,
   strokeStyles,
@@ -66,6 +67,7 @@ export const queryInput = z.strictObject({
   rootId: editorId.optional(),
   depth: version.optional(),
   tag: z.string().min(1).max(256).optional(),
+  overflow: z.boolean().optional(),
   pageSize: z.number().int().min(1).max(200).default(50),
   cursor: z.string().uuid().optional(),
 });
@@ -156,6 +158,7 @@ export const stylePatchSchema = z.strictObject({
   cornerRadius: z.number().nonnegative().optional(),
   clipToFrame: z.boolean().optional(),
   legend: z.boolean().optional(),
+  fit: z.enum(fitModes).optional(),
   strokeStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   lineType: z.enum(lineTypes).optional(),
   arrowheadStart: z.enum(arrowheads).optional(),
@@ -519,7 +522,7 @@ export const editorTools = {
     output: editorResult,
     readOnly: true,
     description:
-      'Read paged objects (including hidden children), connections, bookmarks, layouts or pending repairs. Layout queries require rootId and depth. tag (ID or name) keeps only objects/connections carrying that tag; get_state lists tag definitions. Cursors expire when document or view changes.',
+      'Read paged objects (including hidden children), connections, bookmarks, layouts or pending repairs. Layout queries require rootId and depth. tag (ID or name) keeps only objects/connections carrying that tag; get_state lists tag definitions. Object items report overflow: true when body text is clipped in the active layout; overflow: true/false filters on it (fix with a larger height or style.fit grow-height/shrink-text). Cursors expire when document or view changes.',
   },
   depthplan_search: {
     input: searchInput,

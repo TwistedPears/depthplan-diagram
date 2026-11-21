@@ -97,3 +97,23 @@ it('paints object and connection pills, the tag line style and a derived legend'
   expect(legend).toContain('(2)');
   expect(legend).not.toContain('app ');
 });
+
+it('marks clipped bodies on the canvas and leaves fitting ones unmarked', () => {
+  const document = recursiveFixture();
+  document.objects.api.content = [
+    {
+      type: 'paragraph',
+      runs: [{ text: Array.from({ length: 40 }, () => 'word').join(' ') }],
+    },
+  ];
+  const { container } = render(
+    <RecursiveScene
+      document={document}
+      scene={recursiveScene(document)}
+      onError={jest.fn()}
+    />,
+  );
+  const marker = '[data-name="object-content object-overflow"]';
+  expect(container.querySelector(`#object-api ${marker}`)).not.toBeNull();
+  expect(container.querySelector(`#object-payments ${marker}`)).toBeNull();
+});

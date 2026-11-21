@@ -484,3 +484,7 @@
   min-height: 30px;
   padding: 4px;
 }
+.property-select {
+  width: 100%;
+  min-width: 0;
+}

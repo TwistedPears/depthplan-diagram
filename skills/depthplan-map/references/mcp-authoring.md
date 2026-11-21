@@ -60,6 +60,10 @@ batch. For an automatic legend, set `style.legend: true` on one shape. Read the 
 set from `get_state.tagDefinitions` and find tagged entities with `query` or
 `search` using `tag` (ID or name).
 
+After writing content, query `collection: "objects", overflow: true` to find every
+shape whose text is clipped, then resize it or set `style.fit: "grow-height"`
+(or `"shrink-text"`) with `edit_object`.
+
 Large content uses `depthplan_content_transfer`: begin with total UTF-16 length,
 append at exact offsets in chunks no larger than 8,192 code units (smaller if JSON
 escaping exceeds transport size), then use `contentTransfer` in `edit_object`.

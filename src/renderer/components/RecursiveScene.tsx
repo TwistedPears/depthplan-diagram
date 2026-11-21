@@ -1,6 +1,6 @@
 import ConnectionPaint from './ConnectionPaint';
 import { memo, useMemo, type ReactNode } from 'react';
-import { Group, Text } from 'react-konva';
+import { Group, Rect, Text } from 'react-konva';
 import type {
   DiagramObject,
   RecursiveDocument,
@@ -13,6 +13,7 @@ import {
   tagStyledConnection,
 } from '../../shared/tags';
 import { TagDefinitionsContext, TagPills } from './TagPills';
+import { bodyFit } from '../../shared/objectFit';
 import type { recursiveScene } from '../../shared/recursiveScene';
 import {
   visibleEndpoint,
@@ -78,6 +79,10 @@ const ObjectContent = memo(function ObjectContent({
     body,
     tags: tagBox,
   } = objectContentBounds(object, width, height, hasChildren);
+  const { scale, overflow } = useMemo(
+    () => bodyFit(object, content, width, height, hasChildren, expanded),
+    [object, content, width, height, hasChildren, expanded],
+  );
   return (
     <>
       <ObjectOutline object={object} geometry={geometry} {...shapeProps} />
@@ -97,7 +102,8 @@ const ObjectContent = memo(function ObjectContent({
         content.length > 0 &&
         body.width > 0 &&
         body.height > 10 &&
-        !editingText && (
+        !editingText &&
+        (scale === 1 ? (
           <RecursiveRichContent
             {...body}
             exclusion={exclusion}
@@ -105,9 +111,59 @@ const ObjectContent = memo(function ObjectContent({
             verticalAlign={textVerticalAlignment(object)}
             onError={onError}
           />
-        )}
+        ) : (
+          // shrink-text lays out at the unscaled size, then scales the body uniformly.
+          <Group
+            name="object-content"
+            x={body.x}
+            y={body.y}
+            scaleX={scale}
+            scaleY={scale}
+          >
+            <RecursiveRichContent
+              x={0}
+              y={0}
+              width={body.width / scale}
+              height={body.height / scale}
+              exclusion={
+                exclusion && {
+                  ...exclusion,
+                  width: exclusion.width / scale,
+                  top: exclusion.top / scale,
+                  bottom: exclusion.bottom / scale,
+                }
+              }
+              content={content}
+              verticalAlign={textVerticalAlignment(object)}
+              onError={onError}
+            />
+          </Group>
+        ))}
       {tags.length > 0 && tagBox.height > 0 && (
-        <TagPills tags={tags} {...tagBox} />
+        <TagPills
+          tags={tags}
+          {...tagBox}
+          width={tagBox.width - (overflow ? 20 : 0)}
+        />
+      )}
+      {overflow && !editingText && (
+        <Group
+          name="object-content object-overflow"
+          x={width / 2 - 18}
+          y={height / 2 - 14}
+          listening={false}
+        >
+          <Rect width={14} height={10} cornerRadius={3} fill="#ac323b" />
+          <Text
+            width={14}
+            height={10}
+            text="…"
+            fontSize={10}
+            align="center"
+            verticalAlign="middle"
+            fill="#ffffff"
+          />
+        </Group>
       )}
     </>
   );

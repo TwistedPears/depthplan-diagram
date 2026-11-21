@@ -270,8 +270,23 @@ Whitespace and Unicode remain intact. Code preserves tabs, CRLF and final
 newlines; tabs display at four-column stops. Syntax highlighting is derived, not
 saved. Languages are `javascript`, `typescript`, `json`, `yaml`, `python`, `sql`,
 `bash`, `csharp`, `java`, `html`, `css` and `plaintext`. Code wrapping defaults off;
-prose wraps. Body content clips vertically rather than automatically resizing the
-object. Font families use local fallbacks and are not embedded in exports.
+prose wraps. Font families use local fallbacks and are not embedded in exports.
+
+`style.fit` chooses what happens when body text is taller than its box (Style →
+**Text fit**). `clip` (the default) clips vertically and leaves the object alone.
+`grow-height` grows the object's height in the active layout during any accepted
+edit that changes its text, name, tags, shape, width or fit, in that edit's Undo
+step. Growth never shrinks an object, keeps its top edge fixed, and lets parents
+and neighbors make room with the auto-arrange rules. Other depths keep their saved
+size until the object is edited while they are active. Painting never creates
+edits. `shrink-text` scales the body text uniformly while painting, down to 60%,
+and clips below that. Horizontal overflow of unwrapped code is not measured.
+
+Clipped bodies show a small red `…` marker in the lower-right corner, also in
+SVG/PNG exports. A body too short to paint (10 units or less) with content counts
+as clipped. Expanded parents, whose bodies are not painted, never count. Overflow
+uses the renderer's text metric and bounds, which include the tag-pill row but not
+the zoom-dependent space beside a child-stack control.
 
 Object `style.link` and rich-text links accept absolute HTTP, HTTPS and mailto
 URLs; controls, embedded credentials and executable/file schemes are rejected at

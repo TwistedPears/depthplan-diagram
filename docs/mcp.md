@@ -215,6 +215,14 @@ case-insensitive name, filtered before paging; an unknown tag is `NOT_FOUND`. A
 tagged search with an empty `query` returns every tagged object and connection.
 See [tags and legends](document-and-editing.md#tags-and-legends).
 
+Object query items include `overflow`, which is true when the body text is clipped
+in the active layout ([text fit](document-and-editing.md#rich-text-and-code)).
+`query` with `collection: "objects", overflow: true` lists every clipped object in
+one paged result. Only painted bodies count: hidden objects and expanded parents
+report false until shown. Fix one by resizing it with
+`geometry`, or by setting `edit_object` `style.fit` to `"grow-height"` (it grows in
+the same Undo step) or `"shrink-text"`.
+
 For large content, `content_transfer` begins a buffer with an ID and JSON string
 `totalLength`, appends at exact UTF-16 offsets (at most 8,192 characters each), then
 supplies `contentTransfer` to `edit_object` for atomic validation/publication.

@@ -215,6 +215,19 @@ export default function SelectionProperties({
                 ]}
                 onChange={(value) => setStyle('fillType', value)}
               />
+              <fieldset className="property-group">
+                <legend>Text fit</legend>
+                <select
+                  aria-label="Text fit"
+                  className="property-select"
+                  value={String(style.fit ?? 'clip')}
+                  onChange={(event) => setStyle('fit', event.target.value)}
+                >
+                  <option value="clip">Clip overflow</option>
+                  <option value="grow-height">Grow height</option>
+                  <option value="shrink-text">Shrink text</option>
+                </select>
+              </fieldset>
             </>
           )}
           <IconChoices

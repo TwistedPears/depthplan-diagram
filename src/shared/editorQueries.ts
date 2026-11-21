@@ -22,6 +22,7 @@ import type { RecursiveDocument } from './recursiveDocument';
 import { contentText, objectLabel } from './recursiveScene';
 import { matchesSearch, searchTerms } from './objectSearch';
 import { entityTags, hasTag, resolveTag } from './tags';
+import { overflowingObjects } from './objectFit';
 
 function queryTag(doc: RecursiveDocument, idOrName: string) {
   const tag = resolveTag(doc, idOrName);
@@ -395,6 +396,15 @@ export function createEditorQueries(owner: {
           const entities = doc[args.collection];
           ids = ids.filter((id) => hasTag(entities[id], tag));
         }
+        if (args.overflow !== undefined && args.collection !== 'objects')
+          throw new EditorError(
+            'INVALID_REQUEST',
+            'Overflow filters apply to objects',
+          );
+        const overflowing =
+          args.collection === 'objects' ? overflowingObjects(doc) : null;
+        if (args.overflow !== undefined)
+          ids = ids.filter((id) => overflowing!.has(id) === args.overflow);
         const world =
           args.collection === 'objects' ? activeWorldGeometry(doc) : null;
         const hierarchy =
@@ -416,6 +426,7 @@ export function createEditorQueries(owner: {
                     doc.layouts[entry.root][doc.rootDepths[entry.root]][id] ??
                     null,
                   worldGeometry: world!.get(id) ?? null,
+                  overflow: overflowing!.has(id),
                 }
               : {}),
           };
