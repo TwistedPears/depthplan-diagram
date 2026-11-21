@@ -248,6 +248,10 @@ recovery storage and never changes the manifest or board merely to remember a vi
 separately from live session handles. Opening a project grants no MCP folder
 access. Explicit saves, reloads, exports and unopened-board reads require local
 grants. Edits to loaded project boards save automatically.
+MCP `create_project` and `project` run the same New Project, first-save, New
+Board, Rename, Remove and title operations as the drawer, with a path inside an
+approved folder replacing the save dialog. Writes to a saved project need a grant
+covering its manifest; removal retains a saved board file as an unlisted board.
 
 ## Search project content
 

@@ -34,6 +34,18 @@ export type ProjectDialog =
       kind: 'createBoard' | 'duplicateBoard' | 'removeBoard';
       boardId?: string;
     };
+/** An explicit filename beside the board's current file, or null when unsafe. */
+export function boardFilePath(current: string, value: string) {
+  const path =
+    current.slice(0, current.lastIndexOf('/') + 1) +
+    value.replace(/\.depthplan(?:\.json)?$/i, '') +
+    '.depthplan';
+  return value &&
+    !value.includes('/') &&
+    projectPathSchema.safeParse(path).success
+    ? path
+    : null;
+}
 function success<T>(result: FileResult<T>): T | null {
   if (result.status === 'error') throw new Error(result.error);
   return result.status === 'success' ? result : null;
@@ -361,19 +373,16 @@ function useProject() {
     }
     await openHome(next);
   };
-  const guardProject = async () => {
+  const guardProject = async (confirm = window.desktop.transitions.confirm) => {
     const current = live.current;
     if (!current || current.location) return true;
-    const choice = await window.desktop.transitions.confirm(
-      'document',
-      current.manifest.name,
-      true,
-    );
+    const choice = await confirm('document', current.manifest.name, true);
     if (choice === 'save')
-      return locked.current ? saveProject() : run(saveProject);
+      return locked.current ? saveProject() : run(() => saveProject());
     return choice === 'discard';
   };
-  const saveProject = async () => {
+  /** MCP supplies an approved path and lease instead of the native dialog. */
+  const saveProject = async (target?: { path: string; lease: FileLease }) => {
     const current = live.current!;
     const active = registry.snapshot().activeKey;
     setError('');
@@ -390,6 +399,7 @@ function useProject() {
           keys.map(
             (key) => registry.controllers.get(key)!.owner.snapshot().document!,
           ),
+          target,
         ),
       );
       if (!saved) return false;
@@ -417,6 +427,7 @@ function useProject() {
           `Project saved, but a board could not reopen: ${String(e)}. Close and reopen the affected board before editing.`,
         );
       } else setError(String(e));
+      if (target) throw e;
       return false;
     } finally {
       registry.release();
@@ -445,59 +456,61 @@ function useProject() {
       const candidate = success(await read());
       return candidate ? acceptProject(candidate.project) : false;
     });
-  const createProject = () =>
-    run(async () => {
-      const { sessions, activeKey } = registry.snapshot();
-      const active = sessions.find((session) => session.key === activeKey);
-      const controller = registry.controllers.get(activeKey);
-      const others = sessions
-        .filter((session) => session !== active)
-        .map((session) => session.key);
-      // Only work left behind needs a save decision. The active board travels with its history.
-      if (
-        live.current?.manifest.boards.some(
-          (board) => board.id !== active?.project?.boardId,
-        ) &&
-        !(await guardProject())
-      )
-        return false;
-      if (!(await registry.prepare(others))) return false;
-      registry.release();
-      if (!(await registry.prepare(active ? [activeKey] : [], true)))
-        return false;
-      const document = controller?.owner.snapshot().document ?? undefined;
-      const created = success(await window.desktop.projects.new(document));
-      if (!created) return false;
-      let installed = false;
-      try {
-        await registry.retire(others);
-        if (live.current)
-          success(await window.desktop.projects.close(live.current.sessionId));
-        update(created.project);
-        if (active && controller && document) {
-          controller.owner.relocate(document.metadata.title, null);
-          controller.files.clearFailure();
-          registry.install([
-            {
-              ...active,
-              document,
-              source: null,
-              project: {
-                sessionId: created.project.sessionId,
-                boardId: document.id,
-              },
+  const createProject = () => run(() => newProject());
+  const newProject = async (
+    confirm?: typeof window.desktop.transitions.confirm,
+  ) => {
+    const { sessions, activeKey } = registry.snapshot();
+    const active = sessions.find((session) => session.key === activeKey);
+    const controller = registry.controllers.get(activeKey);
+    const others = sessions
+      .filter((session) => session !== active)
+      .map((session) => session.key);
+    // Only work left behind needs a save decision. The active board travels with its history.
+    if (
+      live.current?.manifest.boards.some(
+        (board) => board.id !== active?.project?.boardId,
+      ) &&
+      !(await guardProject(confirm))
+    )
+      return false;
+    if (!(await registry.prepare(others))) return false;
+    registry.release();
+    if (!(await registry.prepare(active ? [activeKey] : [], true)))
+      return false;
+    const document = controller?.owner.snapshot().document ?? undefined;
+    const created = success(await window.desktop.projects.new(document));
+    if (!created) return false;
+    let installed = false;
+    try {
+      await registry.retire(others);
+      if (live.current)
+        success(await window.desktop.projects.close(live.current.sessionId));
+      update(created.project);
+      if (active && controller && document) {
+        controller.owner.relocate(document.metadata.title, null);
+        controller.files.clearFailure();
+        registry.install([
+          {
+            ...active,
+            document,
+            source: null,
+            project: {
+              sessionId: created.project.sessionId,
+              boardId: document.id,
             },
-          ]);
-        } else {
-          registry.install([]);
-          await openHome(created.project);
-        }
-        installed = true;
-      } finally {
-        if (!installed)
-          await window.desktop.projects.close(created.project.sessionId);
+          },
+        ]);
+      } else {
+        registry.install([]);
+        await openHome(created.project);
       }
-    });
+      installed = true;
+    } finally {
+      if (!installed)
+        await window.desktop.projects.close(created.project.sessionId);
+    }
+  };
   const acceptStandalone = async (candidate: FileCandidate | null) => {
     if (!(await guardProject()) || !(await registry.prepare())) return false;
     await registry.retire();
@@ -529,78 +542,99 @@ function useProject() {
         ? acceptProject(candidate.project)
         : acceptStandalone(candidate);
     });
-  const apply = async (action: ProjectAction) => {
+  const apply = async (action: ProjectAction, lease?: FileLease) => {
     const current = live.current!;
     const result = success(
       await window.desktop.projects.apply(
         current.sessionId,
         current.fingerprint,
         action,
+        lease,
       ),
     );
     if (!result) return null;
     update(result.project);
     return result.project;
   };
-  const manage = (
-    kind: 'createBoard' | 'renameBoard' | 'duplicateBoard' | 'removeBoard',
-    name = '',
-    path = '',
+  type Manage =
+    'createBoard' | 'renameBoard' | 'duplicateBoard' | 'removeBoard';
+  const manage = (kind: Manage, name = '', path = '', boardId?: string) =>
+    run(() => manageBoard(kind, name, path, boardId));
+  const manageBoard = async (
+    kind: Manage,
+    name: string,
+    path: string,
     boardId?: string,
-  ) =>
-    run(async () => {
-      const sessionKey = boardId ? key(boardId) : '';
-      const controller = registry.controllers.get(sessionKey);
-      if (controller) {
-        if (!(await registry.prepare([sessionKey], kind !== 'removeBoard')))
-          return false;
-        if (
-          kind === 'renameBoard' &&
-          controller.owner.snapshot().dirty &&
-          (await controller.files.save()).status !== 'success'
-        )
-          throw new Error('Save the board successfully before renaming it.');
-      }
-      let action: ProjectAction;
-      if (kind === 'removeBoard') action = { kind, boardId: boardId! };
-      else if (kind === 'renameBoard') {
-        const read = success(
-          await window.desktop.projects.readBoard(
-            live.current!.sessionId,
-            boardId!,
-          ),
-        );
-        if (!read) return false;
-        const expected =
-          controller?.owner.snapshot().source?.fingerprint ??
-          read.board.fingerprint;
-        action = { kind, boardId: boardId!, name, path, expected };
-      } else if (kind === 'duplicateBoard')
-        action = {
-          kind,
-          boardId: boardId!,
-          name,
-          path,
-          document: controller?.owner.snapshot().document ?? undefined,
-        };
-      else action = { kind: 'createBoard', name, path };
-      const next = await apply(action);
-      if (!next) return false;
-      if (kind === 'removeBoard' && controller) {
-        await registry.retire([sessionKey]);
-        registry.drop(sessionKey);
-      }
-      if (kind === 'renameBoard' && controller) {
-        const read = success(
-          await window.desktop.projects.readBoard(next.sessionId, boardId!),
-        );
-        if (read) controller.owner.relocate(name, read.board.source);
-      }
-      registry.release();
-      if (kind === 'createBoard' || kind === 'duplicateBoard')
-        await openBoard(next.manifest.boards.at(-1)!.id);
-      setDialog(null);
-    });
+    lease?: FileLease,
+  ) => {
+    const sessionKey = boardId ? key(boardId) : '';
+    const controller = registry.controllers.get(sessionKey);
+    if (controller) {
+      if (!(await registry.prepare([sessionKey], kind !== 'removeBoard')))
+        return false;
+      if (
+        kind === 'renameBoard' &&
+        controller.owner.snapshot().dirty &&
+        (await controller.files.save()).status !== 'success'
+      )
+        throw new Error('Save the board successfully before renaming it.');
+    }
+    let action: ProjectAction;
+    if (kind === 'removeBoard') action = { kind, boardId: boardId! };
+    else if (kind === 'renameBoard') {
+      const read = success(
+        await window.desktop.projects.readBoard(
+          live.current!.sessionId,
+          boardId!,
+          lease,
+        ),
+      );
+      if (!read) return false;
+      const expected =
+        controller?.owner.snapshot().source?.fingerprint ??
+        read.board.fingerprint;
+      action = { kind, boardId: boardId!, name, path, expected };
+    } else if (kind === 'duplicateBoard')
+      action = {
+        kind,
+        boardId: boardId!,
+        name,
+        path,
+        document: controller?.owner.snapshot().document ?? undefined,
+      };
+    else action = { kind: 'createBoard', name, path };
+    const next = await apply(action, lease);
+    if (!next) return false;
+    if (kind === 'removeBoard' && controller) {
+      await registry.retire([sessionKey]);
+      registry.drop(sessionKey);
+    }
+    if (kind === 'renameBoard' && controller) {
+      const read = success(
+        await window.desktop.projects.readBoard(
+          next.sessionId,
+          boardId!,
+          lease,
+        ),
+      );
+      if (read) controller.owner.relocate(name, read.board.source);
+    }
+    registry.release();
+    if (kind === 'createBoard' || kind === 'duplicateBoard')
+      await openBoard(next.manifest.boards.at(-1)!.id, lease);
+    setDialog(null);
+  };
+  const renameProject = async (name: string, lease?: FileLease) => {
+    if (!projectNameSchema.safeParse(name).success)
+      throw new Error(
+        'Enter a project name without path separators, control characters or a trailing period.',
+      );
+    const { description, homeBoardId } = live.current!.manifest;
+    return !!(await apply(
+      { kind: 'settings', name, description, homeBoardId, autosave: true },
+      lease,
+    ));
+  };
   const renameBoard = (boardId: string, name: string) => {
     const board = live.current!.manifest.boards.find((b) => b.id === boardId)!;
     if (name === board.name) return Promise.resolve(true);
@@ -624,15 +658,8 @@ function useProject() {
   };
   const renameFilename = (boardId: string, value: string) => {
     const board = live.current!.manifest.boards.find((b) => b.id === boardId)!;
-    const filename =
-      value.replace(/\.depthplan(?:\.json)?$/i, '') + '.depthplan';
-    const path =
-      board.path.slice(0, board.path.lastIndexOf('/') + 1) + filename;
-    if (
-      !value ||
-      value.includes('/') ||
-      !projectPathSchema.safeParse(path).success
-    ) {
+    const path = boardFilePath(board.path, value);
+    if (!path) {
       setError(
         'Enter a filename without folder separators or reserved characters.',
       );
@@ -803,23 +830,14 @@ function useProject() {
     saveAll,
     saveProjectAs: () => run(saveProject),
     guardProject,
-    renameProject: (name: string) =>
-      run(async () => {
-        if (!projectNameSchema.safeParse(name).success)
-          throw new Error(
-            'Enter a project name without path separators, control characters or a trailing period.',
-          );
-        const { description, homeBoardId } = live.current!.manifest;
-        return !!(await apply({
-          kind: 'settings',
-          name,
-          description,
-          homeBoardId,
-          autosave: true,
-        }));
-      }),
+    renameProject: (name: string) => run(() => renameProject(name)),
     standalone,
     manage,
+    // Unwrapped operations for callers that already hold `run` (MCP).
+    newProject,
+    saveProject,
+    manageBoard,
+    renameProjectNow: renameProject,
     importBoards,
     filename: (name: string) =>
       projectFilename(name, [

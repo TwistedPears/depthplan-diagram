@@ -580,7 +580,7 @@ try {
   await templates();
   await selectionMenu();
   console.log(
-    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 28-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
+    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 30-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );
 } catch (error) {
   const active = resumed ?? { app, request, session, sync };

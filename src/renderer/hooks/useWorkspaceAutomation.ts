@@ -13,6 +13,7 @@ import useDocumentSessions, {
   type SessionController,
 } from './useDocumentSessions';
 import useProjectWorkspace from './useProjectWorkspace';
+import { projectAutomation } from './projectAutomation';
 
 type Context = {
   appInstanceId: string | null;
@@ -26,7 +27,10 @@ export function workspaceRouter(current: () => Context) {
     { payload: string; result: Promise<ApiResult<unknown>> }
   >();
   // ponytail: retain at most 64 owner workflow readers; snapshot terminal receipts if memory warrants it.
-  const operations = new Map<string, NonNullable<SessionController['work']>>();
+  const operations = new Map<
+    string,
+    Pick<NonNullable<SessionController['work']>, 'read' | 'cancel' | 'decide'>
+  >();
   const snapshot = () => {
     const { registry, appInstanceId } = current();
     return (
@@ -41,6 +45,7 @@ export function workspaceRouter(current: () => Context) {
       }
     );
   };
+  const projects = projectAutomation(current, () => snapshot());
   const handle = (controller?: SessionController) => {
     const s = controller?.owner.snapshot();
     return s
@@ -122,6 +127,16 @@ export function workspaceRouter(current: () => Context) {
         'BUSY',
         'Finish the project transition or dialog first',
       );
+    if (tool === 'depthplan_project') return projects.command(input);
+    if (tool === 'depthplan_create_project') {
+      const result = await projects.create(input);
+      if (result.ok) {
+        operations.set(result.data.operationId, projects.work);
+        if (operations.size > 64)
+          operations.delete(operations.keys().next().value!);
+      }
+      return result;
+    }
     if (tool === 'depthplan_open_board') {
       const args = projectOpen.parse(input),
         project = workspace.project;

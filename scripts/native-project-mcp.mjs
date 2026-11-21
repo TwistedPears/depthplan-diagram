@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import client from './mcp/native-client.cjs';
 import { mcpState } from './native-driver.mjs';
@@ -250,6 +250,39 @@ export async function projectMcp(driver) {
       async () =>
         (await receipt(finalSave.data.operationId)).status === 'completed',
     );
+    // Membership tools: create, rename and remove through the drawer's guards.
+    const command = async (requestId, action) => {
+      const result = await probe.call('depthplan_project', {
+        handle: discovery.handle,
+        requestId,
+        action,
+      });
+      assert.equal(result.ok, true, JSON.stringify(result));
+      return result.data;
+    };
+    const created = await command('mcp-board', {
+      type: 'create_board',
+      name: 'MCP Board',
+    });
+    assert.equal(created.board.path, 'mcp_board.depthplan');
+    await stat(path.join(root, 'mcp_board.depthplan'));
+    const renamedBoard = await command('mcp-rename', {
+      type: 'rename_board',
+      boardId: created.board.id,
+      name: 'MCP Renamed',
+    });
+    assert.equal(renamedBoard.board.path, 'mcp_renamed.depthplan');
+    await stat(path.join(root, 'mcp_renamed.depthplan'));
+    await command('mcp-title', { type: 'rename_project', name: 'MCP Title' });
+    const removed = await command('mcp-remove', {
+      type: 'remove_board',
+      boardId: created.board.id,
+    });
+    assert.equal(removed.file, 'retained-unlisted');
+    await stat(path.join(root, 'mcp_renamed.depthplan'));
+    const manifest = JSON.parse(await readFile(project.location, 'utf8'));
+    assert.equal(manifest.name, 'MCP Title');
+    assert.equal(manifest.boards.length, 2);
     await click('Menu');
     await click('Close All');
     await until(
@@ -258,6 +291,35 @@ export async function projectMcp(driver) {
     );
     assert.equal((await probe.call('depthplan_get_state')).ok, true);
     assert.equal((await receipt()).status, 'completed');
+    // From no project to a saved project with named boards, without the UI.
+    const target = path.join(profile, 'mcp-created');
+    await mkdir(target);
+    const createdProject = await probe.call('depthplan_create_project', {
+      appInstanceId: handleA.appInstanceId,
+      requestId: 'mcp-create-project',
+      name: 'Agent Map',
+      path: path.join(target, 'agent_map.depthproject'),
+    });
+    assert.equal(createdProject.ok, true, JSON.stringify(createdProject));
+    await until(
+      async () =>
+        (await receipt(createdProject.data.operationId)).status !== 'running',
+    );
+    const done = await receipt(createdProject.data.operationId);
+    assert.equal(done.status, 'completed', JSON.stringify(done));
+    await probe.call('depthplan_project', {
+      handle: done.result.project.handle,
+      requestId: 'mcp-created-board',
+      action: { type: 'create_board', name: 'Second' },
+    });
+    const saved = JSON.parse(
+      await readFile(path.join(target, 'agent_map.depthproject'), 'utf8'),
+    );
+    assert.equal(saved.name, 'Agent Map');
+    assert.equal(saved.boards.length, 2);
+    for (const board of saved.boards) await stat(path.join(target, board.path));
+    await click('Menu');
+    await click('Close All');
     if (autosave) {
       await click('Menu');
       await click('Settings');
@@ -265,7 +327,7 @@ export async function projectMcp(driver) {
       await click('Menu');
     }
     console.log(
-      `PASS project MCP: explicit same-name targets, grants, delayed overwrite after tab switch, export, stale handles, receipts and retries. Evidence: ${profile}`,
+      `PASS project MCP: create/rename/remove members and create a saved project, explicit same-name targets, grants, delayed overwrite after tab switch, export, stale handles, receipts and retries. Evidence: ${profile}`,
     );
   } finally {
     probe.close();

@@ -1,6 +1,6 @@
 # Local MCP setup and tools
 
-DepthPlan exposes 28 tools for inspecting and editing the live document, navigating,
+DepthPlan exposes 30 tools for inspecting and editing the live document, navigating,
 managing history/bookmarks, approved file operations, recovery and export. The
 bundled Rust `depthplan-mcp` adapter uses stdio and needs no global Node runtime.
 The executable schemas are [mcpRegistry.ts](../src/shared/mcpRegistry.ts),
@@ -100,6 +100,30 @@ results; expiration requires reconciling current state. Identical accepted retri
 return the original result without repeating work. New commands using a closed or
 replaced handle fail; reopening the same file creates a new handle.
 
+`create_project({appInstanceId, requestId, name, path})` performs **New Project**
+(the active board travels with its content and Undo history), applies the name
+and saves to `path`, a new `.depthproject` file inside an approved folder; all
+boards are written beside it. The grant and a vacant destination are checked
+before the workspace changes. It returns an `operationId`. Replacing an open
+project requires `replaceProjectSessionId` from `get_project`; replacing one that
+was never saved offers a `discard`/`cancel` decision instead of the local prompt.
+A failed or canceled save keeps the new project in memory, as in the UI.
+
+`project({handle, requestId, action})` takes the project handle and one action:
+`create_board` (`name`; the filename is generated in snake_case and the board
+opens), `rename_board` (`boardId` plus `name` and/or `filename`; a name alone also
+regenerates the filename, as inline renaming does), `rename_project` (`name`) or
+`remove_board` (`boardId`). These run the drawer's own operations: open boards
+save accepted edits first and drafts, gestures or a running MCP operation on an
+affected board return BUSY (resolve drafts with `resolve_draft`). A saved project
+requires an approved folder covering its manifest location; an unsaved project
+changes only memory. Names may repeat; unsafe names and filename collisions are
+rejected without overwriting. Removal changes membership only: a saved board's
+file stays on disk and is reported as an unlisted diagnostic (`file:
+"retained-unlisted"`); an unsaved board is discarded (`"discarded"`). Results
+include the project summary and the affected board with its live handle. Both
+tools replay identical request IDs.
+
 Project `save` and `reload` use the existing native project owner, fingerprint
 checks and MCP folder grants. Saving a project board as an independent copy uses a
 new document ID and leaves the original association and dirty state intact.
@@ -123,6 +147,7 @@ All names below have the `depthplan_` prefix.
 | Tools                                                     | Purpose                                                                   |
 | --------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `get_project`, `open_board`                               | Project members and explicit board sessions                               |
+| `create_project`, `project`                               | Create/save a project; create, rename and remove boards; rename project   |
 | `get_state`, `search`, `query`, `read_chunk`              | Live state, text discovery and native entity data                         |
 | `edit`, `delete_preview`, `history`, `content_transfer`   | Atomic authoring, deletion impact, Undo/Redo and large content transfer   |
 | `camera`, `selection`, `controls`, `bookmarks`            | View navigation, selection, editor controls and saved views               |

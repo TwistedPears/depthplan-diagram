@@ -377,6 +377,18 @@ async fn answer(app: AppHandle, generation: u64, bytes: &[u8]) -> Value {
     }
     value
 }
+/// Resolve an MCP target inside an approved folder while the lease stays valid.
+pub fn mcp_target(
+    service: &Mutex<Service>,
+    folders: &Folders,
+    path: &str,
+    lease: &Value,
+) -> Result<PathBuf> {
+    service.lock().unwrap().check(lease)?;
+    let target = folders.resolve(path)?;
+    service.lock().unwrap().check(lease)?;
+    Ok(target)
+}
 struct Grant {
     path: PathBuf,
     identity: same_file::Handle,
@@ -509,5 +521,52 @@ mod tests {
             .is_err());
         service.disable().unwrap();
         assert!(service.check(&lease).is_err());
+    }
+    #[test]
+    fn mcp_project_writes_stay_inside_grants_and_stop_on_revocation() {
+        use crate::projects::{Action, Project};
+        let root = tempfile::tempdir().unwrap();
+        let approved = root.path().join("approved");
+        std::fs::create_dir(&approved).unwrap();
+        let folders = Folders::default();
+        folders.add(&approved).unwrap();
+        let service = Mutex::new(Service::new(Uuid::new_v4().to_string()).unwrap());
+        service.lock().unwrap().token = Some("a".repeat(64));
+        let lease = service.lock().unwrap().lease().unwrap();
+        let outside = root.path().join("outside.depthproject");
+        assert!(mcp_target(&service, &folders, outside.to_str().unwrap(), &lease).is_err());
+        let target = approved.join("plan.depthproject");
+        let path = mcp_target(&service, &folders, target.to_str().unwrap(), &lease).unwrap();
+        let guard =
+            |_: &str| mcp_target(&service, &folders, &path.to_string_lossy(), &lease).map(|_| ());
+        let mut project = Project::new(None, "Overview", "overview.depthplan").unwrap();
+        let manifest = project.manifest.clone();
+        let expected = project.fingerprint.clone();
+        project
+            .save(&path, &expected, manifest, &[], &guard)
+            .unwrap();
+        assert_eq!(project.location().unwrap(), path);
+        let create = |name: &str, path: &str| -> Action {
+            serde_json::from_value(json!({"kind":"createBoard","name":name,"path":path})).unwrap()
+        };
+        let expected = project.fingerprint.clone();
+        project
+            .apply(&expected, create("API", "api.depthplan"), None, &guard)
+            .unwrap();
+        assert_eq!(project.manifest.boards.len(), 2);
+        // Revocation between phases stops publication and keeps the manifest.
+        let before = project.manifest.clone();
+        let expected = project.fingerprint.clone();
+        let revoked = |phase: &str| {
+            if phase == "board-published" {
+                service.lock().unwrap().disable().unwrap();
+            }
+            guard(phase)
+        };
+        assert!(project
+            .apply(&expected, create("Data", "data.depthplan"), None, &revoked)
+            .is_err());
+        assert_eq!(project.manifest, before);
+        assert!(guard("manifest-publish").is_err());
     }
 }
