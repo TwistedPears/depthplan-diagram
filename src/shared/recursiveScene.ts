@@ -12,6 +12,7 @@ import {
 } from './connectionGeometry';
 import { recursiveVisibility } from './recursiveVisibility';
 import { displayedConnection } from './connectionRoutes';
+import { avoidingRoutes } from './connectionAvoidance';
 
 export type SceneItem = { id: string; z: number } & (
   { kind: 'object' } | { kind: 'connection'; route: ConnectionRoute }
@@ -62,16 +63,20 @@ export function recursiveScene(document: RecursiveDocument) {
     Array<{ id: string } & ConnectionRoute>
   >();
   const crossings = new Set<string>();
+  const displayed = Object.values(document.connections)
+    .filter((c) => c.ownerId === null || expanded.has(c.ownerId))
+    .map((c) => displayedConnection(document, c));
+  const routes = new Map<string, ConnectionRoute>();
+  for (const c of displayed) {
+    const route = connectionRoute(document, c, world);
+    if (route) routes.set(c.id, route);
+  }
+  for (const [id, route] of avoidingRoutes(document, world, displayed, routes))
+    routes.set(id, route);
   for (const connection of Object.values(document.connections).sort(
     (a, b) => a.z - b.z || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   )) {
-    if (connection.ownerId !== null && !expanded.has(connection.ownerId))
-      continue;
-    const route = connectionRoute(
-      document,
-      displayedConnection(document, connection),
-      world,
-    );
+    const route = routes.get(connection.id);
     if (!route) continue;
     if (!connections.has(connection.ownerId))
       connections.set(connection.ownerId, []);

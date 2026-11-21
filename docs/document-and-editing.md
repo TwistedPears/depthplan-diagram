@@ -195,7 +195,19 @@ point faces the connection again. Neither sliding nor moving shapes changes the
 saved preferred point. Both modes leave an eight-unit outline gap, inside the
 border for container endpoints. An absent mode uses the authored attachment
 without an added gap. Straight routes join vertices, curved routes use cubic
-Beziers, and elbows use orthogonal segments. Labels follow arc-length centers.
+Beziers, and elbows use orthogonal segments. Labels follow arc-length centers,
+or `style.labelPosition` (0–1, a fraction of the displayed path length).
+
+`style.avoidShapes: true` on an elbow connector without bends (Style: **Elbow
+path around shapes**) routes it around the visible shapes and frames in its
+container, including siblings of nested endpoint ancestors. The router picks the
+side facing the other end and spreads connectors sharing a side; `fixed`
+bindings, boundary points and rotated targets keep their attachment. Connectors
+sharing a corridor get parallel lanes, and labels without `labelPosition` slide
+along the path away from shapes and other labels in the same container. These
+routes are derived for canvas, hit testing and SVG/PNG export, deterministic
+(ordered by connection ID) and never saved; authored bends always win. Curved
+and straight connectors are unaffected.
 Creation uses world points; endpoint/point edits use owner-local points.
 
 Optional `depthRoutes` lets one connection keep a different route per depth:

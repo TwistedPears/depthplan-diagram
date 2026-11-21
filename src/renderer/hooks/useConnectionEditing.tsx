@@ -30,6 +30,7 @@ import {
 } from '../../shared/connectionEditing';
 import {
   connectionRoute,
+  type ConnectionRoute,
   constrainPoint,
   distance,
   distanceToSegment,
@@ -72,6 +73,7 @@ type Gesture = {
   value: DiagramConnection;
   /** The edited displayed route, stored back into its override or shared route. */
   stored: DiagramConnection;
+  route: ConnectionRoute;
   start: Point;
   handle: Handle;
   moved: boolean;
@@ -141,9 +143,18 @@ export default function useConnectionEditing({
       : document.connections[selectedId] &&
         displayedConnection(document, document.connections[selectedId])
     : undefined;
+  // The scene's route includes derived avoid-shapes routing; handles follow it.
+  const routeFor = (c: DiagramConnection): ConnectionRoute | null =>
+    scene.connections.get(c.ownerId)?.find((r) => r.id === c.id) ??
+    connectionRoute(document, c, scene.world);
   const route = useMemo(
-    () => connection && connectionRoute(document, connection, scene.world),
-    [connection, document, scene.world],
+    () =>
+      connection &&
+      (scene.connections
+        .get(connection.ownerId)
+        ?.find((r) => r.id === connection.id) ??
+        connectionRoute(document, connection, scene.world)),
+    [connection, document, scene],
   );
   const owner = connection?.ownerId
     ? scene.world.get(connection.ownerId)
@@ -309,7 +320,7 @@ export default function useConnectionEditing({
       return;
     active.moved = true;
     const original = active.original;
-    const originalRoute = connectionRoute(active.base, original, scene.world)!;
+    const originalRoute = active.route;
     const originalOwner = original.ownerId
       ? scene.world.get(original.ownerId)
       : undefined;
@@ -408,6 +419,7 @@ export default function useConnectionEditing({
       original: c,
       value: c,
       stored: document.connections[c.id],
+      route: routeFor(c)!,
       start: pointer(),
       handle,
       moved: false,

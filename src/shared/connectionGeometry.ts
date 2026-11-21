@@ -314,9 +314,10 @@ export function sampleCurve(points: Point[]): Point[] {
   }
   return samples;
 }
-function halfway(points: Point[]): Point {
+/** The point at fraction `t` of a polyline's length. */
+export function pointAlong(points: Point[], t = 0.5): Point {
   const lengths = points.slice(1).map((p, i) => distance(points[i], p));
-  let remaining = lengths.reduce((sum, length) => sum + length, 0) / 2;
+  let remaining = lengths.reduce((sum, length) => sum + length, 0) * t;
   for (let i = 0; i < lengths.length; i++) {
     if (remaining <= lengths[i]) {
       const t = lengths[i] ? remaining / lengths[i] : 0;
@@ -329,6 +330,11 @@ function halfway(points: Point[]): Point {
   }
   return points[0];
 }
+/** `style.labelPosition` places a label at a fraction of the path length. */
+export const labelFraction = (connection: DiagramConnection) => {
+  const value = connection.style?.labelPosition;
+  return typeof value === 'number' ? Math.max(0, Math.min(1, value)) : 0.5;
+};
 export function connectionRoute(
   document: RecursiveDocument,
   connection: DiagramConnection,
@@ -468,7 +474,7 @@ export function connectionRoute(
     route,
     points: flattenPoints(route),
     bezier,
-    label: halfway(samples),
+    label: pointAlong(samples, labelFraction(connection)),
     samples,
   };
 }

@@ -160,13 +160,32 @@ export default function SelectionProperties({
             <>
               <IconChoices
                 label="Path"
-                value={String(style.lineType ?? 'sharp')}
+                value={
+                  style.lineType === 'elbow' && style.avoidShapes === true
+                    ? 'avoid'
+                    : String(style.lineType ?? 'sharp')
+                }
                 options={[
                   ['sharp', 'Straight path', 'path-straight'],
                   ['curved', 'Curved path', 'path-curved'],
                   ['elbow', 'Elbow path', 'path-elbow'],
+                  ['avoid', 'Elbow path around shapes', 'path-elbow-avoid'],
                 ]}
-                onChange={(value) => setStyle('lineType', value)}
+                onChange={(value) =>
+                  onEdit(
+                    patchSelectionStyle(
+                      selection,
+                      value === 'avoid'
+                        ? { lineType: 'elbow', avoidShapes: true }
+                        : {
+                            lineType: value,
+                            ...(style.avoidShapes === true && {
+                              avoidShapes: false,
+                            }),
+                          },
+                    ),
+                  )
+                }
               />
               {routeDepth !== null && (
                 <IconChoices

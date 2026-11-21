@@ -163,6 +163,21 @@ export const stylePatchSchema = z.strictObject({
   lineType: z.enum(lineTypes).optional(),
   arrowheadStart: z.enum(arrowheads).optional(),
   arrowheadEnd: z.enum(arrowheads).optional(),
+  avoidShapes: z
+    .boolean()
+    .optional()
+    .describe(
+      'Elbow connectors without bends route around shapes in their container, on separate lanes, with labels placed clear of shapes and other labels.',
+    ),
+  labelPosition: z
+    .number()
+    .min(0)
+    .max(1)
+    .nullable()
+    .optional()
+    .describe(
+      'Label position as a fraction of the path length; null restores automatic placement.',
+    ),
 });
 export const richBlockSchema: z.ZodType<RichBlock> = z.lazy(() =>
   z.discriminatedUnion('type', [
