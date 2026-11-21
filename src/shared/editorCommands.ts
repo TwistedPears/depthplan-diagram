@@ -44,6 +44,7 @@ import {
   type AlignmentAction,
   type StackingAction,
 } from './recursiveArrangement';
+import { layoutChildren } from './autoLayout';
 import { deleteSelection } from './recursiveDeletion';
 import { editBoundaryPoint } from './recursiveBoundary';
 import { createInwardBridge, reattachInwardBridge } from './recursiveBridges';
@@ -132,6 +133,11 @@ export function compileEdits(
           else
             alignObjects(action.ids, action.action as AlignmentAction)(draft);
           break;
+        case 'layout': {
+          const { type: _type, id, ...options } = action;
+          layoutChildren(id, options)(draft);
+          break;
+        }
         case 'boundary':
           if (action.action === 'delete')
             deleteBoundaryPoint(action.objectId, action.pointId)(draft);

@@ -193,6 +193,17 @@ object centers. Geometry edits default to parent-local space; `space: "world"`
 uses world centers. Connection creation points are world coordinates; edited free
 endpoints and bends use owner-local coordinates. See [document behavior](document-and-editing.md).
 
+`{type: "layout", id, algorithm, gap?, padding?, direction?, columns?}` arranges
+the visible direct children of object `id` at its root's active depth, keeping
+their sizes, rotation and Z; see [automatic layout](document-and-editing.md#automatic-layout).
+`algorithm` is `grid`, `layered`, `row` or `column`; `gap` defaults to 40 and
+`padding` to 24 canvas units. `layered` uses connectors between the children (or
+their descendants) to order rows (`direction: "down"`, default) or columns
+(`"right"`). `grid` fills rows (`"right"`, default) or columns (`"down"`) with
+`columns` defaulting to ⌈√n⌉. Roots cannot be arranged with `layout`. A missing or
+hidden `id` rejects the batch; no visible children is a no-op. Combine it with
+creation and depth actions in one batch to build and arrange a level atomically.
+
 For large content, `content_transfer` begins a buffer with an ID and JSON string
 `totalLength`, appends at exact UTF-16 offsets (at most 8,192 characters each), then
 supplies `contentTransfer` to `edit_object` for atomic validation/publication.

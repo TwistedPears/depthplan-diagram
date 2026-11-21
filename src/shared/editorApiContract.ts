@@ -254,6 +254,15 @@ export const editAction = z.discriminatedUnion('type', [
     ]),
   }),
   z.strictObject({
+    type: z.literal('layout'),
+    id: editorId,
+    algorithm: z.enum(['grid', 'layered', 'row', 'column']),
+    gap: z.number().nonnegative().max(10000).default(40),
+    padding: z.number().nonnegative().max(10000).default(24),
+    direction: z.enum(['down', 'right']).optional(),
+    columns: z.number().int().positive().max(1000).optional(),
+  }),
+  z.strictObject({
     type: z.literal('boundary'),
     objectId: editorId,
     pointId: editorId,

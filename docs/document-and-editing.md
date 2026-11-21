@@ -151,6 +151,26 @@ otherwise roots retain their world pose. Copied external endpoints become free;
 explicit Duplicate can retain outside bindings. Both create one undo entry.
 Inside text editors, clipboard shortcuts continue to operate on text.
 
+### Automatic layout
+
+The MCP `layout` edit action arranges a container's visible direct children in
+the active layout of its root's current depth. Children hidden by depth or a fold
+are skipped (so a folded or leaf container is a no-op), and other depths are not
+written. Each child keeps its size, rotation, Z and local subtree; spacing uses its
+stroked footprint including visible descendants. `row`/`column` order children by
+current position; `grid` uses uniform cells of the largest footprint. `layered`
+ranks children by connector direction (start to end, attached to the child or any
+descendant): every connector outside a cycle points to a later row/column, and
+members of a cycle share one. A barycentre pass orders each rank to reduce
+crossings; ties use current position, then ID. `gap` separates neighbors and ranks.
+
+The block is centered horizontally and starts `padding` below the top edge (at
+least 44 units, clearing the title and stack control). The parent grows to fit
+with `padding` on the other sides, then ordinary expansion fitting grows
+ancestors and pushes colliding neighbors as disclosure does. Ellipse and diamond
+parents can grow further to inscribe the block. Layout is one atomic edit and Undo
+step. It is not a persistent constraint: later edits do not rerun it.
+
 ## Connections and repairs
 
 Connections have an ID, `ownerId` (container or null for canvas), kind, Z, style,
