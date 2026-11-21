@@ -225,6 +225,8 @@ export default memo(function RecursiveCanvas({
     const resize = () => {
       const next = { width: window.innerWidth, height: window.innerHeight };
       const previous = previousSize.current;
+      if (next.width === previous.width && next.height === previous.height)
+        return;
       previousSize.current = next;
       setSize(next);
       setCamera((c) => ({
@@ -233,6 +235,8 @@ export default memo(function RecursiveCanvas({
         y: c.y + (next.height - previous.height) / 2,
       }));
     };
+    // Hidden boards (Activity) and early project window restores miss events.
+    resize();
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
   }, [setCamera]);

@@ -256,7 +256,9 @@ offers explicit apply/discard/cancel. Drafts are not recovery checkpoints.
 `namedViews` stores named depth maps with optional fold, geometry and camera data.
 New/reset bookmarks capture each root's active layout, including collapsed
 members: X/Y/width/height and parent identity, plus world camera focus and zoom.
-Application recomputes pixel offsets for the current viewport. Legacy bookmarks
+Application recomputes pixel offsets for the current viewport. Each canvas
+remeasures the window whenever its board is shown, so a project board that was
+hidden during a window resize reports and uses its real viewport. Legacy bookmarks
 without focus use raw offsets; bookmarks without geometry retain their narrower
 scope until reset. A missing camera leaves navigation unchanged.
 
