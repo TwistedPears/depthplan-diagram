@@ -88,6 +88,9 @@ export default memo(function RecursiveRichContent({
             .filter(Boolean)
             .join(' ')}
           fill={piece.style.color}
+          stroke={piece.style.outline}
+          strokeWidth={piece.style.outline ? 1 : 0}
+          fillAfterStrokeEnabled={!!piece.style.outline}
           listening={!!piece.style.link}
           onMouseDown={(event) => {
             if (event.evt.metaKey || event.evt.ctrlKey)

@@ -6,7 +6,10 @@ import { parseInlineLinks } from './inlineLinks';
 export type TextStyle = Required<
   Pick<NonNullable<TextRun['marks']>, 'font' | 'size' | 'color'>
 > &
-  NonNullable<TextRun['marks']>;
+  NonNullable<TextRun['marks']> & {
+    /** Derived content only (legend swatches): outline that keeps pale glyphs visible. */
+    outline?: string;
+  };
 export type TextPiece = {
   text: string;
   x: number;

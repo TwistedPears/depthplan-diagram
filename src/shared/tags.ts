@@ -5,6 +5,7 @@ import type {
   RecursiveDocument,
   RichBlock,
   TagDefinition,
+  TextRun,
 } from './recursiveDocument';
 
 type Tagged = Pick<DiagramObject | DiagramConnection, 'tags'>;
@@ -231,6 +232,13 @@ export function legendEntries(document: RecursiveDocument) {
 }
 
 const muted = '#64748b';
+const plural = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`;
+/** Fill swatch; the outline is a derived-only mark that keeps white and pale fills visible. */
+const swatch = (color: string): TextRun => ({
+  text: '■',
+  marks: { color, outline: muted } as TextRun['marks'],
+});
 const lineGlyph = (style?: string) =>
   style === 'dashed' ? ' ‒ ‒ ‒' : style === 'dotted' ? ' · · · ·' : ' ———';
 /** Legend body as ordinary rich content, so layout, export and fit treat it like text. */
@@ -261,11 +269,7 @@ export function legendContent(document: RecursiveDocument): RichBlock[] {
     blocks.push({
       type: 'paragraph',
       align: 'left',
-      runs: [
-        { text: '■ ', marks: { color: fill.color } },
-        { text: fill.color },
-        { text: ` (${fill.count})`, marks: { color: muted } },
-      ],
+      runs: [swatch(fill.color), { text: ` ${plural(fill.count, 'shape')}` }],
     });
   if (lines.length) blocks.push(section('Lines'));
   for (const line of lines)
@@ -277,8 +281,7 @@ export function legendContent(document: RecursiveDocument): RichBlock[] {
           text: lineGlyph(line.strokeStyle).trim(),
           marks: { color: line.color },
         },
-        { text: ` ${line.color}` },
-        { text: ` (${line.count})`, marks: { color: muted } },
+        { text: ` ${plural(line.count, 'connector')}` },
       ],
     });
   return blocks.length

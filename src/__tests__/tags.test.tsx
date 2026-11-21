@@ -146,6 +146,22 @@ it('tags 10 objects and 5 connections in one edit and queries exactly those 15',
     { ...confirm, strokeStyle: 'dashed', count: 15 },
   ]);
   expect(JSON.stringify(legendContent(doc()))).toContain('To confirm');
+  // Fills and lines are counted, not named by color code; swatches are outlined
+  // so a white or pale fill stays visible on a white legend.
+  const rows = legendContent(doc()).flatMap((block) =>
+    block.type === 'paragraph' ? [block.runs] : [],
+  );
+  const swatches = rows.filter((runs) => runs[0].text === '■');
+  expect(swatches.length).toBe(legendEntries(doc()).fills.length);
+  expect(swatches.length).toBeGreaterThan(0);
+  for (const runs of swatches) {
+    expect(runs[0].marks).toMatchObject({ outline: '#64748b' });
+    expect(runs[1].text).toMatch(/^ \d+ shapes?$/);
+  }
+  expect(rows.some((runs) => /^ \d+ connectors?$/.test(runs[1]?.text))).toBe(
+    legendEntries(doc()).lines.length > 0,
+  );
+  expect(JSON.stringify(rows)).not.toMatch(/"text":"[^"]*#[0-9a-f]{3,6}/i);
   // The tag line style applies only where the connection sets none.
   const wire = doc().connections['wire-0'];
   expect(
