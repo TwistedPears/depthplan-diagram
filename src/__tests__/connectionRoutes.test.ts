@@ -23,6 +23,7 @@ import {
   readSelection,
 } from '../shared/recursiveClipboard';
 import { deleteBoundaryPoint } from '../shared/recursiveConnectionRepair';
+import { entityCollection } from '../shared/editorQueries';
 import {
   displayedConnection,
   routeKey,
@@ -270,6 +271,13 @@ it('stores an edited displayed route where it came from', () => {
       points: [],
     }).points,
   ).toEqual([]);
+});
+
+it('returns stored overrides from connection queries', () => {
+  const document = fixture();
+  expect(
+    entityCollection({ document } as never, { collection: 'connections' }).c,
+  ).toMatchObject({ depthRoutes: fixture().connections.c.depthRoutes });
 });
 
 it('validates override targets, keys and route roots', () => {

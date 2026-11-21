@@ -29,10 +29,12 @@ function grid(
   cols: number,
   pairs: [number, number][],
   style: Record<string, string | number | boolean> = {},
+  dx = 220,
+  dy = 180,
 ): RecursiveDocument {
   const document = createRecursiveDocument('grid', 'Grid', '2026-11-20');
-  const width = cols * 220 + 200,
-    height = rows * 180 + 200;
+  const width = cols * dx + 200,
+    height = rows * dy + 200;
   document.objects.frame = {
     id: 'frame',
     parentId: null,
@@ -49,8 +51,8 @@ function grid(
   const id = (n: number) => `s${String(n).padStart(3, '0')}`;
   for (let n = 0; n < rows * cols; n++) {
     const geometry = g(
-      (n % cols) * 220 - ((cols - 1) * 220) / 2,
-      Math.floor(n / cols) * 180 - ((rows - 1) * 180) / 2,
+      (n % cols) * dx - ((cols - 1) * dx) / 2,
+      Math.floor(n / cols) * dy - ((rows - 1) * dy) / 2,
       120,
       60,
     );
@@ -157,7 +159,8 @@ function problems(document: RecursiveDocument, result: Routes) {
       if (horizontal !== (t.a.y === t.b.y)) continue;
       const at = (p: Point) => (horizontal ? p.y : p.x);
       const along = (p: Point) => (horizontal ? p.x : p.y);
-      if (Math.abs(at(s.a) - at(t.a)) > 1e-6) continue;
+      // Collinear, or parallel lanes squeezed closer than 3 units.
+      if (Math.abs(at(s.a) - at(t.a)) >= 3) continue;
       const overlap =
         Math.min(
           Math.max(along(s.a), along(s.b)),
@@ -253,11 +256,30 @@ it('routes a few hundred connectors quickly', () => {
   for (let n = 0; n < (rows - 1) * cols; n++)
     for (const d of [cols - 1, cols, cols + 1])
       if (n + d < rows * cols) many.push([n, n + d]);
-  const document = grid(rows, cols, many.slice(0, 260));
+  // Plus long arrows across the whole map: corners, row skips and column skips.
+  for (let k = 0; k < 30; k++)
+    many.push([k % 10, 99 - ((k * 7) % 10) - 10 * (k % 3)]);
+  const document = grid(rows, cols, many);
   const started = performance.now();
   const result = routes(document);
   const elapsed = performance.now() - started;
-  expect(result.size).toBe(260);
-  console.log('ELAPSED', elapsed);
+  expect(result.size).toBe(many.length);
   expect(elapsed).toBeLessThan(3000);
+  // A user-sized map: 85 shapes and 50 short and long arrows.
+  const mixed: [number, number][] = [];
+  for (let k = 0; k < 50; k++)
+    mixed.push(k % 2 ? [k, k + 17] : [(k * 3) % 17, 84 - ((k * 5) % 17)]);
+  const map = grid(5, 17, mixed);
+  const t = performance.now();
+  expect(routes(map).size).toBe(50);
+  expect(performance.now() - t).toBeLessThan(1000);
+});
+
+it('never crosses unrelated shapes when cards are tightly packed', () => {
+  const document = grid(4, 4, pairs, {}, 144, 84);
+  expect(
+    problems(document, routes(document)).filter((p) =>
+      /crosses|diagonal/.test(p),
+    ),
+  ).toEqual([]);
 });

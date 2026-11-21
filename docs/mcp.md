@@ -231,7 +231,9 @@ override. Query connections to read stored `depthRoutes`; label and style are
 always shared. For large maps, set `style: { lineType: "elbow", avoidShapes:
 true }` instead of hand-placing bends: those arrows route around shapes on
 separate lanes with automatically placed labels; `labelPosition` (0–1, or null
-for automatic) pins a label along the path. See [document behavior](document-and-editing.md).
+for automatic) pins a label along the path. In this mode the router chooses
+attachment sides, so authored or per-depth sides only apply to endpoints with
+`binding: "fixed"` (or boundary points). See [document behavior](document-and-editing.md).
 
 `{type: "layout", id, algorithm, gap?, padding?, direction?, columns?}` arranges
 the visible direct children of object `id` at its root's active depth, keeping

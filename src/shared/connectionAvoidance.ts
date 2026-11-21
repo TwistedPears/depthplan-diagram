@@ -239,57 +239,73 @@ function segments(routes: Map<string, Point[]>): Segment[] {
     }
   return result;
 }
-/** Spread collinear overlapping segments of different connectors onto parallel
- * tracks inside the free corridor around them. Returns whether anything moved. */
+/** Spread interior segments of different connectors that share, or nearly
+ * share, a corridor onto evenly spaced parallel tracks between the nearest shapes
+ * and exit stubs. Returns whether anything moved. */
 function nudge(
   routes: Map<string, Point[]>,
   boxes: Box[],
   horizontal: boolean,
 ): boolean {
   const all = segments(routes).filter((s) => s.horizontal === horizontal);
-  all.sort((a, b) => a.at - b.at || a.lo - b.lo || (a.id < b.id ? -1 : 1));
-  let moved = false;
-  for (let i = 0; i < all.length;) {
-    // One cluster: same line, transitively overlapping spans.
-    const cluster = [all[i]];
-    let hi = all[i].hi;
+  const lanes = all
+    .filter((s) => !s.fixed)
+    .sort((a, b) => a.at - b.at || a.lo - b.lo || (a.id < b.id ? -1 : 1));
+  const exits = all.filter((s) => s.fixed);
+  const near = (a: Segment, b: Segment, gap: number) =>
+    Math.abs(a.at - b.at) < gap && a.lo < b.hi - 1e-6 && b.lo < a.hi - 1e-6;
+  // Union lanes of different connectors that run within one lane spacing.
+  const parent = lanes.map((_, i) => i);
+  const find = (i: number): number =>
+    parent[i] === i ? i : (parent[i] = find(parent[i]));
+  for (let i = 0; i < lanes.length; i++)
     for (
-      i++;
-      i < all.length && all[i].at === cluster[0].at && all[i].lo < hi - 1e-6;
-      i++
-    ) {
-      cluster.push(all[i]);
-      hi = Math.max(hi, all[i].hi);
-    }
-    if (new Set(cluster.map((s) => s.id)).size < 2) continue;
-    const at = cluster[0].at,
-      lo = Math.min(...cluster.map((s) => s.lo));
+      let j = i + 1;
+      j < lanes.length && lanes[j].at - lanes[i].at < LANE;
+      j++
+    )
+      if (lanes[i].id !== lanes[j].id && near(lanes[i], lanes[j], LANE))
+        parent[find(j)] = find(i);
+  const clusters = new Map<number, Segment[]>();
+  lanes.forEach((segment, i) => {
+    const root = find(i);
+    if (!clusters.has(root)) clusters.set(root, []);
+    clusters.get(root)!.push(segment);
+  });
+  let moved = false;
+  for (const cluster of clusters.values()) {
+    if (
+      cluster.length < 2 &&
+      !exits.some((e) => e.id !== cluster[0].id && near(cluster[0], e, 3))
+    )
+      continue;
+    const lo = Math.min(...cluster.map((s) => s.lo)),
+      hi = Math.max(...cluster.map((s) => s.hi));
+    const center = cluster.reduce((sum, s) => sum + s.at, 0) / cluster.length;
     let below = -Infinity,
       above = Infinity;
-    for (const box of boxes) {
-      const [s, e, a, b] = horizontal
-        ? [box.left, box.right, box.top, box.bottom]
-        : [box.top, box.bottom, box.left, box.right];
-      if (s >= hi || e <= lo || (a < at && b > at)) continue;
-      if (a >= at) above = Math.min(above, a - 4);
+    for (const [s, e, a, b] of [
+      ...boxes.map((box) =>
+        horizontal
+          ? [box.left, box.right, box.top, box.bottom]
+          : [box.top, box.bottom, box.left, box.right],
+      ),
+      ...exits.map((exit) => [exit.lo, exit.hi, exit.at, exit.at]),
+    ]) {
+      if (s >= hi || e <= lo || (a < center && b > center)) continue;
+      if (a >= center) above = Math.min(above, a - 4);
       else below = Math.max(below, b + 4);
     }
-    const movable = cluster.filter((s) => !s.fixed);
-    const fixed = cluster.length - movable.length;
-    const n = movable.length + (fixed ? 1 : 0);
-    // Centered tracks, compressed to the corridor when it is too narrow.
-    const space = Math.min(LANE, (above - below) / (n + 1));
-    let first = at - ((n - 1) * space) / 2;
-    first = Math.min(Math.max(first, below + space), above - (n - 1) * space);
-    const tracks = Array.from({ length: n }, (_, k) => first + k * space);
-    if (fixed) {
-      // Fixed exits stay put; movable segments take the tracks farthest from them.
-      tracks.sort((a, b) => Math.abs(a - at) - Math.abs(b - at));
-      tracks.shift();
-    }
-    movable.forEach((segment, k) => {
-      const track = tracks[k];
-      if (track === undefined || track === at) return;
+    if (above < below) continue;
+    const m = cluster.length;
+    const space = Math.min(LANE, (above - below) / (m + 1));
+    const first = Math.min(
+      Math.max(center - ((m - 1) * space) / 2, below),
+      above - (m - 1) * space,
+    );
+    cluster.forEach((segment, k) => {
+      const track = first + k * space;
+      if (Math.abs(track - segment.at) < 1e-6) return;
       const points = routes.get(segment.id)!;
       for (const p of [points[segment.index], points[segment.index + 1]])
         if (horizontal) p.y = track;
@@ -316,8 +332,9 @@ export function avoidingRoutes(
 ): Map<string, ConnectionRoute> {
   const result = new Map<string, ConnectionRoute>();
   const scopes = new Map<string | null, DiagramConnection[]>();
-  for (const c of [...connections].sort((a, b) => (a.id < b.id ? -1 : 1))) {
-    if (!avoidsShapes(c) || !routes.has(c.id)) continue;
+  for (const c of connections
+    .filter((c) => avoidsShapes(c) && routes.has(c.id))
+    .sort((a, b) => (a.id < b.id ? -1 : 1))) {
     if (!scopes.has(c.ownerId)) scopes.set(c.ownerId, []);
     scopes.get(c.ownerId)!.push(c);
   }
@@ -390,6 +407,17 @@ export function avoidingRoutes(
         offsets.set(key, (i + 1) / (slot.length + 1)),
       );
     }
+    // Containers around a connector's own endpoints are not its obstacles.
+    const skips = targets.map(
+      (pair) =>
+        new Set(
+          pair.flatMap((end) =>
+            end.kind === 'free' || end.objectId === ownerId
+              ? []
+              : [...ancestors(end.objectId)],
+          ),
+        ),
+    );
     const ends: End[][] = members.map((c, n) => {
       const route = routes.get(c.id)!;
       return targets[n].map((end, k) => {
@@ -429,31 +457,46 @@ export function avoidingRoutes(
                 ? box.bottom
                 : -box.top;
         const along = normal.x ? point.x * normal.x : point.y * normal.y;
-        const reach = Math.max(along, edge) + STUB - along;
+        // Shorten the exit stub when a neighbour is closer than a full stub.
+        const pinAt = (extra: number) => {
+          const reach = Math.max(along, edge) + extra - along;
+          return {
+            x: point.x + normal.x * reach,
+            y: point.y + normal.y * reach,
+          };
+        };
+        let extra = STUB;
+        while (
+          extra > 4 &&
+          obstacles.some(
+            (o) =>
+              o.id !== end.objectId &&
+              !skips[n].has(o.id) &&
+              strictlyInside(pinAt(extra), grow(o.box, 2)),
+          )
+        )
+          extra /= 2;
         return {
           point,
-          pin: { x: point.x + normal.x * reach, y: point.y + normal.y * reach },
+          pin: pinAt(extra),
           axis: normal.x ? 0 : 1,
           objectId: end.objectId,
         };
       });
     });
     const paths = new Map<string, Point[]>();
-    // Containers around a connector's own endpoints are not its obstacles.
-    const skips = ends.map(
-      (pair) =>
-        new Set(
-          pair.flatMap((end) =>
-            end.objectId ? [...ancestors(end.objectId)] : [],
-          ),
-        ),
-    );
     members.forEach((c, n) => {
       const [a, b] = ends[n];
       const skip = skips[n];
+      // Clearance shrinks to the bare shape where a pin sits inside it.
       const own = obstacles
         .filter((o) => !skip.has(o.id))
-        .map((o) => grow(o.box, PAD));
+        .map((o) => {
+          const padded = grow(o.box, PAD);
+          return strictlyInside(a.pin, padded) || strictlyInside(b.pin, padded)
+            ? o.box
+            : padded;
+        });
       // Search a window around the pins first; fall back to every obstacle.
       const span = Math.max(
         Math.abs(a.pin.x - b.pin.x),
@@ -504,7 +547,7 @@ export function avoidingRoutes(
       let label = pointAlong(route, labelFraction(c));
       if (c.label && typeof c.style?.labelPosition !== 'number') {
         let best = Infinity;
-        for (let k = 0; k <= 36; k++) {
+        for (let k = 0; k <= 72; k++) {
           const t = 0.5 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.0125;
           const p = pointAlong(route, t);
           const box = labelBox(p, c.label);
