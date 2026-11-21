@@ -1,7 +1,8 @@
 # Local MCP setup and tools
 
-DepthPlan exposes 30 tools for inspecting and editing the live document, navigating,
-managing history/bookmarks, approved file operations, recovery and export. The
+DepthPlan exposes 31 tools for inspecting and editing the live document, navigating,
+managing history/bookmarks and projects, approved file operations, recovery,
+export and inline canvas snapshots. The
 bundled Rust `depthplan-mcp` adapter uses stdio and needs no global Node runtime.
 The executable schemas are [mcpRegistry.ts](../src/shared/mcpRegistry.ts),
 [depthApiContract.ts](../src/shared/depthApiContract.ts) and
@@ -153,6 +154,7 @@ All names below have the `depthplan_` prefix.
 | `camera`, `selection`, `controls`, `bookmarks`            | View navigation, selection, editor controls and saved views               |
 | `get_drafts`, `resolve_draft`                             | Inspect and explicitly apply/discard a versioned UI draft                 |
 | `get_access`, `files`, `export`                           | Approved folders, document file workflows and SVG/PNG/JSON export         |
+| `snapshot`                                                | Inline PNG of the rendered canvas for visual checks                       |
 | `get_operation`, `decide`, `cancel_operation`             | Poll long operations, answer an offered decision and request cancellation |
 | `get_recovery`, `recovery`                                | List, preview, restore or discard app-owned recovery candidates           |
 | `get_context`, `get_hierarchy`, `set_depth`, `reveal_all` | Compact depth-navigation interface                                        |
@@ -271,6 +273,39 @@ context succeeds with no roots. Depth must be in range and target a root; select
 the existing depth clears local folds when present. Exact depth-command replay
 reports the original applied revision but current state/selected depth.
 
+### Snapshots
+
+`snapshot({handle, scope, ids?, bookmarkId?, maxPixels?})` lets a vision-capable
+client see the canvas. The PNG arrives as an MCP image content block (`image/png`);
+the text/structured part carries `scope`, `width`, `height`, `scale` (output pixels
+per world unit), the world `region` covered and the `revision`/`viewRevision` it
+was rendered from. Scopes:
+
+- `viewport` (default): what the board shows now, from its camera and viewport,
+  at the on-screen zoom.
+- `whole`: all revealed content at the active depths and folds, including
+  offscreen objects, with 16 units of padding.
+- `objects`: the region around the visible `ids` plus padding, with everything
+  drawn there (connectors, neighbours). Hidden ids return NOT_FOUND.
+- `bookmarkId`: that bookmark's camera view (or whole content when it saved no
+  camera). Offscreen rendering of a different depth state is not available, so it
+  renders only when applying the bookmark would leave the visible geometry,
+  depths, folds and routes unchanged; otherwise it returns INVALID_REQUEST and you
+  apply the bookmark with `bookmarks` first.
+
+It rasterizes the export pipeline's committed drawing layer: culled offscreen
+shapes are restored, while selection handles, stack/boundary controls, the minimap
+and unapplied drafts are not drawn. The scale starts at the on-screen zoom for
+`viewport`/bookmark views and 1 for `whole`/`objects`, and is lowered to fit
+`maxPixels` (default 1.5 MP, maximum 4 MP; larger values are rejected as
+invalid) and 4,096 pixels per side; it is never raised. Encoded
+PNGs over 7 MiB return RESPONSE_TOO_LARGE rather than a truncated image; request
+a smaller `maxPixels` or region. It waits up to two seconds for the exact
+session/document/view render, needs no folder grant, writes nothing and changes
+no document, Undo history, selection, camera or revision. Like image export it
+requires MCP enabled, a current handle, the active board and no draft, gesture or
+running MCP operation (BUSY). A change during rendering returns STALE_REVISION.
+
 ## Files, drafts and decisions
 
 Folder grants permit reads/writes and reset each app run. Paths are canonicalized
@@ -319,8 +354,8 @@ are 0700 and descriptors/sockets 0600; native permission checks fail closed. No
 TCP listener exists for ordinary MCP. Tokens stay outside the renderer. Only the
 trusted main frame can enable access or answer host bridge requests.
 
-Requests are limited to 64 KiB, responses to 1 MiB, and ordinary calls to five
-seconds. Long work uses operation receipts. Stdout carries MCP messages only;
+Requests are limited to 64 KiB, responses to 1 MiB (8 MiB for `snapshot`), and
+ordinary calls to five seconds. Long work uses operation receipts. Stdout carries MCP messages only;
 diagnostics use stderr. Same-user administrator/account compromise is outside
 this boundary.
 
@@ -333,7 +368,7 @@ this boundary.
 | BUSY                                                   | Finish or explicitly resolve the active draft, gesture or transition.                                    |
 | INVALID_REQUEST / NOT_FOUND / NOT_ROOT / INVALID_DEPTH | Inspect the schema/hierarchy and correct the request.                                                    |
 | REQUEST_ID_REUSED                                      | Keep identical payload for retry; use a new ID only for a new intended action.                           |
-| RESPONSE_TOO_LARGE                                     | Reduce page/chunk size; never truncate stable identity.                                                  |
+| RESPONSE_TOO_LARGE                                     | Reduce page/chunk size or snapshot `maxPixels`; never truncate stable identity.                          |
 | `get_access` lists no folders after approval           | Compare the client's `--descriptor` with MCP Details of that window; restart the client server.          |
 | Approved folder has `writable: false`                  | Write outside the open project folder, or close the project first.                                       |
 | Timeout, disconnect or internal error                  | Inspect state/files before retry; commit outcome may be unknown.                                         |

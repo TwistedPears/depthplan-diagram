@@ -260,7 +260,10 @@ it('rejects a superseded rendered export before writing a file', async () => {
         finish = resolve;
       }),
   );
-  result.current.exportRef.current = Object.assign(() => {}, { capture });
+  result.current.exportRef.current = Object.assign(() => {}, {
+    capture,
+    snapshot: jest.fn(),
+  });
   const op = start(result, 'export', {
     path: '/approved/scene.svg',
     format: 'svg',

@@ -16,8 +16,10 @@ import {
 import {
   captureRecursiveScene,
   encodeRecursiveExport,
+  rasterizeRegion,
   restrictExportScene,
 } from '../utils/recursiveExport';
+import type { SnapshotPlan } from '../utils/snapshotRegion';
 import useDocumentDraft from '../hooks/useDocumentDraft';
 import FormDialog from './FormDialog';
 import Icon from './Icon';
@@ -30,6 +32,12 @@ export type RecursiveExportHandle = (() => void) & {
     format: 'svg' | 'png';
     permit: () => boolean;
   }) => Promise<string | Uint8Array>;
+  /** Rasterize a world region of the committed drawing without writing anything. */
+  snapshot: (request: {
+    stamp: string;
+    plan: SnapshotPlan;
+    permit: () => boolean;
+  }) => Promise<Uint8Array>;
 };
 export default function RecursiveExport({
   ref,
@@ -85,24 +93,34 @@ export default function RecursiveExport({
       });
     }
   };
+  // Capture waits for the exact session/document/view render.
+  const rendering = async (
+    request: { stamp: string; permit: () => boolean },
+    wait: number,
+  ) => {
+    const deadline = Date.now() + wait;
+    while (rendered.current !== request.stamp) {
+      if (!request.permit())
+        throw new Error('Export canceled or the requested view changed');
+      if (Date.now() > deadline)
+        throw new Error('Canvas has not rendered the requested revision');
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    if (!request.permit() || snapshot)
+      throw new Error('Export canceled or an export dialog is active');
+    const canvas = stage();
+    if (!canvas) throw new Error('Canvas is unavailable');
+    return captureRecursiveScene(canvas);
+  };
   useImperativeHandle(ref, () =>
     Object.assign(openDialog, {
+      snapshot: async (
+        request: Parameters<RecursiveExportHandle['snapshot']>[0],
+      ) => rasterizeRegion(await rendering(request, 2000), request.plan),
       capture: async (
         request: Parameters<RecursiveExportHandle['capture']>[0],
       ) => {
-        const deadline = Date.now() + 5000;
-        while (rendered.current !== request.stamp) {
-          if (!request.permit())
-            throw new Error('Export canceled or the requested view changed');
-          if (Date.now() > deadline)
-            throw new Error('Canvas has not rendered the requested revision');
-          await new Promise((resolve) => setTimeout(resolve, 16));
-        }
-        if (!request.permit() || snapshot)
-          throw new Error('Export canceled or an export dialog is active');
-        const canvas = stage();
-        if (!canvas) throw new Error('Canvas is unavailable');
-        const scene = captureRecursiveScene(canvas);
+        const scene = await rendering(request, 5000);
         if (request.scope === 'selection')
           restrictExportScene(
             scene,

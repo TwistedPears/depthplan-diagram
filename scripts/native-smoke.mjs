@@ -229,6 +229,36 @@ try {
   await click('Undo');
   context = await probe.call('depthplan_get_context');
   assert.equal(context.state.revision, applied.state.revision + 1);
+  // Inline snapshots need no folder grant and change no revision.
+  const unshot = await probe.call('depthplan_get_state');
+  for (const scope of ['viewport', 'whole']) {
+    const shot = await probe.raw('depthplan_snapshot', {
+      handle: input.handle,
+      scope,
+      maxPixels: 1_000_000,
+    });
+    assert.equal(shot.isError, false, JSON.stringify(shot.structuredContent));
+    const meta = shot.structuredContent.data;
+    assert.ok(meta.width * meta.height <= 1_000_000);
+    assert.equal(meta.revision, unshot.data.revision);
+    const image = shot.content.find((item) => item.type === 'image');
+    assert.equal(image.mimeType, 'image/png');
+    const png = Buffer.from(image.data, 'base64');
+    assert.equal(png.subarray(1, 4).toString(), 'PNG');
+    assert.equal(png.readUInt32BE(16), meta.width);
+    assert.equal(png.readUInt32BE(20), meta.height);
+    assert.ok(!JSON.stringify(shot.structuredContent).includes(image.data));
+  }
+  assert.equal(
+    (
+      await probe.call('depthplan_snapshot', {
+        handle: input.handle,
+        maxPixels: 4_000_001,
+      })
+    ).error.code,
+    'INVALID_REQUEST',
+  );
+  assert.deepEqual((await probe.call('depthplan_get_state')).data, unshot.data);
   // Wheel zoom stays anchored at the pointer without a modifier; right-drag pans.
   const camera = () =>
     sync(
@@ -580,7 +610,7 @@ try {
   await templates();
   await selectionMenu();
   console.log(
-    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 30-tool MCP schema parity, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
+    `PASS Tauri native smoke: full authoring/bookmarks/roundtrip/normal Quit, files/conflicts/cancellation, pointer-anchored wheel zoom/right-drag pan, whole/selection SVG/PNG delivery, recovery revision zero/order/claims, process crash/Restore/Save As, 31-tool MCP schema parity, inline PNG snapshots, live mutation/replay/Undo/revocation, folder access. Evidence: ${profile}`,
   );
 } catch (error) {
   const active = resumed ?? { app, request, session, sync };

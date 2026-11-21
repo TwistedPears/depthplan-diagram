@@ -1,4 +1,5 @@
 import useMcpWorkflows from './hooks/useMcpWorkflows';
+import { mcpSnapshot } from './hooks/mcpSnapshot';
 import { projectNameSchema } from '../shared/projectContract';
 import type { RecursiveExportHandle } from './components/RecursiveExport';
 import {
@@ -427,6 +428,13 @@ function BoardWorkspace({
   const handlers = {
     depthplan_files: (input) => mcpWorkflows.start('files', input),
     depthplan_export: (input) => mcpWorkflows.start('export', input),
+    depthplan_snapshot: mcpSnapshot(() => ({
+      snapshot: owner.snapshot,
+      isBusy: () =>
+        owner.isBusy() || mcpDrafts.hasActive() || !!mcpWorkflows.active(),
+      exportRef: recursiveExport,
+      isActive: () => registry.snapshot().activeKey === session.key,
+    })),
     depthplan_get_operation: mcpWorkflows.read,
     depthplan_cancel_operation: mcpWorkflows.cancel,
     depthplan_decide: mcpWorkflows.decide,

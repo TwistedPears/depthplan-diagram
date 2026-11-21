@@ -48,6 +48,12 @@ function client(executable, descriptor, launcherArgs = []) {
   return {
     child,
     request,
+    /** Full tool result, including non-text content such as snapshot images. */
+    async raw(name, args = {}) {
+      const response = await request('tools/call', { name, arguments: args });
+      assert.ok(response.result, JSON.stringify(response));
+      return response.result;
+    },
     async call(name, args = {}) {
       const response = await request('tools/call', { name, arguments: args });
       assert.ok(response.result, JSON.stringify(response));
@@ -104,6 +110,7 @@ function client(executable, descriptor, launcherArgs = []) {
         'depthplan_search',
         'depthplan_selection',
         'depthplan_set_depth',
+        'depthplan_snapshot',
       ]);
     },
     close() {

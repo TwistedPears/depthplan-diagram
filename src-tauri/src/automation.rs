@@ -17,6 +17,39 @@ pub fn failure(code: &str, message: &str) -> Value {
 pub fn unavailable() -> Value {
     failure("APP_UNAVAILABLE","The app is unavailable. Query current state before retrying an interrupted command with the same request ID.")
 }
+pub const SNAPSHOT_TOOL: &str = "depthplan_snapshot";
+/// Only the inline PNG snapshot may exceed the ordinary 1 MiB response limit.
+pub fn response_limit(tool: &str) -> usize {
+    if tool == SNAPSHOT_TOOL {
+        8 * 1024 * 1024
+    } else {
+        1024 * 1024
+    }
+}
+/// Detach a snapshot's base64 PNG so output schemas validate only its metadata.
+pub fn take_image(tool: &str, value: &mut Value) -> std::result::Result<Option<String>, ()> {
+    if tool != SNAPSHOT_TOOL || value["ok"] != true {
+        return Ok(None);
+    }
+    let png = value
+        .get_mut("data")
+        .and_then(Value::as_object_mut)
+        .and_then(|data| data.remove("png"))
+        .ok_or(())?;
+    match png.as_str() {
+        Some(png)
+            if !png.is_empty()
+                && png.len() % 4 == 0
+                && png.len() <= response_limit(tool)
+                && png
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'=')) =>
+        {
+            Ok(Some(png.to_owned()))
+        }
+        _ => Err(()),
+    }
+}
 pub fn is_flatpak() -> bool {
     cfg!(target_os = "linux")
         && std::env::var("FLATPAK_ID").as_deref() == Ok("com.twistedpears.depthplan")
@@ -366,13 +399,19 @@ async fn answer(app: AppHandle, generation: u64, bytes: &[u8]) -> Value {
     if generation != service.generation {
         return failure("DISABLED", "Automation is disabled.");
     }
-    let Ok(Ok(value)) = result else {
+    let Ok(Ok(mut value)) = result else {
         return unavailable();
+    };
+    let Ok(image) = take_image(&tool, &mut value) else {
+        return failure("INTERNAL_ERROR", "Invalid application response.");
     };
     if !service.schemas[&tool].1.is_valid(&value) {
         return failure("INTERNAL_ERROR", "Invalid application response.");
     }
-    if serde_json::to_vec(&value).map_or(true, |b| b.len() > 1024 * 1024) {
+    if let Some(png) = image {
+        value["data"]["png"] = png.into();
+    }
+    if serde_json::to_vec(&value).map_or(true, |b| b.len() > response_limit(&tool)) {
         return failure("RESPONSE_TOO_LARGE", "Response exceeds the size limit.");
     }
     value
